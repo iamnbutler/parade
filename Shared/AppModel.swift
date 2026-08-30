@@ -302,6 +302,25 @@ final class AppModel: ObservableObject {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    /// Fics grouped by fandom (a fic in several fandoms appears in each).
+    /// Only as complete as the details index.
+    var fandomGroups: [(name: String, items: [LibraryItem])] {
+        var byFandom: [String: [LibraryItem]] = [:]
+        for item in library.flatMap(\.items) {
+            guard let details = detailsIndex[item.id] else { continue }
+            for fandom in details.fandoms {
+                byFandom[fandom, default: []].append(item)
+            }
+        }
+        return byFandom
+            .map { name, items in
+                (name: name, items: items.sorted {
+                    ($0.author.lowercased(), $0.title.lowercased()) < ($1.author.lowercased(), $1.title.lowercased())
+                })
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     /// Search across title, author, and (once indexed) series, fandoms,
     /// tags, relationships, and characters.
     func item(_ item: LibraryItem, matches query: String) -> Bool {
@@ -309,7 +328,11 @@ final class AppModel: ObservableObject {
         if item.title.localizedCaseInsensitiveContains(query) { return true }
         if item.author.localizedCaseInsensitiveContains(query) { return true }
         guard let d = detailsIndex[item.id] else { return false }
-        let haystacks = [d.seriesName.map { [$0] } ?? [], d.fandoms, d.additionalTags, d.relationships, d.characters]
+        let haystacks = [
+            d.seriesName.map { [$0] } ?? [],
+            d.fandoms, d.additionalTags, d.relationships, d.characters,
+            d.categories, d.rating, d.warnings,
+        ]
         return haystacks.joined().contains { $0.localizedCaseInsensitiveContains(query) }
     }
 

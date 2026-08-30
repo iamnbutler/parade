@@ -9,8 +9,8 @@ struct ContentView: View {
         TabView {
             LibraryView()
                 .tabItem { Label("Library", systemImage: "books.vertical") }
-            SeriesView()
-                .tabItem { Label("Series", systemImage: "square.stack") }
+            BrowseView()
+                .tabItem { Label("Fandoms", systemImage: "theatermasks") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }

@@ -8,10 +8,12 @@
   each EPUB, fully offline. Shown in a resizable detail pane on macOS and a
   detail screen on iOS, with buttons for Apple Books and the original work
   page.
-- Series view (iOS tab / macOS sidebar section): fics grouped by series,
-  sorted by part number.
-- Search filters on the Library and Series lists — matches title, author,
-  series, fandoms, tags, relationships, and characters.
+- Fandoms view (iOS tab / macOS sidebar section): fics grouped by fandom,
+  with a toggle to group by an author's series instead (sorted by part
+  number).
+- Search filters on all lists — matches title, author, series, fandoms,
+  tags, relationships, characters, category (F/M, Gen, …), rating, and
+  warnings.
 - macOS: standard three-column layout (sidebar / list / detail) with the
   system sidebar toggle and resizable columns.
 - macOS: "Add a Folder to Library…" moves an existing Author/epub tree into

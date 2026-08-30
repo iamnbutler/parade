@@ -5,12 +5,13 @@ import SwiftUI
 /// with the system sidebar toggle, collapsing, and resizable columns.
 struct MacRootView: View {
     enum SidebarSection: String, CaseIterable, Identifiable {
-        case library, series, settings
+        case library, fandoms, series, settings
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
         var icon: String {
             switch self {
             case .library: "books.vertical"
+            case .fandoms: "theatermasks"
             case .series: "square.stack"
             case .settings: "gearshape"
             }
@@ -75,10 +76,58 @@ struct MacRootView: View {
         switch section {
         case .settings:
             SettingsView()
+        case .fandoms:
+            fandomsList
         case .series:
             seriesList
         default:
             libraryList
+        }
+    }
+
+    // MARK: - fandoms (drill into a fandom)
+
+    private var filteredFandoms: [(name: String, items: [LibraryItem])] {
+        model.fandomGroups.filter { group in
+            searchText.isEmpty
+                || group.name.localizedCaseInsensitiveContains(searchText)
+                || group.items.contains { model.item($0, matches: searchText) }
+        }
+    }
+
+    @ViewBuilder
+    private var fandomsList: some View {
+        if model.fandomGroups.isEmpty {
+            ContentUnavailableView(
+                "Nothing to browse yet",
+                systemImage: "theatermasks",
+                description: Text("Fandom info loads in the background after fics download.")
+            )
+        } else {
+            NavigationStack {
+                List {
+                    ForEach(filteredFandoms, id: \.name) { group in
+                        NavigationLink(value: group.name) {
+                            HStack {
+                                Text(group.name).lineLimit(1)
+                                Spacer()
+                                Text("\(group.items.count)")
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+                        }
+                    }
+                }
+                .navigationDestination(for: String.self) { fandom in
+                    List(selection: $selectedID) {
+                        ForEach(model.fandomGroups.first { $0.name == fandom }?.items ?? []) { item in
+                            FicRow(item: item).tag(item.id)
+                        }
+                    }
+                    .navigationTitle(fandom)
+                }
+            }
+            .searchable(text: $searchText, prompt: "Filter fandoms…")
         }
     }
 
