@@ -6,6 +6,9 @@ options:
 packages:
   AO3Kit:
     path: AO3Kit
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.0
 
 settings:
   base:
@@ -18,6 +21,8 @@ targets:
     sources: [Shared]
     dependencies:
       - package: AO3Kit
+      - package: Sparkle
+        destinationFilters: [macOS]
     info:
       path: Shared/Info.plist
       properties:
@@ -30,12 +35,20 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # macOS: closing Books reader windows after bulk imports
+        NSAppleEventsUsageDescription: Parade closes the reader windows Apple Books opens when importing books.
+        # macOS: Sparkle auto-updates
+        SUFeedURL: https://github.com/iamnbutler/parade/releases/latest/download/appcast.xml
+        SUPublicEDKey: 2x9mwsp0yDklLf5QWUBo9Ip0tB7uLhK3/mCOUOLX4Ms=
+        SUEnableAutomaticChecks: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.natebutler.parade
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 8S43JJMN6B
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"

@@ -320,6 +320,16 @@ final class AppModel: ObservableObject {
         return true
     }
 
+    /// "Opening" an EPUB is the only supported way into Books' library, but it
+    /// also opens a reader window per book — close them so a bulk import
+    /// doesn't bury the user in 300 windows. Best-effort AppleScript (the
+    /// first use prompts once to allow controlling Books).
+    private func closeBooksWindows() {
+        let script = NSAppleScript(source: #"tell application "Books" to close every window"#)
+        var error: NSDictionary?
+        script?.executeAndReturnError(&error)
+    }
+
     private func markImported(_ url: URL) {
         let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate?.timeIntervalSince1970 ?? 0
@@ -356,6 +366,7 @@ final class AppModel: ObservableObject {
 
         guard autoImport else { return }
         var currentPaths = Set<String>()
+        var imports = 0
         for item in downloaded {
             let rel = relativePath(of: item.url)
             currentPaths.insert(rel)
@@ -364,6 +375,14 @@ final class AppModel: ObservableObject {
             guard sendToBooks([item.url]) else { return }
             imported[rel] = mtime
             status("→ Books: \(item.title)")
+            imports += 1
+        }
+        if imports > 0 {
+            // Don't leave reader windows piling up on an unattended Mac.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1500))
+                self.closeBooksWindows()
+            }
         }
         // Forget deleted files so a future re-download imports again.
         imported = imported.filter { currentPaths.contains($0.key) }
@@ -389,7 +408,8 @@ final class AppModel: ObservableObject {
         for start in stride(from: 0, to: epubs.count, by: 20) {
             let batch = Array(epubs[start..<min(start + 20, epubs.count)])
             guard sendToBooks(batch) else { return }
-            try? await Task.sleep(for: .milliseconds(750))
+            try? await Task.sleep(for: .milliseconds(1500))
+            closeBooksWindows()
         }
         // Anything inside the library folder is now known to Books.
         for url in epubs where url.path.hasPrefix(destinationRoot.path + "/") {

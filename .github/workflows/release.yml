@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build Release app
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          xcodebuild -project Parade.xcodeproj -scheme Parade \
+            -destination 'generic/platform=macOS' -configuration Release \
+            -derivedDataPath build \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            build
+
+      - name: Make DMG
+        run: |
+          mkdir -p dist/dmg
+          cp -R "build/Build/Products/Release/Parade.app" dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname "Parade" -srcfolder dist/dmg -format UDZO dist/Parade.dmg
+
+      - name: Sign update and write appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          SPARKLE_VER=2.9.6
+          curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VER}/Sparkle-${SPARKLE_VER}.tar.xz" -o sparkle.tar.xz
+          mkdir sparkle && tar -xf sparkle.tar.xz -C sparkle
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > ed_key
+          SIG=$(./sparkle/bin/sign_update --ed-key-file ed_key dist/Parade.dmg)
+          rm ed_key
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > dist/appcast.xml <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>Parade</title>
+              <item>
+                <title>Parade ${VERSION}</title>
+                <sparkle:version>${GITHUB_RUN_NUMBER}</sparkle:version>
+                <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+                <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
+                <enclosure url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/Parade.dmg" ${SIG} type="application/octet-stream"/>
+              </item>
+            </channel>
+          </rss>
+          EOF
+          cat dist/appcast.xml
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/Parade.dmg dist/appcast.xml \
+            --title "Parade $GITHUB_REF_NAME" --generate-notes
