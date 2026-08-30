@@ -3,19 +3,10 @@ import SwiftUI
 /// One fic row, shared by the Library and Series lists on both platforms.
 struct FicRow: View {
     let item: LibraryItem
-    /// Series part number, when shown inside a series group.
-    var part: Int? = nil
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
         HStack(spacing: 12) {
-            if let part {
-                Text("\(part)")
-                    .font(.caption.weight(.semibold).monospacedDigit())
-                    .frame(minWidth: 22)
-                    .padding(.vertical, 3)
-                    .background(.quaternary, in: Capsule())
-            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title).font(.body.weight(.medium)).lineLimit(1)
                 Text(item.date, style: .date).font(.caption).foregroundStyle(.secondary)

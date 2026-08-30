@@ -5,14 +5,13 @@ import SwiftUI
 /// with the system sidebar toggle, collapsing, and resizable columns.
 struct MacRootView: View {
     enum SidebarSection: String, CaseIterable, Identifiable {
-        case library, fandoms, series, settings
+        case library, fandoms, settings
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
         var icon: String {
             switch self {
             case .library: "books.vertical"
             case .fandoms: "theatermasks"
-            case .series: "square.stack"
             case .settings: "gearshape"
             }
         }
@@ -78,8 +77,6 @@ struct MacRootView: View {
             SettingsView()
         case .fandoms:
             fandomsList
-        case .series:
-            seriesList
         default:
             libraryList
         }
@@ -169,37 +166,5 @@ struct MacRootView: View {
         }
     }
 
-    // MARK: - series
-
-    private var filteredSeries: [(name: String, items: [(item: LibraryItem, part: Int?)])] {
-        model.seriesGroups
-            .map { group in
-                (name: group.name,
-                 items: group.items.filter { model.item($0.item, matches: searchText) })
-            }
-            .filter { !$0.items.isEmpty }
-    }
-
-    @ViewBuilder
-    private var seriesList: some View {
-        if model.seriesGroups.isEmpty {
-            ContentUnavailableView(
-                "No series yet",
-                systemImage: "square.stack",
-                description: Text("Fics that are part of a series show up here. Series info loads in the background.")
-            )
-        } else {
-            List(selection: $selectedID) {
-                ForEach(filteredSeries, id: \.name) { group in
-                    Section(group.name) {
-                        ForEach(group.items, id: \.item.id) { entry in
-                            FicRow(item: entry.item, part: entry.part).tag(entry.item.id)
-                        }
-                    }
-                }
-            }
-            .searchable(text: $searchText, prompt: "Filter series, tags, fandoms…")
-        }
-    }
 }
 #endif

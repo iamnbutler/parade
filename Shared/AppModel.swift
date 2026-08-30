@@ -284,24 +284,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Fics grouped by series (name-sorted), each sorted by part number.
-    /// Only as complete as the details index — callers should
-    /// buildDetailsIndex() first.
-    var seriesGroups: [(name: String, items: [(item: LibraryItem, part: Int?)])] {
-        var bySeries: [String: [(LibraryItem, Int?)]] = [:]
-        for item in library.flatMap(\.items) {
-            guard let details = detailsIndex[item.id], let name = details.seriesName else { continue }
-            bySeries[name, default: []].append((item, details.seriesPart))
-        }
-        return bySeries
-            .map { name, entries in
-                (name: name, items: entries.sorted {
-                    ($0.1 ?? Int.max, $0.0.title) < ($1.1 ?? Int.max, $1.0.title)
-                })
-            }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
     /// Fics grouped by fandom (a fic in several fandoms appears in each).
     /// Only as complete as the details index.
     var fandomGroups: [(name: String, items: [LibraryItem])] {

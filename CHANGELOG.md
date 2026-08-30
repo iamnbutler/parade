@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (0.2.0)
+## 0.2.0 — 2026-08-30
 
 ### Added
 - Fic details: summary, rating, warnings, category, fandoms, relationships,
@@ -8,9 +8,9 @@
   each EPUB, fully offline. Shown in a resizable detail pane on macOS and a
   detail screen on iOS, with buttons for Apple Books and the original work
   page.
-- Fandoms view (iOS tab / macOS sidebar section): fics grouped by fandom,
-  with a toggle to group by an author's series instead (sorted by part
-  number).
+- Fandoms view (iOS tab / macOS sidebar section): browse fandoms and drill
+  into one to see its fics. A fic's place in an author's series shows in its
+  details.
 - Search filters on all lists — matches title, author, series, fandoms,
   tags, relationships, characters, category (F/M, Gen, …), rating, and
   warnings.
