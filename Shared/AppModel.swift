@@ -241,19 +241,76 @@ final class AppModel: ObservableObject {
 
     // MARK: - fic details (parsed out of the EPUB itself)
 
+    /// item.id → metadata, for whatever has been parsed so far. Series
+    /// grouping and search read from this; it fills in the background.
+    @Published private(set) var detailsIndex: [String: WorkDetails] = [:]
     private var detailsCache: [String: WorkDetails] = [:]
+    private var indexTask: Task<Void, Never>?
 
     /// Rich metadata for one fic, read from inside its EPUB (summary, tags,
     /// series, stats…). Cached per file version.
     func details(for item: LibraryItem) async -> WorkDetails? {
         let key = item.url.path + "|" + String(item.date.timeIntervalSince1970)
-        if let hit = detailsCache[key] { return hit }
+        if let hit = detailsCache[key] {
+            detailsIndex[item.id] = hit
+            return hit
+        }
         let url = item.url
         let parsed = await Task.detached(priority: .userInitiated) {
             try? EPUBDetailsParser.parse(epubAt: url)
         }.value
-        if let parsed { detailsCache[key] = parsed }
+        if let parsed {
+            detailsCache[key] = parsed
+            detailsIndex[item.id] = parsed
+        }
         return parsed
+    }
+
+    /// Walks the library parsing any EPUBs not yet in the index.
+    func buildDetailsIndex() {
+        guard indexTask == nil else { return }
+        let items = library.flatMap(\.items).filter(\.isDownloaded)
+        indexTask = Task { [weak self] in
+            for item in items {
+                guard let self, !Task.isCancelled else { return }
+                let key = item.url.path + "|" + String(item.date.timeIntervalSince1970)
+                if self.detailsCache[key] == nil {
+                    _ = await self.details(for: item)
+                } else if self.detailsIndex[item.id] == nil {
+                    self.detailsIndex[item.id] = self.detailsCache[key]
+                }
+            }
+            self?.indexTask = nil
+        }
+    }
+
+    /// Fics grouped by series (name-sorted), each sorted by part number.
+    /// Only as complete as the details index — callers should
+    /// buildDetailsIndex() first.
+    var seriesGroups: [(name: String, items: [(item: LibraryItem, part: Int?)])] {
+        var bySeries: [String: [(LibraryItem, Int?)]] = [:]
+        for item in library.flatMap(\.items) {
+            guard let details = detailsIndex[item.id], let name = details.seriesName else { continue }
+            bySeries[name, default: []].append((item, details.seriesPart))
+        }
+        return bySeries
+            .map { name, entries in
+                (name: name, items: entries.sorted {
+                    ($0.1 ?? Int.max, $0.0.title) < ($1.1 ?? Int.max, $1.0.title)
+                })
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Search across title, author, and (once indexed) series, fandoms,
+    /// tags, relationships, and characters.
+    func item(_ item: LibraryItem, matches query: String) -> Bool {
+        guard !query.isEmpty else { return true }
+        if item.title.localizedCaseInsensitiveContains(query) { return true }
+        if item.author.localizedCaseInsensitiveContains(query) { return true }
+        guard let d = detailsIndex[item.id] else { return false }
+        let haystacks = [d.seriesName.map { [$0] } ?? [], d.fandoms, d.additionalTags, d.relationships, d.characters]
+        return haystacks.joined().contains { $0.localizedCaseInsensitiveContains(query) }
     }
 
     func delete(_ item: LibraryItem) {

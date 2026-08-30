@@ -81,6 +81,17 @@ final class EPUBDetailsTests: XCTestCase {
         XCTAssertEqual(d.chapters, "5/?")
     }
 
+    func testSeriesNameAndPart() {
+        let d = EPUBDetailsParser.parse(opf: opf, preface: preface)
+        XCTAssertEqual(d.seriesName, "The Long Series")
+        XCTAssertEqual(d.seriesPart, 2)
+        var plain = WorkDetails()
+        plain.series = "Some Series Without Part"
+        XCTAssertEqual(plain.seriesName, "Some Series Without Part")
+        XCTAssertNil(plain.seriesPart)
+        XCTAssertNil(WorkDetails().seriesName)
+    }
+
     func testMissingEverythingFailsSoft() {
         let d = EPUBDetailsParser.parse(opf: "", preface: nil)
         XCTAssertNil(d.title)

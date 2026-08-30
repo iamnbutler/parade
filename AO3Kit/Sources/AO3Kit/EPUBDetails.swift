@@ -28,6 +28,25 @@ public struct WorkDetails: Equatable, Sendable {
     public var chapters: String?
 }
 
+public extension WorkDetails {
+    /// "Part 2 of The Long Series" → "The Long Series"
+    var seriesName: String? {
+        guard let series else { return nil }
+        if let range = series.range(of: #"^Part\s+\d+\s+of\s+"#, options: .regularExpression) {
+            return String(series[range.upperBound...])
+        }
+        return series
+    }
+
+    /// "Part 2 of The Long Series" → 2
+    var seriesPart: Int? {
+        guard let series,
+              let range = series.range(of: #"(?<=^Part\s)\s*\d+"#, options: .regularExpression)
+        else { return nil }
+        return Int(series[range].trimmingCharacters(in: .whitespaces))
+    }
+}
+
 public enum EPUBDetailsParser {
 
     /// Reads content.opf and the AO3 preface page out of the EPUB.
