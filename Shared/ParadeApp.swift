@@ -17,6 +17,13 @@ struct ParadeApp: App {
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesButton(updater: updater)
             }
+            CommandMenu("Library") {
+                Button("Import All to Apple Books") {
+                    Task { await model.importAllToBooks() }
+                }
+                Button("Scan Now") { model.scan() }
+                    .keyboardShortcut("r")
+            }
         }
         MenuBarExtra("Parade", systemImage: "books.vertical.fill") {
             MenuBarView()

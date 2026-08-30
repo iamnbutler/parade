@@ -37,7 +37,7 @@ struct SettingsView: View {
             if case .success(let url) = result {
                 let ok = url.startAccessingSecurityScopedResource()
                 Task {
-                    await model.importFolder(url)
+                    await model.mergeFolder(url)
                     if ok { url.stopAccessingSecurityScopedResource() }
                 }
             }
@@ -67,12 +67,15 @@ struct SettingsView: View {
     private var booksSection: some View {
         Section {
             Toggle("Auto-import new fics into Apple Books", isOn: $model.autoImport)
-            Button("Import a Folder of Books…") { showImportPicker = true }
+            Button("Add a Folder to Library…") { showImportPicker = true }
+            Button("Import All to Apple Books") {
+                Task { await model.importAllToBooks() }
+            }
             Button("Scan Now") { model.scan() }
         } header: {
             Text("Apple Books")
         } footer: {
-            Text("“Import a Folder of Books…” sends every EPUB in a folder (Author/Title layout) to Apple Books — for bringing in an existing library.")
+            Text("“Add a Folder to Library…” moves an existing [Author]/[epub] tree (like a Calibre library) into the library folder — the watcher then imports new arrivals into Apple Books. “Import All” re-sends everything in the library to Books.")
         }
     }
     #endif

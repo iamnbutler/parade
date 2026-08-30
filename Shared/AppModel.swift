@@ -26,6 +26,7 @@ final class AppModel: ObservableObject {
     @Published var statusLines: [String] = []
     @Published var isWorking = false
     @Published var destinationLabel = ""
+    @Published var libraryError: String?
 
     private let client = AO3Client()
     private let defaults = UserDefaults.standard
@@ -180,9 +181,19 @@ final class AppModel: ObservableObject {
     func refreshLibrary() {
         let fm = FileManager.default
         var groups: [(author: String, items: [LibraryItem])] = []
-        let authorDirs = (try? fm.contentsOfDirectory(
-            at: destinationRoot, includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles])) ?? []
+        let authorDirs: [URL]
+        do {
+            authorDirs = try fm.contentsOfDirectory(
+                at: destinationRoot, includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles])
+            libraryError = nil
+        } catch {
+            // Don't swallow this: on macOS a denied Files-and-Folders / iCloud
+            // Drive permission looks exactly like an empty folder otherwise.
+            libraryError = "Can't read \(destinationRoot.path): \(error.localizedDescription)"
+            library = []
+            return
+        }
 
         for dir in authorDirs {
             guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
@@ -389,19 +400,62 @@ final class AppModel: ObservableObject {
         persistImported()
     }
 
-    /// One-shot: send every EPUB under `folder` (e.g. an existing
-    /// Author/Title library) to Apple Books, in batches.
-    func importFolder(_ folder: URL) async {
-        var epubs: [URL] = []
-        if let enumerator = FileManager.default.enumerator(
-            at: folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
-            for case let url as URL in enumerator where url.pathExtension.lowercased() == "epub" {
-                epubs.append(url)
+    /// Merges an existing `[Author]/…/[epub]` tree (e.g. a Calibre library)
+    /// INTO the library folder — the folder is the source of truth, so
+    /// getting fics into Parade (and from there into Books, via the watcher)
+    /// means getting the files into the folder. Files are moved; duplicates
+    /// already in the library are left in place at the source.
+    func mergeFolder(_ folder: URL) async {
+        let fm = FileManager.default
+        var moved = 0, skipped = 0, failed = 0
+        guard let enumerator = fm.enumerator(at: folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
+            status("⚠️ Can't read \(folder.lastPathComponent)")
+            return
+        }
+        for case let url as URL in enumerator where url.pathExtension.lowercased() == "epub" {
+            // Author = the top-level folder the epub sits under (Calibre nests
+            // Author/Title/file.epub — the first component is still the author).
+            let relParts = url.path
+                .replacingOccurrences(of: folder.path + "/", with: "")
+                .components(separatedBy: "/")
+            let author = relParts.count > 1 ? relParts[0] : "Unknown Author"
+            let authorDir = destinationRoot.appendingPathComponent(Organizer.sanitize(author), isDirectory: true)
+            let dest = authorDir.appendingPathComponent(url.lastPathComponent)
+            if fm.fileExists(atPath: dest.path) {
+                skipped += 1
+                continue
+            }
+            do {
+                try fm.createDirectory(at: authorDir, withIntermediateDirectories: true)
+                do {
+                    try fm.moveItem(at: url, to: dest)
+                } catch {
+                    // Cross-volume moves fail; copy then remove.
+                    try fm.copyItem(at: url, to: dest)
+                    try? fm.removeItem(at: url)
+                }
+                moved += 1
+            } catch {
+                failed += 1
             }
         }
-        epubs.sort { $0.path < $1.path }
+        var summary = "✓ Merged \(moved) fic\(moved == 1 ? "" : "s") into the library"
+        if skipped > 0 { summary += ", \(skipped) already there" }
+        if failed > 0 { summary += ", \(failed) failed" }
+        status(summary)
+        refreshLibrary()
+        // The watcher treats the arrivals as new and imports them to Books
+        // (when auto-import is on).
+        scan()
+    }
+
+    /// Explicit bulk action: send every EPUB in the library to Apple Books,
+    /// batched, tidying the reader windows Books opens along the way.
+    func importAllToBooks() async {
+        refreshLibrary()
+        let epubs = library.flatMap(\.items).filter(\.isDownloaded).map(\.url)
         guard !epubs.isEmpty else {
-            status("⚠️ No EPUBs found in \(folder.lastPathComponent)")
+            status("⚠️ Library is empty")
             return
         }
         status("Importing \(epubs.count) book\(epubs.count == 1 ? "" : "s") to Apple Books…")
@@ -411,10 +465,7 @@ final class AppModel: ObservableObject {
             try? await Task.sleep(for: .milliseconds(1500))
             closeBooksWindows()
         }
-        // Anything inside the library folder is now known to Books.
-        for url in epubs where url.path.hasPrefix(destinationRoot.path + "/") {
-            markImported(url)
-        }
+        epubs.forEach { markImported($0) }
         persistImported()
         status("✓ Sent \(epubs.count) book\(epubs.count == 1 ? "" : "s") to Apple Books")
     }

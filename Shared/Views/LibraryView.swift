@@ -7,7 +7,15 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if model.library.isEmpty {
+                if let error = model.libraryError {
+                    ContentUnavailableView {
+                        Label("Can't read library folder", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(error)
+                    } actions: {
+                        Button("Try Again") { model.refreshLibrary() }
+                    }
+                } else if model.library.isEmpty {
                     ContentUnavailableView(
                         "No fics yet",
                         systemImage: "books.vertical",
