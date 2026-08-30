@@ -8,7 +8,7 @@ import AppKit
 /// One fic in the library. Derived entirely from the filesystem — the
 /// `Author/Title.epub` tree is the single source of truth; there is no
 /// separate database to drift out of sync.
-struct LibraryItem: Identifiable, Equatable {
+struct LibraryItem: Identifiable, Hashable {
     let author: String
     let title: String
     /// The real EPUB location (even when only an iCloud placeholder exists yet).
@@ -237,6 +237,23 @@ final class AppModel: ObservableObject {
                 url: realURL, date: date, isDownloaded: false)
         }
         return nil
+    }
+
+    // MARK: - fic details (parsed out of the EPUB itself)
+
+    private var detailsCache: [String: WorkDetails] = [:]
+
+    /// Rich metadata for one fic, read from inside its EPUB (summary, tags,
+    /// series, stats…). Cached per file version.
+    func details(for item: LibraryItem) async -> WorkDetails? {
+        let key = item.url.path + "|" + String(item.date.timeIntervalSince1970)
+        if let hit = detailsCache[key] { return hit }
+        let url = item.url
+        let parsed = await Task.detached(priority: .userInitiated) {
+            try? EPUBDetailsParser.parse(epubAt: url)
+        }.value
+        if let parsed { detailsCache[key] = parsed }
+        return parsed
     }
 
     func delete(_ item: LibraryItem) {
