@@ -2,7 +2,17 @@
 
 ## Unreleased
 
+### Added
+- Favorites: star a fic (swipe right on iOS, right-click on macOS, or the
+  Favorite button in its details) and browse them in a Favorites tab /
+  sidebar section. The list is a plain `Favorites.txt` in the library
+  folder, so it syncs through iCloud along with the fics.
+- Library sort modes: by author (grouped, as before) or by title.
+
 ### Changed
+- Deleting a fic now asks for confirmation first. (It removes the file from
+  the library folder — and other devices via iCloud; copies already in
+  Apple Books stay.)
 - Auto-import into Apple Books now defaults to off; turn it on in Settings.
   (Copies that already changed the toggle keep their choice.)
 

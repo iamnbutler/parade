@@ -80,6 +80,13 @@ struct FicDetailView: View {
                 .buttonStyle(.bordered)
                 #endif
             }
+            Button {
+                model.toggleFavorite(item)
+            } label: {
+                Label(model.isFavorite(item) ? "Favorited" : "Favorite",
+                      systemImage: model.isFavorite(item) ? "star.fill" : "star")
+            }
+            .buttonStyle(.bordered)
         }
         .controlSize(.small)
     }

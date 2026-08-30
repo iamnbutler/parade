@@ -5,19 +5,21 @@ import SwiftUI
 /// with the system sidebar toggle, collapsing, and resizable columns.
 struct MacRootView: View {
     enum SidebarSection: String, CaseIterable, Identifiable {
-        case library, fandoms, settings
+        case library, fandoms, favorites, settings
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
         var icon: String {
             switch self {
             case .library: "books.vertical"
             case .fandoms: "theatermasks"
+            case .favorites: "star"
             case .settings: "gearshape"
             }
         }
     }
 
     @EnvironmentObject private var model: AppModel
+    @AppStorage("librarySort.v1") private var sortRaw = LibrarySort.author.rawValue
     @State private var section: SidebarSection? = .library
     @State private var selectedID: String?
     @State private var searchText = ""
@@ -33,6 +35,20 @@ struct MacRootView: View {
             contentColumn
                 .navigationSplitViewColumnWidth(min: 280, ideal: 340)
                 .toolbar {
+                    if section == .library {
+                        ToolbarItem {
+                            Menu {
+                                Picker("Sort", selection: $sortRaw) {
+                                    ForEach(LibrarySort.allCases) { s in
+                                        Text(s.label).tag(s.rawValue)
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "arrow.up.arrow.down")
+                            }
+                            .help("Sort the library")
+                        }
+                    }
                     if section != .settings {
                         ToolbarItem(placement: .primaryAction) {
                             Button {
@@ -77,8 +93,30 @@ struct MacRootView: View {
             SettingsView()
         case .fandoms:
             fandomsList
+        case .favorites:
+            favoritesList
         default:
             libraryList
+        }
+    }
+
+    // MARK: - favorites
+
+    @ViewBuilder
+    private var favoritesList: some View {
+        if model.favoriteItems.isEmpty {
+            ContentUnavailableView(
+                "No favorites yet",
+                systemImage: "star",
+                description: Text("Right-click a fic and choose Add to Favorites.")
+            )
+        } else {
+            List(selection: $selectedID) {
+                ForEach(model.favoriteItems.filter { model.item($0, matches: searchText) }) { item in
+                    FicRow(item: item, showsAuthor: true).tag(item.id)
+                }
+            }
+            .searchable(text: $searchText, prompt: "Filter favorites…")
         }
     }
 
@@ -154,16 +192,28 @@ struct MacRootView: View {
             )
         } else {
             List(selection: $selectedID) {
-                ForEach(filteredLibrary, id: \.author) { group in
-                    Section(group.author) {
-                        ForEach(group.items) { item in
-                            FicRow(item: item).tag(item.id)
+                if LibrarySort(rawValue: sortRaw) == .title {
+                    ForEach(libraryByTitle) { item in
+                        FicRow(item: item, showsAuthor: true).tag(item.id)
+                    }
+                } else {
+                    ForEach(filteredLibrary, id: \.author) { group in
+                        Section(group.author) {
+                            ForEach(group.items) { item in
+                                FicRow(item: item).tag(item.id)
+                            }
                         }
                     }
                 }
             }
             .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
         }
+    }
+
+    private var libraryByTitle: [LibraryItem] {
+        model.library.flatMap(\.items)
+            .filter { model.item($0, matches: searchText) }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
 }

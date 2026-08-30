@@ -3,8 +3,11 @@ import SwiftUI
 
 struct LibraryView: View {
     @EnvironmentObject private var model: AppModel
+    @AppStorage("librarySort.v1") private var sortRaw = LibrarySort.author.rawValue
     @State private var showAddSheet = false
     @State private var searchText = ""
+
+    private var sort: LibrarySort { LibrarySort(rawValue: sortRaw) ?? .author }
 
     private var groups: [(author: String, items: [LibraryItem])] {
         model.library
@@ -12,11 +15,29 @@ struct LibraryView: View {
             .filter { !$0.items.isEmpty }
     }
 
+    private var byTitle: [LibraryItem] {
+        model.library.flatMap(\.items)
+            .filter { model.item($0, matches: searchText) }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("Library")
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Menu {
+                            Picker("Sort", selection: $sortRaw) {
+                                ForEach(LibrarySort.allCases) { s in
+                                    Text(s.label).tag(s.rawValue)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                        }
+                        .accessibilityLabel("Sort")
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             showAddSheet = true
@@ -57,11 +78,19 @@ struct LibraryView: View {
             )
         } else {
             List {
-                ForEach(groups, id: \.author) { group in
-                    Section(group.author) {
-                        ForEach(group.items) { item in
-                            NavigationLink(value: item) {
-                                FicRow(item: item)
+                if sort == .title {
+                    ForEach(byTitle) { item in
+                        NavigationLink(value: item) {
+                            FicRow(item: item, showsAuthor: true)
+                        }
+                    }
+                } else {
+                    ForEach(groups, id: \.author) { group in
+                        Section(group.author) {
+                            ForEach(group.items) { item in
+                                NavigationLink(value: item) {
+                                    FicRow(item: item)
+                                }
                             }
                         }
                     }
@@ -70,6 +99,44 @@ struct LibraryView: View {
             .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
             .refreshable { model.refreshLibrary() }
         }
+    }
+}
+
+/// Favorited fics, sorted by title.
+struct FavoritesView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var searchText = ""
+
+    private var items: [LibraryItem] {
+        model.favoriteItems.filter { model.item($0, matches: searchText) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if model.favoriteItems.isEmpty {
+                    ContentUnavailableView(
+                        "No favorites yet",
+                        systemImage: "star",
+                        description: Text("Swipe right on a fic in the Library and tap the star.")
+                    )
+                } else {
+                    List {
+                        ForEach(items) { item in
+                            NavigationLink(value: item) {
+                                FicRow(item: item, showsAuthor: true)
+                            }
+                        }
+                    }
+                    .searchable(text: $searchText, prompt: "Filter favorites…")
+                }
+            }
+            .navigationTitle("Favorites")
+            .navigationDestination(for: LibraryItem.self) { item in
+                FicDetailView(item: item)
+            }
+        }
+        .onAppear { model.refreshLibrary() }
     }
 }
 #endif

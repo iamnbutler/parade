@@ -20,6 +20,18 @@ struct LibraryItem: Identifiable, Hashable {
     var id: String { author + "/" + title }
 }
 
+/// How the Library list is arranged.
+enum LibrarySort: String, CaseIterable, Identifiable {
+    case author, title
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .author: "By Author"
+        case .title: "By Title"
+        }
+    }
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published var library: [(author: String, items: [LibraryItem])] = []
@@ -179,6 +191,7 @@ final class AppModel: ObservableObject {
     // MARK: - library (filesystem is the source of truth)
 
     func refreshLibrary() {
+        loadFavorites()
         let fm = FileManager.default
         var groups: [(author: String, items: [LibraryItem])] = []
         let authorDirs: [URL]
@@ -329,7 +342,51 @@ final class AppModel: ObservableObject {
         imported.removeValue(forKey: relativePath(of: item.url))
         persistImported()
         #endif
+        if favorites.remove(item.id) != nil { saveFavorites() }
         refreshLibrary()
+    }
+
+    // MARK: - favorites
+
+    /// Favorited fic ids. Backed by Favorites.txt in the library folder
+    /// (one Author/Title per line), so it syncs through iCloud with the
+    /// fics themselves and can be edited by hand.
+    @Published private(set) var favorites: Set<String> = []
+
+    private var favoritesFile: URL { destinationRoot.appendingPathComponent("Favorites.txt") }
+
+    var favoriteItems: [LibraryItem] {
+        library.flatMap(\.items)
+            .filter { favorites.contains($0.id) }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    func isFavorite(_ item: LibraryItem) -> Bool { favorites.contains(item.id) }
+
+    func toggleFavorite(_ item: LibraryItem) {
+        if favorites.remove(item.id) == nil { favorites.insert(item.id) }
+        saveFavorites()
+    }
+
+    private func loadFavorites() {
+        let fm = FileManager.default
+        let placeholder = destinationRoot.appendingPathComponent(".Favorites.txt.icloud")
+        if fm.fileExists(atPath: placeholder.path) {
+            try? fm.startDownloadingUbiquitousItem(at: favoritesFile)
+        }
+        guard let text = try? String(contentsOf: favoritesFile, encoding: .utf8) else {
+            favorites = []
+            return
+        }
+        favorites = Set(
+            text.split(whereSeparator: \.isNewline)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty })
+    }
+
+    private func saveFavorites() {
+        let text = favorites.sorted().joined(separator: "\n") + "\n"
+        try? text.write(to: favoritesFile, atomically: true, encoding: .utf8)
     }
 
     // MARK: - download pipeline

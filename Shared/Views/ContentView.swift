@@ -11,6 +11,8 @@ struct ContentView: View {
                 .tabItem { Label("Library", systemImage: "books.vertical") }
             BrowseView()
                 .tabItem { Label("Fandoms", systemImage: "theatermasks") }
+            FavoritesView()
+                .tabItem { Label("Favorites", systemImage: "star") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
