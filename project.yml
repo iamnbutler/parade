@@ -1,0 +1,40 @@
+name: Parade
+options:
+  bundleIdPrefix: com.natebutler
+  createIntermediateGroups: true
+
+packages:
+  AO3Kit:
+    path: AO3Kit
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+
+targets:
+  Parade:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources: [Shared]
+    dependencies:
+      - package: AO3Kit
+    info:
+      path: Shared/Info.plist
+      properties:
+        CFBundleDisplayName: Parade
+        UILaunchScreen: {}
+        # Make Documents visible in the Files app ("On My iPhone > Parade")
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.natebutler.parade
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 8S43JJMN6B
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
