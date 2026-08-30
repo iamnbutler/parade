@@ -31,14 +31,36 @@ final class OrganizerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: dest.path))
     }
 
-    func testOverwritesExistingVersion() throws {
+    func testReplacingBacksUpPreviousVersion() throws {
+        let organizer = Organizer(root: root)
+        let work = makeWork(title: "Fic", authors: ["a"])
+        let old = try makeTempEPUB()
+        try Data("old text".utf8).write(to: old)
+        try organizer.place(old, for: work)
+        let dest = try organizer.place(makeTempEPUB(), for: work)
+
+        // New version in place, old one preserved under Backups/a/.
+        XCTAssertEqual(try String(contentsOf: dest, encoding: .utf8), "fake epub")
+        let contents = try FileManager.default.contentsOfDirectory(atPath: dest.deletingLastPathComponent().path)
+        XCTAssertEqual(contents, ["Fic.epub"])
+        let backupDir = root.appendingPathComponent("Backups/a")
+        let backups = try FileManager.default.contentsOfDirectory(atPath: backupDir.path)
+        XCTAssertEqual(backups.count, 1)
+        XCTAssertTrue(backups[0].hasPrefix("Fic ("), "\(backups)")
+        XCTAssertTrue(backups[0].hasSuffix(".epub"))
+        let backedUp = try String(contentsOf: backupDir.appendingPathComponent(backups[0]), encoding: .utf8)
+        XCTAssertEqual(backedUp, "old text")
+    }
+
+    func testBackupNamesDoNotCollide() throws {
         let organizer = Organizer(root: root)
         let work = makeWork(title: "Fic", authors: ["a"])
         try organizer.place(makeTempEPUB(), for: work)
-        let dest = try organizer.place(makeTempEPUB(), for: work)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dest.path))
-        let contents = try FileManager.default.contentsOfDirectory(atPath: dest.deletingLastPathComponent().path)
-        XCTAssertEqual(contents, ["Fic.epub"])
+        try organizer.place(makeTempEPUB(), for: work)
+        try organizer.place(makeTempEPUB(), for: work)
+        let backups = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Backups/a").path)
+        XCTAssertEqual(backups.count, 2)
+        XCTAssertEqual(Set(backups).count, 2)
     }
 
     func testMultipleAuthorsJoined() throws {

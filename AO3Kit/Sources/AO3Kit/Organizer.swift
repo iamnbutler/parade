@@ -8,8 +8,12 @@ public struct Organizer: Sendable {
         self.root = root
     }
 
-    /// Moves `epubFile` into place for `work`, overwriting any previous
-    /// version (same fic, newer text). Returns the final location.
+    /// Library subfolder that holds superseded versions; never shown as an author.
+    public static let backupsFolder = "Backups"
+
+    /// Moves `epubFile` into place for `work`. A previous version at the same
+    /// path (same fic, newer text) is moved into Backups/ first, never
+    /// deleted. Returns the final location.
     @discardableResult
     public func place(_ epubFile: URL, for work: WorkInfo) throws -> URL {
         let authorDir = root.appendingPathComponent(Self.sanitize(work.authorLabel), isDirectory: true)
@@ -18,10 +22,33 @@ public struct Organizer: Sendable {
             .appendingPathComponent(Self.sanitize(work.title))
             .appendingPathExtension("epub")
         if FileManager.default.fileExists(atPath: dest.path) {
-            try FileManager.default.removeItem(at: dest)
+            try backUp(dest)
         }
         try FileManager.default.moveItem(at: epubFile, to: dest)
         return dest
+    }
+
+    /// Moves a superseded EPUB to `Backups/<Author>/<Title> (<stamp>).epub`.
+    private func backUp(_ file: URL) throws {
+        let fm = FileManager.default
+        let author = file.deletingLastPathComponent().lastPathComponent
+        let dir = root
+            .appendingPathComponent(Self.backupsFolder, isDirectory: true)
+            .appendingPathComponent(author, isDirectory: true)
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HHmmss"
+        let stamp = formatter.string(from: Date())
+        let base = file.deletingPathExtension().lastPathComponent
+        var dest = dir.appendingPathComponent("\(base) (\(stamp)).epub")
+        var n = 2
+        while fm.fileExists(atPath: dest.path) {
+            dest = dir.appendingPathComponent("\(base) (\(stamp)) \(n).epub")
+            n += 1
+        }
+        try fm.moveItem(at: file, to: dest)
     }
 
     /// Makes a string safe as an APFS/iCloud Drive file or folder name.

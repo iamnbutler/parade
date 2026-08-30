@@ -18,6 +18,9 @@ struct ParadeApp: App {
                 CheckForUpdatesButton(updater: updater)
             }
             CommandMenu("Library") {
+                Button("Check AO3 for Updates") {
+                    Task { await model.checkForUpdates() }
+                }
                 Button("Import All to Apple Books") {
                     Task { await model.importAllToBooks() }
                 }

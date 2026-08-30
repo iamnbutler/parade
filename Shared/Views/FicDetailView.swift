@@ -58,6 +58,15 @@ struct FicDetailView: View {
 
     private var actions: some View {
         HStack(spacing: 10) {
+            if model.hasUpdate(item) {
+                Button {
+                    Task { await model.update(item) }
+                } label: {
+                    Label("Update", systemImage: "arrow.down.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.isWorking)
+            }
             if item.isDownloaded {
                 #if os(iOS)
                 ShareLink(item: item.url) {

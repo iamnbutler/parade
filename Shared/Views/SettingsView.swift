@@ -11,6 +11,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 folderSection
+                updatesSection
                 #if os(macOS)
                 booksSection
                 #endif
@@ -60,6 +61,28 @@ struct SettingsView: View {
             #else
             Text("The library folder is watched: fics that appear in it — downloaded here or synced from the phone — are imported into Apple Books automatically.")
             #endif
+        }
+    }
+
+    private var updatesSection: some View {
+        Section {
+            Button {
+                Task { await model.checkForUpdates() }
+            } label: {
+                if model.isCheckingUpdates {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Checking…")
+                    }
+                } else {
+                    Text("Check AO3 for Updates")
+                }
+            }
+            .disabled(model.isCheckingUpdates || model.isWorking)
+        } header: {
+            Text("Fic Updates")
+        } footer: {
+            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Updated fics get a badge; updating keeps the old version in the Backups folder.")
         }
     }
 

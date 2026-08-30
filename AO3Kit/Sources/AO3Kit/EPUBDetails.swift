@@ -45,6 +45,26 @@ public extension WorkDetails {
         else { return nil }
         return Int(series[range].trimmingCharacters(in: .whitespaces))
     }
+
+    /// The AO3 work id, from workURL (…/works/123).
+    var workID: Int? {
+        guard let comps = workURL?.pathComponents,
+              let i = comps.firstIndex(of: "works"), i + 1 < comps.count
+        else { return nil }
+        return Int(comps[i + 1])
+    }
+
+    /// The fic's last content change as a Date: Updated if present, else
+    /// Published. AO3 stamps these date-only ("2020-01-05"), read as UTC
+    /// midnight — compare against precise timestamps with a full-day margin.
+    var latestDate: Date? {
+        guard let s = updated ?? published else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: s.trimmingCharacters(in: .whitespaces))
+    }
 }
 
 public enum EPUBDetailsParser {

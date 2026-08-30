@@ -192,8 +192,8 @@ struct MacRootView: View {
             )
         } else {
             List(selection: $selectedID) {
-                if LibrarySort(rawValue: sortRaw) == .title {
-                    ForEach(libraryByTitle) { item in
+                if LibrarySort(rawValue: sortRaw) ?? .author != .author {
+                    ForEach(libraryFlat) { item in
                         FicRow(item: item, showsAuthor: true).tag(item.id)
                     }
                 } else {
@@ -210,10 +210,12 @@ struct MacRootView: View {
         }
     }
 
-    private var libraryByTitle: [LibraryItem] {
-        model.library.flatMap(\.items)
-            .filter { model.item($0, matches: searchText) }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    private var libraryFlat: [LibraryItem] {
+        let items = model.library.flatMap(\.items).filter { model.item($0, matches: searchText) }
+        if LibrarySort(rawValue: sortRaw) == .title {
+            return items.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        }
+        return items.sorted { model.contentDate($0) > model.contentDate($1) }
     }
 
 }

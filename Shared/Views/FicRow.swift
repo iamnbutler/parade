@@ -22,9 +22,12 @@ struct FicRow: View {
                 subtitle.font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            if item.isDownloaded {
-                booksButton
-            } else {
+            if model.hasUpdate(item) {
+                Label("Update", systemImage: "arrow.down.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.tint)
+            }
+            if !item.isDownloaded {
                 Label("iCloud…", systemImage: "icloud.and.arrow.down")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -62,6 +65,7 @@ struct FicRow: View {
                 model.toggleFavorite(item)
             }
             Button("Add to Apple Books") { model.addToBooks(item) }
+            Button("Update from AO3") { Task { await model.update(item) } }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([item.url])
             }
@@ -79,24 +83,4 @@ struct FicRow: View {
         }
     }
 
-    @ViewBuilder
-    private var booksButton: some View {
-        #if os(iOS)
-        ShareLink(item: item.url) {
-            Label("Books", systemImage: "book.closed.fill")
-                .labelStyle(.iconOnly)
-                .font(.callout)
-        }
-        .buttonStyle(.borderless)
-        #else
-        Button {
-            model.addToBooks(item)
-        } label: {
-            Label("Books", systemImage: "book.closed.fill")
-                .labelStyle(.titleAndIcon)
-                .font(.callout)
-        }
-        .buttonStyle(.bordered)
-        #endif
-    }
 }

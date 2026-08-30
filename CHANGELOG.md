@@ -1,8 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-08-30
 
 ### Added
+- Fic updates: "Check AO3 for Updates" (Settings on both platforms, and the
+  Library menu on macOS) asks AO3 whether each fic changed since its EPUB
+  was made. Changed fics get an Update badge in lists and an Update button
+  in their details; updating re-downloads the fic.
+- Updates are non-destructive: the previous EPUB moves to
+  Backups/Author/Title (date).epub inside the library folder instead of
+  being overwritten. The Backups folder never shows up in the library.
+- Library sort mode "Last Updated" — newest fic content first, using the
+  update date inside each EPUB.
 - Favorites: star a fic (swipe right on iOS, right-click on macOS, or the
   Favorite button in its details) and browse them in a Favorites tab /
   sidebar section. The list is a plain `Favorites.txt` in the library
@@ -10,6 +19,8 @@
 - Library sort modes: by author (grouped, as before) or by title.
 
 ### Changed
+- The book button is gone from list rows — sending a fic to Apple Books
+  lives in its details (and the right-click menu on macOS).
 - Deleting a fic now asks for confirmation first. (It removes the file from
   the library folder — and other devices via iCloud; copies already in
   Apple Books stay.)

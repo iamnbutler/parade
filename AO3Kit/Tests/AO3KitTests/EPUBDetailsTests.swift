@@ -100,6 +100,20 @@ final class EPUBDetailsTests: XCTestCase {
         XCTAssertNil(d.series)
     }
 
+    func testWorkIDAndLatestDate() {
+        var d = WorkDetails()
+        XCTAssertNil(d.workID)
+        XCTAssertNil(d.latestDate)
+
+        d.workURL = URL(string: "https://archiveofourown.org/works/12345")
+        d.published = "2019-06-24"
+        XCTAssertEqual(d.workID, 12345)
+        XCTAssertEqual(d.latestDate?.timeIntervalSince1970, 1_561_334_400)  // 2019-06-24 UTC
+
+        d.updated = "2020-01-05"
+        XCTAssertEqual(d.latestDate?.timeIntervalSince1970, 1_578_182_400)  // updated wins
+    }
+
     /// Full zip round-trip against a real AO3 EPUB when one is provided via
     /// AO3KIT_SAMPLE_EPUB (kept out of the repo).
     func testRealEPUB() throws {

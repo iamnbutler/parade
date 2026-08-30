@@ -22,12 +22,13 @@ struct LibraryItem: Identifiable, Hashable {
 
 /// How the Library list is arranged.
 enum LibrarySort: String, CaseIterable, Identifiable {
-    case author, title
+    case author, title, updated
     var id: String { rawValue }
     var label: String {
         switch self {
         case .author: "By Author"
         case .title: "By Title"
+        case .updated: "Last Updated"
         }
     }
 }
@@ -210,6 +211,8 @@ final class AppModel: ObservableObject {
 
         for dir in authorDirs {
             guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
+            // Superseded versions live in Backups/ — not an author.
+            guard dir.lastPathComponent != Organizer.backupsFolder else { continue }
             let files = (try? fm.contentsOfDirectory(
                 at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [])) ?? []
             var items: [LibraryItem] = []
@@ -435,6 +438,83 @@ final class AppModel: ObservableObject {
         status("✓ Saved \(relativePath(of: dest))")
     }
 
+    // MARK: - fic updates (against AO3)
+
+    /// Item ids whose work changed on AO3 since the local EPUB. Filled by
+    /// checkForUpdates(); cleared per fic when it's re-downloaded.
+    @Published private(set) var updatesAvailable: Set<String> = []
+    @Published private(set) var isCheckingUpdates = false
+
+    func hasUpdate(_ item: LibraryItem) -> Bool { updatesAvailable.contains(item.id) }
+
+    /// The fic's last content change (from inside the EPUB), for the
+    /// Last Updated sort; falls back to the file date until parsed.
+    func contentDate(_ item: LibraryItem) -> Date {
+        detailsIndex[item.id]?.latestDate ?? item.date
+    }
+
+    /// Asks AO3 whether each fic changed since its EPUB was made, comparing
+    /// the download link's updated_at stamp to the date inside the EPUB.
+    /// One request per fic, politely spaced — explicit action, never automatic.
+    func checkForUpdates() async {
+        guard !isCheckingUpdates, !isWorking else { return }
+        isCheckingUpdates = true
+        defer { isCheckingUpdates = false }
+        refreshLibrary()
+        let items = library.flatMap(\.items).filter(\.isDownloaded)
+        status("Checking \(items.count) fic\(items.count == 1 ? "" : "s") against AO3…")
+        var checked = 0, found = 0
+        for item in items {
+            guard let d = await details(for: item),
+                  let workID = d.workID,
+                  let local = d.latestDate else { continue }
+            if checked > 0 { try? await Task.sleep(for: .seconds(1.5)) }
+            do {
+                let info = try await client.fetchWork(id: workID)
+                checked += 1
+                // The EPUB's date is day-resolution; only a strictly later
+                // day counts, so a same-day download isn't a false positive.
+                if let ts = info.updatedAt,
+                   Date(timeIntervalSince1970: TimeInterval(ts)).timeIntervalSince(local) >= 86_400 {
+                    updatesAvailable.insert(item.id)
+                    found += 1
+                }
+                if checked % 10 == 0 { status("…\(checked)/\(items.count) checked") }
+            } catch AO3Error.rateLimited {
+                status("⚠️ AO3 is rate-limiting — stopped at \(checked)/\(items.count). Try again later.")
+                break
+            } catch {
+                // One unreadable work shouldn't stop the sweep.
+            }
+        }
+        status(found == 0
+            ? "✓ Checked \(checked) fic\(checked == 1 ? "" : "s") — everything is current"
+            : "✓ \(found) update\(found == 1 ? "" : "s") available")
+    }
+
+    /// Re-downloads one fic from AO3. The old EPUB is kept in Backups/.
+    func update(_ item: LibraryItem) async {
+        guard !isWorking else { return }
+        var workID = detailsIndex[item.id]?.workID
+        if workID == nil { workID = (await details(for: item))?.workID }
+        guard let workID else {
+            status("⚠️ “\(item.title)” has no AO3 work link inside it")
+            return
+        }
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await downloadWork(id: workID)
+            updatesAvailable.remove(item.id)
+        } catch {
+            status("⚠️ \(error.localizedDescription)")
+        }
+        refreshLibrary()
+        #if os(macOS)
+        scan()
+        #endif
+    }
+
     func status(_ line: String) {
         statusLines.append(line)
         if statusLines.count > 8 { statusLines.removeFirst() }
@@ -569,6 +649,7 @@ final class AppModel: ObservableObject {
                 .replacingOccurrences(of: folder.path + "/", with: "")
                 .components(separatedBy: "/")
             let author = relParts.count > 1 ? relParts[0] : "Unknown Author"
+            if author == Organizer.backupsFolder { skipped += 1; continue }
             let authorDir = destinationRoot.appendingPathComponent(Organizer.sanitize(author), isDirectory: true)
             let dest = authorDir.appendingPathComponent(url.lastPathComponent)
             if fm.fileExists(atPath: dest.path) {

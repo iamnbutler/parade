@@ -15,10 +15,14 @@ struct LibraryView: View {
             .filter { !$0.items.isEmpty }
     }
 
-    private var byTitle: [LibraryItem] {
-        model.library.flatMap(\.items)
-            .filter { model.item($0, matches: searchText) }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    private var flatItems: [LibraryItem] {
+        let items = model.library.flatMap(\.items).filter { model.item($0, matches: searchText) }
+        if sort == .title {
+            return items.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        }
+        // Last Updated: the fic's own update date (from inside the EPUB),
+        // newest first.
+        return items.sorted { model.contentDate($0) > model.contentDate($1) }
     }
 
     var body: some View {
@@ -78,8 +82,8 @@ struct LibraryView: View {
             )
         } else {
             List {
-                if sort == .title {
-                    ForEach(byTitle) { item in
+                if sort != .author {
+                    ForEach(flatItems) { item in
                         NavigationLink(value: item) {
                             FicRow(item: item, showsAuthor: true)
                         }
