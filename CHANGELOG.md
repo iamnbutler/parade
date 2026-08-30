@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Auto-import into Apple Books now defaults to off; turn it on in Settings.
+  (Copies that already changed the toggle keep their choice.)
+
 ## 0.2.0 — 2026-08-30
 
 ### Added

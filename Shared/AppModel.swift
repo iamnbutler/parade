@@ -53,7 +53,7 @@ final class AppModel: ObservableObject {
 
     init() {
         #if os(macOS)
-        autoImport = defaults.object(forKey: Keys.autoImport) as? Bool ?? true
+        autoImport = defaults.object(forKey: Keys.autoImport) as? Bool ?? false
         imported = defaults.dictionary(forKey: Keys.imported) as? [String: TimeInterval] ?? [:]
         #endif
         destinationRoot = Self.defaultRoot()
