@@ -376,15 +376,29 @@ final class AppModel: ObservableObject {
         }
 
         guard autoImport else { return }
-        var currentPaths = Set<String>()
-        var imports = 0
-        for item in downloaded {
-            let rel = relativePath(of: item.url)
-            currentPaths.insert(rel)
+        let currentPaths = Set(downloaded.map { relativePath(of: $0.url) })
+        let fresh = downloaded.filter { item in
             let mtime = item.date.timeIntervalSince1970
-            if let seen = imported[rel], seen >= mtime { continue }
+            if let seen = imported[relativePath(of: item.url)], seen >= mtime { return false }
+            return true
+        }
+
+        // Auto-import is for single-URL downloads (pasted here, or synced in
+        // from the phone one fic at a time). A large batch landing at once —
+        // an initial iCloud sync, a folder copied in by hand — is bulk:
+        // baseline it and leave Books to the explicit "Import All".
+        if fresh.count > 20 {
+            fresh.forEach { markImported($0.url) }
+            imported = imported.filter { currentPaths.contains($0.key) }
+            persistImported()
+            status("Found \(fresh.count) new fics — bulk arrival, skipping auto-import. Use “Import All to Apple Books” to send them.")
+            return
+        }
+
+        var imports = 0
+        for item in fresh {
             guard sendToBooks([item.url]) else { return }
-            imported[rel] = mtime
+            markImported(item.url)
             status("→ Books: \(item.title)")
             imports += 1
         }
@@ -434,19 +448,24 @@ final class AppModel: ObservableObject {
                     try fm.copyItem(at: url, to: dest)
                     try? fm.removeItem(at: url)
                 }
+                // Baseline the file so the watcher does NOT auto-import it —
+                // Books auto-import is only for single-URL downloads; bulk
+                // goes through the explicit "Import All to Apple Books".
+                markImported(dest)
                 moved += 1
             } catch {
                 failed += 1
             }
         }
+        persistImported()
         var summary = "✓ Merged \(moved) fic\(moved == 1 ? "" : "s") into the library"
         if skipped > 0 { summary += ", \(skipped) already there" }
         if failed > 0 { summary += ", \(failed) failed" }
         status(summary)
+        if moved > 0 {
+            status("Use “Import All to Apple Books” to send them to Books.")
+        }
         refreshLibrary()
-        // The watcher treats the arrivals as new and imports them to Books
-        // (when auto-import is on).
-        scan()
     }
 
     /// Explicit bulk action: send every EPUB in the library to Apple Books,
