@@ -1,7 +1,8 @@
 # Parade
 
 Personal ebook filing tool for iOS and macOS. Saves EPUBs as
-`Author/Title.epub` in a folder you choose and gets them into Apple Books.
+`ao3/Author/Title.epub` in the app's own iCloud Drive folder ("Parade"),
+synced across devices, and gets them into Apple Books.
 
 ## Building
 

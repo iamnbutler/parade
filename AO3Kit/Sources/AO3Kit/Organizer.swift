@@ -1,14 +1,21 @@
 import Foundation
 
-/// Files downloaded EPUBs into `<root>/<Author>/<Title>.epub`.
+/// Files downloaded EPUBs into `<root>/<provider>/<Author>/<Title>.epub`.
+/// The provider folder ("ao3" today) keeps sources separate so the same
+/// library root can hold other archives later.
 public struct Organizer: Sendable {
     public let root: URL
+    public let provider: String
 
-    public init(root: URL) {
+    /// The provider folder for AO3 downloads.
+    public static let ao3 = "ao3"
+
+    public init(root: URL, provider: String = Organizer.ao3) {
         self.root = root
+        self.provider = provider
     }
 
-    /// Library subfolder that holds superseded versions; never shown as an author.
+    /// Library subfolder that holds superseded versions; never a provider.
     public static let backupsFolder = "Backups"
 
     /// Moves `epubFile` into place for `work`. A previous version at the same
@@ -16,7 +23,9 @@ public struct Organizer: Sendable {
     /// deleted. Returns the final location.
     @discardableResult
     public func place(_ epubFile: URL, for work: WorkInfo) throws -> URL {
-        let authorDir = root.appendingPathComponent(Self.sanitize(work.authorLabel), isDirectory: true)
+        let authorDir = root
+            .appendingPathComponent(provider, isDirectory: true)
+            .appendingPathComponent(Self.sanitize(work.authorLabel), isDirectory: true)
         try FileManager.default.createDirectory(at: authorDir, withIntermediateDirectories: true)
         let dest = authorDir
             .appendingPathComponent(Self.sanitize(work.title))
@@ -28,12 +37,13 @@ public struct Organizer: Sendable {
         return dest
     }
 
-    /// Moves a superseded EPUB to `Backups/<Author>/<Title> (<stamp>).epub`.
+    /// Moves a superseded EPUB to `Backups/<provider>/<Author>/<Title> (<stamp>).epub`.
     private func backUp(_ file: URL) throws {
         let fm = FileManager.default
         let author = file.deletingLastPathComponent().lastPathComponent
         let dir = root
             .appendingPathComponent(Self.backupsFolder, isDirectory: true)
+            .appendingPathComponent(provider, isDirectory: true)
             .appendingPathComponent(author, isDirectory: true)
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
 

@@ -9,6 +9,8 @@ import AppKit
 /// `Author/Title.epub` tree is the single source of truth; there is no
 /// separate database to drift out of sync.
 struct LibraryItem: Identifiable, Hashable {
+    /// Source folder the fic lives under ("ao3" today).
+    let provider: String
     let author: String
     let title: String
     /// The real EPUB location (even when only an iCloud placeholder exists yet).
@@ -17,7 +19,7 @@ struct LibraryItem: Identifiable, Hashable {
     /// False while the file is still an undownloaded ".….icloud" placeholder.
     let isDownloaded: Bool
 
-    var id: String { author + "/" + title }
+    var id: String { provider + "/" + author + "/" + title }
 }
 
 /// How the Library list is arranged.
@@ -44,8 +46,8 @@ final class AppModel: ObservableObject {
     private let client = AO3Client()
     private let defaults = UserDefaults.standard
     private(set) var destinationRoot: URL
-    /// Held for the app's lifetime when the destination is a user-picked folder.
-    private var scopedAccess = false
+    /// True once the library root is the app's iCloud container.
+    private var inCloud = false
 
     #if os(macOS)
     @Published var autoImport: Bool {
@@ -69,10 +71,10 @@ final class AppModel: ObservableObject {
         autoImport = defaults.object(forKey: Keys.autoImport) as? Bool ?? false
         imported = defaults.dictionary(forKey: Keys.imported) as? [String: TimeInterval] ?? [:]
         #endif
-        destinationRoot = Self.defaultRoot()
-        restoreCustomDestination()
+        destinationRoot = Self.localRoot()
         updateDestinationLabel()
         refreshLibrary()
+        Task { await self.connectCloudRoot() }
         #if os(macOS)
         startWatching()
         #else
@@ -98,113 +100,107 @@ final class AppModel: ObservableObject {
     }
     #endif
 
-    // MARK: - destination folder
+    // MARK: - destination folder (the app's iCloud container)
 
-    private static func defaultRoot() -> URL {
+    /// Where the library lives until iCloud resolves — and permanently, for
+    /// devices without an iCloud account: the app's own Documents folder
+    /// ("On My iPhone › Parade" / ~/Documents/Parade).
+    private static func localRoot() -> URL {
         #if os(iOS)
-        // Documents/Fan Fiction — visible in Files as
-        // "On My iPhone › Parade › Fan Fiction".
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let root = documents.appendingPathComponent("Fan Fiction", isDirectory: true)
-        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        // Early builds saved author folders directly in Documents; pull them in.
-        if let entries = try? FileManager.default.contentsOfDirectory(
-            at: documents, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
-            for entry in entries where entry.lastPathComponent != "Fan Fiction" {
-                let isDir = (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-                guard isDir else { continue }
-                try? FileManager.default.moveItem(
-                    at: entry, to: root.appendingPathComponent(entry.lastPathComponent))
-            }
-        }
-        return root
+        let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         #else
-        // iCloud Drive/Fan Fiction when iCloud Drive exists (matches what the
-        // phone syncs to), otherwise ~/Documents/Fan Fiction.
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let icloud = home.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
-        let base = FileManager.default.fileExists(atPath: icloud.path)
-            ? icloud
-            : home.appendingPathComponent("Documents", isDirectory: true)
-        let root = base.appendingPathComponent("Fan Fiction", isDirectory: true)
+        let root = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/Parade", isDirectory: true)
+        #endif
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         return root
-        #endif
     }
 
-    private func restoreCustomDestination() {
-        guard let bookmark = defaults.data(forKey: Keys.folderBookmark) else { return }
-        var stale = false
-        #if os(macOS)
-        let resolved = try? URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope], bookmarkDataIsStale: &stale)
-        #else
-        let resolved = try? URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &stale)
-        #endif
-        guard let url = resolved, url.startAccessingSecurityScopedResource() else {
-            defaults.removeObject(forKey: Keys.folderBookmark)
-            return
+    /// Makes the app's iCloud container ("iCloud Drive › Parade") the library
+    /// root and pulls every older store into it. The container lookup runs
+    /// off-main because its first call can do real work.
+    private func connectCloudRoot() async {
+        let container = await Task.detached(priority: .userInitiated) {
+            FileManager.default.url(forUbiquityContainerIdentifier: nil)?
+                .appendingPathComponent("Documents", isDirectory: true)
+        }.value
+        if let container {
+            try? FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
+            destinationRoot = container
+            inCloud = true
+        } else {
+            status("iCloud is unavailable — keeping the library on this device.")
         }
-        if stale, let fresh = try? Self.bookmarkData(for: url) {
-            defaults.set(fresh, forKey: Keys.folderBookmark)
-        }
-        destinationRoot = url
-        scopedAccess = true
-    }
-
-    private static func bookmarkData(for url: URL) throws -> Data {
-        #if os(macOS)
-        try url.bookmarkData(options: [.withSecurityScope])
-        #else
-        try url.bookmarkData()
-        #endif
-    }
-
-    func setDestination(_ url: URL) {
-        guard url.startAccessingSecurityScopedResource() else {
-            status("⚠️ Couldn't get access to that folder.")
-            return
-        }
-        do {
-            let bookmark = try Self.bookmarkData(for: url)
-            if scopedAccess { destinationRoot.stopAccessingSecurityScopedResource() }
-            defaults.set(bookmark, forKey: Keys.folderBookmark)
-            destinationRoot = url
-            scopedAccess = true
-        } catch {
-            url.stopAccessingSecurityScopedResource()
-            status("⚠️ Couldn't save that folder choice: \(error.localizedDescription)")
-        }
-        didChangeDestination()
-    }
-
-    func resetDestination() {
-        if scopedAccess { destinationRoot.stopAccessingSecurityScopedResource() }
-        scopedAccess = false
-        defaults.removeObject(forKey: Keys.folderBookmark)
-        destinationRoot = Self.defaultRoot()
-        didChangeDestination()
-    }
-
-    private func didChangeDestination() {
+        migrateLegacyStores()
         updateDestinationLabel()
         refreshLibrary()
-        #if os(macOS)
-        scan()
-        #endif
+        buildDetailsIndex()
     }
 
-    var usesCustomDestination: Bool { scopedAccess }
+    /// Every place a previous version kept the library, merged into the
+    /// current root: the old "Fan Fiction" folders, (iOS) a folder connected
+    /// through the old picker, and the local fallback once iCloud is up.
+    /// Move-only and idempotent — see LibraryMigrator.
+    private func migrateLegacyStores() {
+        var stores: [URL] = []
+        #if os(iOS)
+        stores.append(contentsOf: legacyPickedStores())
+        stores.append(Self.localRoot().appendingPathComponent("Fan Fiction", isDirectory: true))
+        #else
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        stores.append(home.appendingPathComponent(
+            "Library/Mobile Documents/com~apple~CloudDocs/Fan Fiction", isDirectory: true))
+        stores.append(home.appendingPathComponent("Documents/Fan Fiction", isDirectory: true))
+        #endif
+        if inCloud { stores.append(Self.localRoot()) }
+        for store in stores { mergeStore(store) }
+    }
+
+    private func mergeStore(_ store: URL) {
+        guard let result = try? LibraryMigrator.merge(store: store, into: destinationRoot) else { return }
+        for url in result.pendingDownloads {
+            // Placeholders can't move until downloaded; a later launch
+            // finishes the job.
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        }
+        if !result.favoriteLines.isEmpty {
+            loadFavorites()
+            favorites.formUnion(result.favoriteLines.map(Self.normalizeFavoriteID))
+            saveFavorites()
+        }
+        if result.movedEPUBs > 0 {
+            status("Moved \(result.movedEPUBs) fic\(result.movedEPUBs == 1 ? "" : "s") into \(destinationLabel)")
+        }
+        // A fully drained legacy folder disappears (never Documents itself).
+        if store.lastPathComponent != "Documents",
+           store.standardizedFileURL.path != destinationRoot.standardizedFileURL.path,
+           LibraryMigrator.isEffectivelyEmpty(store) {
+            try? FileManager.default.removeItem(at: store)
+        }
+    }
+
+    #if os(iOS)
+    /// The folder a previous version connected through the folder picker.
+    /// Its fics are pulled into the container, then the bookmark is dropped.
+    private func legacyPickedStores() -> [URL] {
+        guard inCloud, let data = defaults.data(forKey: Keys.folderBookmark) else { return [] }
+        defaults.removeObject(forKey: Keys.folderBookmark)
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: data, bookmarkDataIsStale: &stale),
+              url.startAccessingSecurityScopedResource()
+        else { return [] }
+        return [url]
+    }
+    #endif
 
     private func updateDestinationLabel() {
-        if scopedAccess {
-            destinationLabel = destinationRoot.lastPathComponent
+        if inCloud {
+            destinationLabel = "iCloud Drive › Parade"
         } else {
             #if os(iOS)
-            destinationLabel = "On My iPhone › Parade › Fan Fiction"
+            destinationLabel = "On My iPhone › Parade"
             #else
-            destinationLabel = destinationRoot.path.contains("Mobile Documents")
-                ? "iCloud Drive › Fan Fiction"
-                : "Documents › Fan Fiction"
+            destinationLabel = "Documents › Parade"
             #endif
         }
     }
@@ -212,12 +208,14 @@ final class AppModel: ObservableObject {
     // MARK: - library (filesystem is the source of truth)
 
     func refreshLibrary() {
+        // Self-heal stray drops (an author folder at the root, etc.) so
+        // nothing in the folder can exist undetected.
+        LibraryMigrator.normalizeLayout(root: destinationRoot)
         loadFavorites()
         let fm = FileManager.default
-        var groups: [(author: String, items: [LibraryItem])] = []
-        let authorDirs: [URL]
+        let providerDirs: [URL]
         do {
-            authorDirs = try fm.contentsOfDirectory(
+            providerDirs = try fm.contentsOfDirectory(
                 at: destinationRoot, includingPropertiesForKeys: [.isDirectoryKey],
                 options: [.skipsHiddenFiles])
             libraryError = nil
@@ -229,16 +227,25 @@ final class AppModel: ObservableObject {
             return
         }
 
-        for dir in authorDirs {
-            guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
-            // Superseded versions live in Backups/ — not an author.
-            guard dir.lastPathComponent != Organizer.backupsFolder else { continue }
-            let files = (try? fm.contentsOfDirectory(
-                at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [])) ?? []
-            var items: [LibraryItem] = []
-            for file in files {
-                if let item = Self.libraryItem(for: file, author: dir.lastPathComponent) {
-                    items.append(item)
+        // <root>/<provider>/<Author>/<Title>.epub — authors merge across
+        // providers into one list per author name.
+        var byAuthor: [String: [LibraryItem]] = [:]
+        for providerDir in providerDirs {
+            guard (try? providerDir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
+                  providerDir.lastPathComponent != Organizer.backupsFolder else { continue }
+            let provider = providerDir.lastPathComponent
+            let authorDirs = (try? fm.contentsOfDirectory(
+                at: providerDir, includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles])) ?? []
+            for dir in authorDirs {
+                guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
+                      dir.lastPathComponent != Organizer.backupsFolder else { continue }
+                let files = (try? fm.contentsOfDirectory(
+                    at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [])) ?? []
+                for file in files {
+                    guard let item = Self.libraryItem(for: file, provider: provider, author: dir.lastPathComponent)
+                    else { continue }
+                    byAuthor[item.author, default: []].append(item)
                     if !item.isDownloaded {
                         // Ask iCloud to materialize placeholders so they
                         // become readable (and shareable) soon.
@@ -246,21 +253,20 @@ final class AppModel: ObservableObject {
                     }
                 }
             }
-            guard !items.isEmpty else { continue }
-            items.sort { $0.date > $1.date }
-            groups.append((author: dir.lastPathComponent, items: items))
         }
-        groups.sort { $0.author.localizedCaseInsensitiveCompare($1.author) == .orderedAscending }
-        library = groups
+        library = byAuthor
+            .map { author, items in (author: author, items: items.sorted { $0.date > $1.date }) }
+            .sorted { $0.author.localizedCaseInsensitiveCompare($1.author) == .orderedAscending }
     }
 
-    private static func libraryItem(for file: URL, author: String) -> LibraryItem? {
+    private static func libraryItem(for file: URL, provider: String, author: String) -> LibraryItem? {
         let name = file.lastPathComponent
         let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate ?? .distantPast
         if name.lowercased().hasSuffix(".epub") {
             return LibraryItem(
-                author: author, title: file.deletingPathExtension().lastPathComponent,
+                provider: provider, author: author,
+                title: file.deletingPathExtension().lastPathComponent,
                 url: file, date: date, isDownloaded: true)
         }
         // iCloud placeholder: ".Title.epub.icloud" stands in for "Title.epub".
@@ -269,7 +275,8 @@ final class AppModel: ObservableObject {
             guard realName.lowercased().hasSuffix(".epub") else { return nil }
             let realURL = file.deletingLastPathComponent().appendingPathComponent(realName)
             return LibraryItem(
-                author: author, title: (realName as NSString).deletingPathExtension,
+                provider: provider, author: author,
+                title: (realName as NSString).deletingPathExtension,
                 url: realURL, date: date, isDownloaded: false)
         }
         return nil
@@ -404,7 +411,14 @@ final class AppModel: ObservableObject {
         favorites = Set(
             text.split(whereSeparator: \.isNewline)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty })
+                .filter { !$0.isEmpty }
+                .map(Self.normalizeFavoriteID))
+    }
+
+    /// Favorites written before providers existed were "Author/Title";
+    /// current ids are "provider/Author/Title".
+    private static func normalizeFavoriteID(_ line: String) -> String {
+        line.components(separatedBy: "/").count == 2 ? Organizer.ao3 + "/" + line : line
     }
 
     private func saveFavorites() {
@@ -670,7 +684,9 @@ final class AppModel: ObservableObject {
                 .components(separatedBy: "/")
             let author = relParts.count > 1 ? relParts[0] : "Unknown Author"
             if author == Organizer.backupsFolder { skipped += 1; continue }
-            let authorDir = destinationRoot.appendingPathComponent(Organizer.sanitize(author), isDirectory: true)
+            let authorDir = destinationRoot
+                .appendingPathComponent(Organizer.ao3, isDirectory: true)
+                .appendingPathComponent(Organizer.sanitize(author), isDirectory: true)
             let dest = authorDir.appendingPathComponent(url.lastPathComponent)
             if fm.fileExists(atPath: dest.path) {
                 skipped += 1

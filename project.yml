@@ -44,6 +44,13 @@ targets:
         # App Store / TestFlight: HTTPS-only networking, so exempt from
         # export-compliance questions on every upload.
         ITSAppUsesNonExemptEncryption: false
+        # The library lives in the app's own iCloud container, shown in
+        # Files/Finder as "iCloud Drive › Parade".
+        NSUbiquitousContainers:
+          iCloud.com.natebutler.parade:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: Parade
+            NSUbiquitousContainerSupportedFolderLevels: Any
         LSApplicationCategoryType: public.app-category.utilities
         # macOS: closing Books reader windows after bulk imports
         NSAppleEventsUsageDescription: Parade closes the reader windows Apple Books opens when importing books.
@@ -54,6 +61,12 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.natebutler.parade
+        # Per-platform entitlements: both get the iCloud container; macOS
+        # additionally needs apple-events (hardened runtime) to close the
+        # reader windows Books opens on import.
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": Shared/Parade-iOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Shared/Parade-iOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Shared/Parade-macOS.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 8S43JJMN6B

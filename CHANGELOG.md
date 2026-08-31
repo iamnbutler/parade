@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- The library now lives in Parade's own iCloud Drive folder ("iCloud
+  Drive › Parade") on both platforms — no folder picking or connecting,
+  ever. Existing libraries (the old "Fan Fiction" folders, and anything
+  saved locally on the phone) move in automatically on first launch;
+  nothing is deleted — duplicates are kept in Backups/.
+- Fics are now filed by source: `ao3/Author/Title.epub`, paving the way
+  for other archives later. Backups follow the same shape
+  (`Backups/ao3/Author/…`).
+- A folder of EPUBs dropped anywhere in the library folder is noticed and
+  filed automatically within seconds.
+- Without an iCloud account the library falls back to "On My iPhone ›
+  Parade" (or `~/Documents/Parade` on the Mac).
+
+### Fixed
+- macOS: closing the reader windows Apple Books opens during import works
+  again in signed release builds (the hardened runtime needed an
+  Apple Events entitlement).
+
 ## 0.3.3 — 2026-08-31
 
 ### Fixed

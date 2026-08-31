@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var showFolderPicker = false
     #if os(macOS)
     @State private var showImportPicker = false
     #endif
@@ -30,9 +29,6 @@ struct SettingsView: View {
             #endif
             .navigationTitle("Settings")
         }
-        .fileImporter(isPresented: $showFolderPicker, allowedContentTypes: [.folder]) { result in
-            if case .success(let url) = result { model.setDestination(url) }
-        }
         #if os(macOS)
         .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.folder]) { result in
             if case .success(let url) = result {
@@ -49,17 +45,13 @@ struct SettingsView: View {
     private var folderSection: some View {
         Section {
             LabeledContent("Saving to", value: model.destinationLabel)
-            Button("Choose Folder…") { showFolderPicker = true }
-            if model.usesCustomDestination {
-                Button("Use Default Folder", role: .destructive) { model.resetDestination() }
-            }
         } header: {
             Text("Library Folder")
         } footer: {
             #if os(iOS)
-            Text("Pick a folder in iCloud Drive to sync your library everywhere. Fics are filed as Author/Title.epub. Tap “Books” on a fic to add it to Apple Books.")
+            Text("The library lives in Parade's own iCloud Drive folder and syncs to all your devices automatically. Fics are filed by source: ao3/Author/Title.epub.")
             #else
-            Text("The library folder is watched: fics that appear in it — downloaded here or synced from the phone — are imported into Apple Books automatically.")
+            Text("The library lives in iCloud Drive › Parade, synced with your other devices. The folder is watched: fics that appear in it — downloaded here or synced from the phone — can be imported into Apple Books.")
             #endif
         }
     }

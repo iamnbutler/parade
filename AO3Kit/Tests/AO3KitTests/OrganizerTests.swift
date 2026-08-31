@@ -25,9 +25,9 @@ final class OrganizerTests: XCTestCase {
         return url
     }
 
-    func testPlacesIntoAuthorTitle() throws {
+    func testPlacesIntoProviderAuthorTitle() throws {
         let dest = try Organizer(root: root).place(makeTempEPUB(), for: makeWork(title: "Some Fic", authors: ["writer"]))
-        XCTAssertEqual(dest.path, root.appendingPathComponent("writer/Some Fic.epub").path)
+        XCTAssertEqual(dest.path, root.appendingPathComponent("ao3/writer/Some Fic.epub").path)
         XCTAssertTrue(FileManager.default.fileExists(atPath: dest.path))
     }
 
@@ -39,11 +39,11 @@ final class OrganizerTests: XCTestCase {
         try organizer.place(old, for: work)
         let dest = try organizer.place(makeTempEPUB(), for: work)
 
-        // New version in place, old one preserved under Backups/a/.
+        // New version in place, old one preserved under Backups/ao3/a/.
         XCTAssertEqual(try String(contentsOf: dest, encoding: .utf8), "fake epub")
         let contents = try FileManager.default.contentsOfDirectory(atPath: dest.deletingLastPathComponent().path)
         XCTAssertEqual(contents, ["Fic.epub"])
-        let backupDir = root.appendingPathComponent("Backups/a")
+        let backupDir = root.appendingPathComponent("Backups/ao3/a")
         let backups = try FileManager.default.contentsOfDirectory(atPath: backupDir.path)
         XCTAssertEqual(backups.count, 1)
         XCTAssertTrue(backups[0].hasPrefix("Fic ("), "\(backups)")
@@ -58,7 +58,7 @@ final class OrganizerTests: XCTestCase {
         try organizer.place(makeTempEPUB(), for: work)
         try organizer.place(makeTempEPUB(), for: work)
         try organizer.place(makeTempEPUB(), for: work)
-        let backups = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Backups/a").path)
+        let backups = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Backups/ao3/a").path)
         XCTAssertEqual(backups.count, 2)
         XCTAssertEqual(Set(backups).count, 2)
     }
