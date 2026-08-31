@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 — 2026-08-31
+
+### Fixed
+- The app now reports its real version (About, TestFlight, and update
+  checks previously all saw "1.0 (1)").
+
 ## 0.3.1 — 2026-08-31
 
 ### Changed

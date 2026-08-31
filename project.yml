@@ -27,6 +27,10 @@ targets:
       path: Shared/Info.plist
       properties:
         CFBundleDisplayName: Parade
+        # XcodeGen otherwise hardcodes 1.0/1 — these must track the build
+        # settings or TestFlight and Sparkle both see the wrong version.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         # Make Documents visible in the Files app ("On My iPhone > Parade")
         UIFileSharingEnabled: true
