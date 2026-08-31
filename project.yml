@@ -31,8 +31,10 @@ targets:
         # Make Documents visible in the Files app ("On My iPhone > Parade")
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
+        # All four orientations — iPad multitasking requires the full set.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         # App Store / TestFlight: HTTPS-only networking, so exempt from
