@@ -4,7 +4,9 @@ import ZIPFoundation
 /// Rich metadata read from inside an AO3-exported EPUB — no network, no
 /// sidecar files. Works for any AO3 epub regardless of how it reached the
 /// library folder.
-public struct WorkDetails: Equatable, Sendable {
+public struct WorkDetails: Equatable, Sendable, Codable {
+    public init() {}
+
     public var title: String?
     public var authors: [String] = []
     /// Plain-text summary (AO3 stores it HTML-escaped in dc:description).

@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Large libraries no longer freeze or crash the app on launch. All library
+  scanning, migration, and iCloud download requests now run in the
+  background — the app opens instantly and the list fills in. Verified
+  with a 100,000-fic library.
+
+### Changed
+- Fic metadata (tags, fandoms, series…) is now cached between launches, so
+  the library is parsed once ever instead of on every launch.
+- Sorting and search no longer re-sort the whole library on every screen
+  update; big libraries stay responsive while switching sorts and typing.
+- iCloud downloads for a still-syncing library are requested once, not
+  re-requested every refresh; rescans space themselves out for huge
+  libraries.
+
 ## 0.4.0 — 2026-08-31
 
 ### Changed

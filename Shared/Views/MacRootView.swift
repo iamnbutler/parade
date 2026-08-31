@@ -211,11 +211,10 @@ struct MacRootView: View {
     }
 
     private var libraryFlat: [LibraryItem] {
-        let items = model.library.flatMap(\.items).filter { model.item($0, matches: searchText) }
-        if LibrarySort(rawValue: sortRaw) == .title {
-            return items.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-        }
-        return items.sorted { model.contentDate($0) > model.contentDate($1) }
+        // Ordering comes pre-sorted from the model's cache; only the search
+        // filter runs per render.
+        model.flatItems(LibrarySort(rawValue: sortRaw) ?? .updated)
+            .filter { model.item($0, matches: searchText) }
     }
 
 }

@@ -92,7 +92,7 @@ final class AppModel: ObservableObject {
     private func startAutoRefresh() {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self, !self.isWorking else { return }
+                guard let self, !self.isWorking, self.autoRefreshDue else { return }
                 self.refreshLibrary()
                 self.buildDetailsIndex()
             }
@@ -131,9 +131,9 @@ final class AppModel: ObservableObject {
         } else {
             status("iCloud is unavailable — keeping the library on this device.")
         }
-        migrateLegacyStores()
         updateDestinationLabel()
-        refreshLibrary()
+        await migrateLegacyStores()
+        await refreshLibraryNow()
         buildDetailsIndex()
     }
 
@@ -141,7 +141,7 @@ final class AppModel: ObservableObject {
     /// current root: the old "Fan Fiction" folders, (iOS) a folder connected
     /// through the old picker, and the local fallback once iCloud is up.
     /// Move-only and idempotent — see LibraryMigrator.
-    private func migrateLegacyStores() {
+    private func migrateLegacyStores() async {
         var stores: [URL] = []
         #if os(iOS)
         stores.append(contentsOf: legacyPickedStores())
@@ -153,18 +153,22 @@ final class AppModel: ObservableObject {
         stores.append(home.appendingPathComponent("Documents/Fan Fiction", isDirectory: true))
         #endif
         if inCloud { stores.append(Self.localRoot()) }
-        for store in stores { mergeStore(store) }
+        for store in stores { await mergeStore(store) }
     }
 
-    private func mergeStore(_ store: URL) {
-        guard let result = try? LibraryMigrator.merge(store: store, into: destinationRoot) else { return }
-        for url in result.pendingDownloads {
-            // Placeholders can't move until downloaded; a later launch
-            // finishes the job.
-            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-        }
+    /// One store's merge. The file moves run off the main actor — a big
+    /// migration over cold iCloud folders must never freeze the UI.
+    private func mergeStore(_ store: URL) async {
+        let root = destinationRoot
+        let result = await Task.detached(priority: .userInitiated) {
+            try? LibraryMigrator.merge(store: store, into: root)
+        }.value
+        guard let result else { return }
+        // Placeholders can't move until downloaded; a later launch
+        // finishes the job.
+        requestDownloads(result.pendingDownloads)
         if !result.favoriteLines.isEmpty {
-            loadFavorites()
+            favorites.formUnion(Self.favoriteIDs(at: favoritesFile))
             favorites.formUnion(result.favoriteLines.map(Self.normalizeFavoriteID))
             saveFavorites()
         }
@@ -173,9 +177,12 @@ final class AppModel: ObservableObject {
         }
         // A fully drained legacy folder disappears (never Documents itself).
         if store.lastPathComponent != "Documents",
-           store.standardizedFileURL.path != destinationRoot.standardizedFileURL.path,
-           LibraryMigrator.isEffectivelyEmpty(store) {
-            try? FileManager.default.removeItem(at: store)
+           store.standardizedFileURL.path != root.standardizedFileURL.path {
+            await Task.detached {
+                if LibraryMigrator.isEffectivelyEmpty(store) {
+                    try? FileManager.default.removeItem(at: store)
+                }
+            }.value
         }
     }
 
@@ -207,24 +214,90 @@ final class AppModel: ObservableObject {
 
     // MARK: - library (filesystem is the source of truth)
 
+    /// Snapshot of one background pass over the library folder.
+    private struct LibraryScan {
+        var groups: [(author: String, items: [LibraryItem])] = []
+        var favorites: Set<String> = []
+        var placeholders: [URL] = []
+        var error: String?
+    }
+
+    private var refreshTask: Task<Void, Never>?
+    /// Placeholders whose download has already been requested this run, so a
+    /// large still-syncing library isn't re-requested on every refresh.
+    private var requestedDownloads: Set<String> = []
+    private var lastRefreshEnd = Date.distantPast
+    private var lastScanDuration: TimeInterval = 0
+
+    /// Timers poll every 15 seconds, but a huge library shouldn't be
+    /// rescanned back-to-back — scans stay spaced at 10× their own cost.
+    var autoRefreshDue: Bool {
+        Date().timeIntervalSince(lastRefreshEnd) >= max(15, lastScanDuration * 10)
+    }
+
+    /// Schedules a background rescan; results land back on the main actor.
+    /// Cheap to call often — concurrent calls share one scan.
     func refreshLibrary() {
+        Task { await self.refreshLibraryNow() }
+    }
+
+    func refreshLibraryNow() async {
+        if let running = refreshTask {
+            await running.value
+            return
+        }
+        let task = Task { await self.performRefresh() }
+        refreshTask = task
+        await task.value
+        refreshTask = nil
+    }
+
+    private func performRefresh() async {
+        let root = destinationRoot
+        let started = Date()
+        let scan = await Task.detached(priority: .userInitiated) {
+            Self.scanLibrary(root: root)
+        }.value
+        lastScanDuration = Date().timeIntervalSince(started)
+        lastRefreshEnd = Date()
+        guard root.path == destinationRoot.path else { return }  // root moved mid-scan
+        if let error = scan.error {
+            // Don't swallow this: on macOS a denied Files-and-Folders / iCloud
+            // Drive permission looks exactly like an empty folder otherwise.
+            libraryError = error
+            library = []
+            return
+        }
+        libraryError = nil
+        favorites = scan.favorites
+        library = scan.groups
+        flatCache = [:]
+        fandomCache = nil
+        requestDownloads(scan.placeholders)
+    }
+
+    /// The full folder walk. Runs off the main actor — launch and refresh
+    /// must never block the UI on filesystem (or cold iCloud metadata) work.
+    private nonisolated static func scanLibrary(root: URL) -> LibraryScan {
         // Self-heal stray drops (an author folder at the root, etc.) so
         // nothing in the folder can exist undetected.
-        LibraryMigrator.normalizeLayout(root: destinationRoot)
-        loadFavorites()
+        LibraryMigrator.normalizeLayout(root: root)
         let fm = FileManager.default
+        var scan = LibraryScan()
+        let favoritesFile = root.appendingPathComponent("Favorites.txt")
+        if fm.fileExists(atPath: root.appendingPathComponent(".Favorites.txt.icloud").path) {
+            scan.placeholders.append(favoritesFile)
+        }
+        scan.favorites = favoriteIDs(at: favoritesFile)
+
         let providerDirs: [URL]
         do {
             providerDirs = try fm.contentsOfDirectory(
-                at: destinationRoot, includingPropertiesForKeys: [.isDirectoryKey],
+                at: root, includingPropertiesForKeys: [.isDirectoryKey],
                 options: [.skipsHiddenFiles])
-            libraryError = nil
         } catch {
-            // Don't swallow this: on macOS a denied Files-and-Folders / iCloud
-            // Drive permission looks exactly like an empty folder otherwise.
-            libraryError = "Can't read \(destinationRoot.path): \(error.localizedDescription)"
-            library = []
-            return
+            scan.error = "Can't read \(root.path): \(error.localizedDescription)"
+            return scan
         }
 
         // <root>/<provider>/<Author>/<Title>.epub — authors merge across
@@ -247,19 +320,30 @@ final class AppModel: ObservableObject {
                     else { continue }
                     byAuthor[item.author, default: []].append(item)
                     if !item.isDownloaded {
-                        // Ask iCloud to materialize placeholders so they
-                        // become readable (and shareable) soon.
-                        try? fm.startDownloadingUbiquitousItem(at: item.url)
+                        scan.placeholders.append(item.url)
                     }
                 }
             }
         }
-        library = byAuthor
+        scan.groups = byAuthor
             .map { author, items in (author: author, items: items.sorted { $0.date > $1.date }) }
             .sorted { $0.author.localizedCaseInsensitiveCompare($1.author) == .orderedAscending }
+        return scan
     }
 
-    private static func libraryItem(for file: URL, provider: String, author: String) -> LibraryItem? {
+    /// Asks iCloud to materialize placeholders so they become readable —
+    /// once per file per app run, off the main thread.
+    private func requestDownloads(_ urls: [URL]) {
+        let fresh = urls.filter { requestedDownloads.insert($0.path).inserted }
+        guard !fresh.isEmpty else { return }
+        Task.detached(priority: .utility) {
+            for url in fresh {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            }
+        }
+    }
+
+    private nonisolated static func libraryItem(for file: URL, provider: String, author: String) -> LibraryItem? {
         let name = file.lastPathComponent
         let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate ?? .distantPast
@@ -282,19 +366,65 @@ final class AppModel: ObservableObject {
         return nil
     }
 
+    // MARK: - sorted views of the library (cached, never per-render)
+
+    private var flatCache: [LibrarySort: [LibraryItem]] = [:]
+    private var fandomCache: [(name: String, items: [LibraryItem])]?
+
+    /// Every item in the given order — computed once per library/details
+    /// change so list bodies never re-sort 100k items per render.
+    func flatItems(_ sort: LibrarySort) -> [LibraryItem] {
+        if let cached = flatCache[sort] { return cached }
+        let all = library.flatMap(\.items)
+        let sorted: [LibraryItem]
+        switch sort {
+        case .author:
+            sorted = all  // library groups are already author-ordered
+        case .title:
+            // Precompute keys: a localized compare inside sort() is O(n log n)
+            // expensive comparisons; lowercasing once per item is O(n).
+            sorted = all.map { ($0.title.lowercased(), $0) }
+                .sorted { $0.0 < $1.0 }.map(\.1)
+        case .updated:
+            sorted = all.map { (contentDate($0), $0) }
+                .sorted { $0.0 > $1.0 }.map(\.1)
+        }
+        flatCache[sort] = sorted
+        return sorted
+    }
+
     // MARK: - fic details (parsed out of the EPUB itself)
 
     /// item.id → metadata, for whatever has been parsed so far. Series
     /// grouping and search read from this; it fills in the background.
     @Published private(set) var detailsIndex: [String: WorkDetails] = [:]
+    /// "path|mtime" → details. Persisted to Caches so a library is parsed
+    /// once ever, not once per launch.
     private var detailsCache: [String: WorkDetails] = [:]
+    private var detailsCacheLoaded = false
+    private var lastCacheSave = Date.distantPast
     private var indexTask: Task<Void, Never>?
+
+    private nonisolated static var detailsCacheFile: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("parade-details-cache.json")
+    }
+
+    private nonisolated static func cacheKey(_ item: LibraryItem) -> String {
+        item.url.path + "|" + String(item.date.timeIntervalSince1970)
+    }
+
+    private func didUpdateDetails() {
+        flatCache[.updated] = nil
+        fandomCache = nil
+    }
 
     /// Rich metadata for one fic, read from inside its EPUB (summary, tags,
     /// series, stats…). Cached per file version.
     func details(for item: LibraryItem) async -> WorkDetails? {
-        let key = item.url.path + "|" + String(item.date.timeIntervalSince1970)
+        let key = Self.cacheKey(item)
         if let hit = detailsCache[key] {
+            guard hit != WorkDetails() else { return nil }  // known unparseable
             detailsIndex[item.id] = hit
             return hit
         }
@@ -305,31 +435,95 @@ final class AppModel: ObservableObject {
         if let parsed {
             detailsCache[key] = parsed
             detailsIndex[item.id] = parsed
+            didUpdateDetails()
         }
         return parsed
     }
 
-    /// Walks the library parsing any EPUBs not yet in the index.
+    /// Walks the library parsing any EPUBs not yet in the index — off the
+    /// main actor, in batches, against the persistent cache.
     func buildDetailsIndex() {
         guard indexTask == nil else { return }
-        let items = library.flatMap(\.items).filter(\.isDownloaded)
         indexTask = Task { [weak self] in
-            for item in items {
-                guard let self, !Task.isCancelled else { return }
-                let key = item.url.path + "|" + String(item.date.timeIntervalSince1970)
-                if self.detailsCache[key] == nil {
-                    _ = await self.details(for: item)
-                } else if self.detailsIndex[item.id] == nil {
-                    self.detailsIndex[item.id] = self.detailsCache[key]
-                }
-            }
+            await self?.runDetailsIndexing()
             self?.indexTask = nil
         }
     }
 
+    private func runDetailsIndexing() async {
+        if !detailsCacheLoaded {
+            detailsCacheLoaded = true
+            let file = Self.detailsCacheFile
+            let loaded = await Task.detached(priority: .utility) { () -> [String: WorkDetails] in
+                guard let data = try? Data(contentsOf: file) else { return [:] }
+                return (try? JSONDecoder().decode([String: WorkDetails].self, from: data)) ?? [:]
+            }.value
+            detailsCache.merge(loaded) { current, _ in current }
+        }
+        let items = library.flatMap(\.items).filter(\.isDownloaded)
+
+        // Everything the cache already knows lands in one batch. An empty
+        // WorkDetails is the "known unparseable" sentinel — cached so a bad
+        // file is attempted once ever, but never surfaced.
+        var fromCache: [String: WorkDetails] = [:]
+        var toParse: [LibraryItem] = []
+        for item in items {
+            if let hit = detailsCache[Self.cacheKey(item)] {
+                if hit != WorkDetails(), detailsIndex[item.id] == nil { fromCache[item.id] = hit }
+            } else {
+                toParse.append(item)
+            }
+        }
+        if !fromCache.isEmpty {
+            detailsIndex.merge(fromCache) { _, new in new }
+            didUpdateDetails()
+        }
+
+        // Parse the rest in chunks off-main; publish per chunk so the UI
+        // enriches progressively without 100k separate invalidations.
+        for start in stride(from: 0, to: toParse.count, by: 200) {
+            if Task.isCancelled { break }
+            let chunk = Array(toParse[start..<min(start + 200, toParse.count)])
+            let parsed = await Task.detached(priority: .utility) { () -> [(id: String, key: String, details: WorkDetails)] in
+                chunk.map { item in
+                    (item.id, Self.cacheKey(item), (try? EPUBDetailsParser.parse(epubAt: item.url)) ?? WorkDetails())
+                }
+            }.value
+            var enriched = false
+            for entry in parsed {
+                detailsCache[entry.key] = entry.details
+                if entry.details != WorkDetails() {
+                    detailsIndex[entry.id] = entry.details
+                    enriched = true
+                }
+            }
+            if enriched { didUpdateDetails() }
+            saveDetailsCache(throttled: true)
+        }
+
+        // Final save, dropping cache entries for files that no longer exist
+        // at that version so the cache can't grow without bound.
+        let validKeys = Set(items.map(Self.cacheKey))
+        detailsCache = detailsCache.filter { validKeys.contains($0.key) }
+        saveDetailsCache(throttled: false)
+    }
+
+    private func saveDetailsCache(throttled: Bool) {
+        if throttled, Date().timeIntervalSince(lastCacheSave) < 10 { return }
+        lastCacheSave = Date()
+        let snapshot = detailsCache
+        let file = Self.detailsCacheFile
+        Task.detached(priority: .utility) {
+            if let data = try? JSONEncoder().encode(snapshot) {
+                try? data.write(to: file, options: .atomic)
+            }
+        }
+    }
+
     /// Fics grouped by fandom (a fic in several fandoms appears in each).
-    /// Only as complete as the details index.
+    /// Only as complete as the details index; cached between changes.
     var fandomGroups: [(name: String, items: [LibraryItem])] {
+        if let cached = fandomCache { return cached }
         var byFandom: [String: [LibraryItem]] = [:]
         for item in library.flatMap(\.items) {
             guard let details = detailsIndex[item.id] else { continue }
@@ -337,28 +531,30 @@ final class AppModel: ObservableObject {
                 byFandom[fandom, default: []].append(item)
             }
         }
-        return byFandom
+        let groups = byFandom
             .map { name, items in
                 (name: name, items: items.sorted {
                     ($0.author.lowercased(), $0.title.lowercased()) < ($1.author.lowercased(), $1.title.lowercased())
                 })
             }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        fandomCache = groups
+        return groups
     }
 
     /// Search across title, author, and (once indexed) series, fandoms,
-    /// tags, relationships, and characters.
+    /// tags, relationships, and characters. Allocation-free per item —
+    /// this runs library-size times per keystroke.
     func item(_ item: LibraryItem, matches query: String) -> Bool {
         guard !query.isEmpty else { return true }
         if item.title.localizedCaseInsensitiveContains(query) { return true }
         if item.author.localizedCaseInsensitiveContains(query) { return true }
         guard let d = detailsIndex[item.id] else { return false }
-        let haystacks = [
-            d.seriesName.map { [$0] } ?? [],
-            d.fandoms, d.additionalTags, d.relationships, d.characters,
-            d.categories, d.rating, d.warnings,
-        ]
-        return haystacks.joined().contains { $0.localizedCaseInsensitiveContains(query) }
+        if let series = d.seriesName, series.localizedCaseInsensitiveContains(query) { return true }
+        for list in [d.fandoms, d.additionalTags, d.relationships, d.characters, d.categories, d.rating, d.warnings] {
+            for value in list where value.localizedCaseInsensitiveContains(query) { return true }
+        }
+        return false
     }
 
     func delete(_ item: LibraryItem) {
@@ -373,6 +569,14 @@ final class AppModel: ObservableObject {
         persistImported()
         #endif
         if favorites.remove(item.id) != nil { saveFavorites() }
+        // Drop it from the visible list immediately; the background rescan
+        // confirms.
+        library = library.compactMap { group in
+            let items = group.items.filter { $0.id != item.id }
+            return items.isEmpty ? nil : (author: group.author, items: items)
+        }
+        flatCache = [:]
+        fandomCache = nil
         refreshLibrary()
     }
 
@@ -386,9 +590,7 @@ final class AppModel: ObservableObject {
     private var favoritesFile: URL { destinationRoot.appendingPathComponent("Favorites.txt") }
 
     var favoriteItems: [LibraryItem] {
-        library.flatMap(\.items)
-            .filter { favorites.contains($0.id) }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        flatItems(.title).filter { favorites.contains($0.id) }
     }
 
     func isFavorite(_ item: LibraryItem) -> Bool { favorites.contains(item.id) }
@@ -398,26 +600,20 @@ final class AppModel: ObservableObject {
         saveFavorites()
     }
 
-    private func loadFavorites() {
-        let fm = FileManager.default
-        let placeholder = destinationRoot.appendingPathComponent(".Favorites.txt.icloud")
-        if fm.fileExists(atPath: placeholder.path) {
-            try? fm.startDownloadingUbiquitousItem(at: favoritesFile)
-        }
-        guard let text = try? String(contentsOf: favoritesFile, encoding: .utf8) else {
-            favorites = []
-            return
-        }
-        favorites = Set(
+    /// Reads a Favorites.txt into normalized ids. Also used by the
+    /// background scan, so it must stay off-actor.
+    private nonisolated static func favoriteIDs(at file: URL) -> Set<String> {
+        guard let text = try? String(contentsOf: file, encoding: .utf8) else { return [] }
+        return Set(
             text.split(whereSeparator: \.isNewline)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
-                .map(Self.normalizeFavoriteID))
+                .map(normalizeFavoriteID))
     }
 
     /// Favorites written before providers existed were "Author/Title";
     /// current ids are "provider/Author/Title".
-    private static func normalizeFavoriteID(_ line: String) -> String {
+    private nonisolated static func normalizeFavoriteID(_ line: String) -> String {
         line.components(separatedBy: "/").count == 2 ? Organizer.ao3 + "/" + line : line
     }
 
@@ -457,9 +653,9 @@ final class AppModel: ObservableObject {
         } catch {
             status("⚠️ \(error.localizedDescription)")
         }
-        refreshLibrary()
+        await refreshLibraryNow()
         #if os(macOS)
-        scan()
+        await scanNow()
         #endif
     }
 
@@ -494,7 +690,7 @@ final class AppModel: ObservableObject {
         guard !isCheckingUpdates, !isWorking else { return }
         isCheckingUpdates = true
         defer { isCheckingUpdates = false }
-        refreshLibrary()
+        await refreshLibraryNow()
         let items = library.flatMap(\.items).filter(\.isDownloaded)
         status("Checking \(items.count) fic\(items.count == 1 ? "" : "s") against AO3…")
         var checked = 0, found = 0
@@ -543,9 +739,9 @@ final class AppModel: ObservableObject {
         } catch {
             status("⚠️ \(error.localizedDescription)")
         }
-        refreshLibrary()
+        await refreshLibraryNow()
         #if os(macOS)
-        scan()
+        await scanNow()
         #endif
     }
 
@@ -600,7 +796,10 @@ final class AppModel: ObservableObject {
     private func startWatching() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.scan() }
+            Task { @MainActor in
+                guard let self, self.autoRefreshDue else { return }
+                self.scan()
+            }
         }
         scan()
     }
@@ -608,7 +807,11 @@ final class AppModel: ObservableObject {
     /// One poll of the library folder: refresh the view, and auto-import
     /// EPUBs that arrived or changed since the last look.
     func scan() {
-        refreshLibrary()
+        Task { await self.scanNow() }
+    }
+
+    func scanNow() async {
+        await refreshLibraryNow()
         let downloaded = library.flatMap(\.items).filter(\.isDownloaded)
 
         // First look at a folder: baseline its existing contents as already
@@ -724,7 +927,7 @@ final class AppModel: ObservableObject {
     /// Explicit bulk action: send every EPUB in the library to Apple Books,
     /// batched, tidying the reader windows Books opens along the way.
     func importAllToBooks() async {
-        refreshLibrary()
+        await refreshLibraryNow()
         let epubs = library.flatMap(\.items).filter(\.isDownloaded).map(\.url)
         guard !epubs.isEmpty else {
             status("⚠️ Library is empty")

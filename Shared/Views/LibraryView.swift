@@ -16,13 +16,9 @@ struct LibraryView: View {
     }
 
     private var flatItems: [LibraryItem] {
-        let items = model.library.flatMap(\.items).filter { model.item($0, matches: searchText) }
-        if sort == .title {
-            return items.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-        }
-        // Last Updated: the fic's own update date (from inside the EPUB),
-        // newest first.
-        return items.sorted { model.contentDate($0) > model.contentDate($1) }
+        // Ordering comes pre-sorted from the model's cache; only the search
+        // filter runs per render.
+        model.flatItems(sort).filter { model.item($0, matches: searchText) }
     }
 
     var body: some View {
