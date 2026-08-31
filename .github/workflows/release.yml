@@ -42,6 +42,7 @@ jobs:
               CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
               ENABLE_HARDENED_RUNTIME=YES \
               CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Developer ID Application" \
+              DEVELOPMENT_TEAM=8S43JJMN6B \
               archive
             cat > export.plist <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
