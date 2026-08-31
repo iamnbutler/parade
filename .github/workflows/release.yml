@@ -20,22 +20,84 @@ jobs:
         run: xcodegen generate
 
       - name: Build Release app
+        env:
+          DEVID_P12_B64: ${{ secrets.DEVID_P12_B64 }}
+          DEVID_P12_PASSWORD: ${{ secrets.DEVID_P12_PASSWORD }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          xcodebuild -project Parade.xcodeproj -scheme Parade \
-            -destination 'generic/platform=macOS' -configuration Release \
-            -derivedDataPath build \
-            MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
-            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
-            build
+          if [ -n "$DEVID_P12_B64" ]; then
+            # Developer ID signing: import the cert into a throwaway keychain,
+            # archive with hardened runtime, export re-signed for distribution.
+            security create-keychain -p ci build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p ci build.keychain
+            printf '%s' "$DEVID_P12_B64" | base64 -d > cert.p12
+            security import cert.p12 -k build.keychain -P "$DEVID_P12_PASSWORD" -T /usr/bin/codesign
+            rm cert.p12
+            security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain > /dev/null
+            xcodebuild -project Parade.xcodeproj -scheme Parade \
+              -destination 'generic/platform=macOS' -configuration Release \
+              -derivedDataPath build -archivePath dist/Parade.xcarchive \
+              MARKETING_VERSION="$VERSION" \
+              CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+              ENABLE_HARDENED_RUNTIME=YES \
+              CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Developer ID Application" \
+              archive
+            cat > export.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>developer-id</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>teamID</key>
+            <string>8S43JJMN6B</string>
+          </dict>
+          </plist>
+          EOF
+            xcodebuild -exportArchive -archivePath dist/Parade.xcarchive \
+              -exportOptionsPlist export.plist -exportPath dist/export
+            echo "APP_PATH=dist/export/Parade.app" >> "$GITHUB_ENV"
+          else
+            echo "::notice::DEVID_P12_B64 not set — building ad-hoc signed (Open Anyway install)."
+            xcodebuild -project Parade.xcodeproj -scheme Parade \
+              -destination 'generic/platform=macOS' -configuration Release \
+              -derivedDataPath build \
+              MARKETING_VERSION="$VERSION" \
+              CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+              CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+              build
+            echo "APP_PATH=build/Build/Products/Release/Parade.app" >> "$GITHUB_ENV"
+          fi
 
       - name: Make DMG
         run: |
           mkdir -p dist/dmg
-          cp -R "build/Build/Products/Release/Parade.app" dist/dmg/
+          cp -R "$APP_PATH" dist/dmg/
           ln -s /Applications dist/dmg/Applications
           hdiutil create -volname "Parade" -srcfolder dist/dmg -format UDZO dist/Parade.dmg
+
+      - name: Notarize DMG
+        env:
+          DEVID_P12_B64: ${{ secrets.DEVID_P12_B64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          if [ -z "$DEVID_P12_B64" ] || [ -z "$ASC_KEY_ID" ]; then
+            echo "::notice::Skipping notarization (needs DEVID_P12_B64 + ASC_* secrets)."
+            exit 0
+          fi
+          codesign --force --sign "Developer ID Application" --timestamp dist/Parade.dmg
+          mkdir -p ~/private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          xcrun notarytool submit dist/Parade.dmg \
+            --key ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" \
+            --wait --timeout 30m
+          xcrun stapler staple dist/Parade.dmg
 
       - name: Sign update and write appcast
         env:

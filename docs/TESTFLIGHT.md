@@ -54,10 +54,23 @@ provisioning profiles are stored in the repo or in CI.
   build automatically — no cables, no UDIDs, 90-day build lifetime that
   each new upload resets.
 
-## Also unlocked by the renewed membership (separate task)
+## Notarized DMG (macOS releases)
 
-- **Notarized DMG**: create a *Developer ID Application* certificate
-  (Xcode → Settings → Accounts → Manage Certificates → **+**), then the
-  Release workflow can codesign + `notarytool` the DMG so Macs open it
-  without "Open Anyway". Ad-hoc UDID provisioning exists too, but
-  TestFlight replaces any need for it.
+The Release workflow signs and notarizes the DMG automatically once two
+more secrets exist (it reuses the `ASC_*` secrets above for notarization):
+
+1. Export the certificate: **Keychain Access** → My Certificates →
+   right-click *Developer ID Application: Nathan Butler* → Export…,
+   format `.p12`, set a password.
+2. Add secrets:
+
+   | Secret                | Value                                    |
+   | --------------------- | ---------------------------------------- |
+   | `DEVID_P12_B64`       | `base64 -i Certificates.p12 \| pbcopy`   |
+   | `DEVID_P12_PASSWORD`  | the export password                      |
+
+3. Delete the exported `.p12` file afterwards.
+
+Until these are set, releases keep building the ad-hoc "Open Anyway" DMG.
+With them set, downloaded DMGs open clean (`spctl` reports
+"Notarized Developer ID") — verified locally end-to-end on 2026-08-31.
