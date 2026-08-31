@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-08-31
 
 ### Changed
 - The library now lives in Parade's own iCloud Drive folder ("iCloud
