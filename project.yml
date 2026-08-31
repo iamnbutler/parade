@@ -35,6 +35,10 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # App Store / TestFlight: HTTPS-only networking, so exempt from
+        # export-compliance questions on every upload.
+        ITSAppUsesNonExemptEncryption: false
+        LSApplicationCategoryType: public.app-category.utilities
         # macOS: closing Books reader windows after bulk imports
         NSAppleEventsUsageDescription: Parade closes the reader windows Apple Books opens when importing books.
         # macOS: Sparkle auto-updates
