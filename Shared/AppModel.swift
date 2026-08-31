@@ -75,8 +75,28 @@ final class AppModel: ObservableObject {
         refreshLibrary()
         #if os(macOS)
         startWatching()
+        #else
+        startAutoRefresh()
         #endif
     }
+
+    #if os(iOS)
+    private var refreshTimer: Timer?
+
+    /// Poll the library folder while the app is in the foreground, so fics
+    /// synced in through iCloud show up without a manual refresh. (The
+    /// timer doesn't fire in the background; the folder is re-read the
+    /// moment views reappear anyway.)
+    private func startAutoRefresh() {
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, !self.isWorking else { return }
+                self.refreshLibrary()
+                self.buildDetailsIndex()
+            }
+        }
+    }
+    #endif
 
     // MARK: - destination folder
 

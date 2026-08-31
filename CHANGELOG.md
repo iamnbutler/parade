@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.3 — 2026-08-31
+
+### Fixed
+- iOS: the library now refreshes itself every few seconds while the app is
+  open, and when returning to the app — fics synced in through iCloud
+  appear without a manual pull-to-refresh.
+
 ## 0.3.2 — 2026-08-31
 
 ### Fixed

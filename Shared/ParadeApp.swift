@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct ParadeApp: App {
     @StateObject private var model = AppModel()
+    @Environment(\.scenePhase) private var scenePhase
     #if os(macOS)
     @StateObject private var updater = UpdaterModel()
     #endif
@@ -38,6 +39,12 @@ struct ParadeApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .environmentObject(model)
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active {
+                        model.refreshLibrary()
+                        model.buildDetailsIndex()
+                    }
+                }
         }
         #endif
     }
