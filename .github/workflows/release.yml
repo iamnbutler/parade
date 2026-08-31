@@ -23,6 +23,7 @@ jobs:
         env:
           DEVID_P12_B64: ${{ secrets.DEVID_P12_B64 }}
           DEVID_P12_PASSWORD: ${{ secrets.DEVID_P12_PASSWORD }}
+          DEVID_PROFILE_B64: ${{ secrets.DEVID_PROFILE_B64 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -56,6 +57,12 @@ jobs:
               DEVELOPMENT_TEAM=8S43JJMN6B \
               "${AUTH[@]}" \
               archive
+            # Export signs manually: API keys aren't allowed to mint
+            # Developer ID profiles on the fly ("Cloud signing permission
+            # error"), so a pre-made profile ships in as a secret.
+            mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+            printf '%s' "$DEVID_PROFILE_B64" | base64 -d \
+              > "$HOME/Library/MobileDevice/Provisioning Profiles/parade-devid.provisionprofile"
             cat > export.plist <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -66,15 +73,21 @@ jobs:
             <key>destination</key>
             <string>export</string>
             <key>signingStyle</key>
-            <string>automatic</string>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Developer ID Application</string>
             <key>teamID</key>
             <string>8S43JJMN6B</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.natebutler.parade</key>
+              <string>Parade Developer ID</string>
+            </dict>
           </dict>
           </plist>
           EOF
             xcodebuild -exportArchive -archivePath dist/Parade.xcarchive \
-              -exportOptionsPlist export.plist -exportPath dist/export \
-              "${AUTH[@]}"
+              -exportOptionsPlist export.plist -exportPath dist/export
             echo "APP_PATH=dist/export/Parade.app" >> "$GITHUB_ENV"
           else
             echo "::notice::DEVID_P12_B64/ASC secrets not set — building ad-hoc signed (Open Anyway install)."
