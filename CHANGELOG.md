@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 — 2026-08-31
+
+### Changed
+- The macOS DMG is now signed and notarized — it opens without any
+  security warnings.
+- iOS builds ship through TestFlight.
+
 ## 0.3.0 — 2026-08-30
 
 ### Added
