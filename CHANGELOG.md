@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.1 — 2026-08-31
 
 ### Fixed
 - Large libraries no longer freeze or crash the app on launch. All library
