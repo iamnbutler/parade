@@ -42,6 +42,15 @@ final class AppModel: ObservableObject {
     @Published var isWorking = false
     @Published var destinationLabel = ""
     @Published var libraryError: String?
+    /// A folder scan is in flight (the first one over a cold iCloud folder
+    /// can take a while).
+    @Published private(set) var isScanning = false
+    /// Legacy stores are being moved into the current root.
+    @Published private(set) var isMigrating = false
+    /// EPUB metadata (tags, fandoms…) is being read in the background.
+    @Published private(set) var isIndexing = false
+    /// At least one full scan of the current root has finished.
+    @Published private(set) var hasLoadedOnce = false
 
     private let client = AO3Client()
     private let defaults = UserDefaults.standard
@@ -128,11 +137,16 @@ final class AppModel: ObservableObject {
             try? FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
             destinationRoot = container
             inCloud = true
+            // New root, new first scan — the loading state should show
+            // until the container has actually been read once.
+            hasLoadedOnce = false
         } else {
             status("iCloud is unavailable — keeping the library on this device.")
         }
         updateDestinationLabel()
+        isMigrating = true
         await migrateLegacyStores()
+        isMigrating = false
         await refreshLibraryNow()
         buildDetailsIndex()
     }
@@ -252,12 +266,39 @@ final class AppModel: ObservableObject {
         refreshTask = nil
     }
 
+    /// Bumped per scan (and on completion) so partial results from a
+    /// superseded scan can never overwrite a newer library.
+    private var scanGeneration = 0
+
+    private func applyPartialScan(_ groups: [(author: String, items: [LibraryItem])], generation: Int) {
+        guard scanGeneration == generation else { return }
+        library = groups
+        flatCache = [:]
+        fandomCache = nil
+    }
+
     private func performRefresh() async {
         let root = destinationRoot
+        scanGeneration += 1
+        let gen = scanGeneration
+        isScanning = true
+        defer { isScanning = false }
         let started = Date()
+        // While the visible library is empty (first launch, or the root just
+        // moved), results stream in as the walk finds them instead of
+        // holding everything until the whole folder has been read.
+        var onPartial: (@Sendable ([(author: String, items: [LibraryItem])]) -> Void)?
+        if library.isEmpty {
+            onPartial = { [weak self] groups in
+                Task<Void, Never> {
+                    await self?.applyPartialScan(groups, generation: gen)
+                }
+            }
+        }
         let scan = await Task.detached(priority: .userInitiated) {
-            Self.scanLibrary(root: root)
+            Self.scanLibrary(root: root, onPartial: onPartial)
         }.value
+        scanGeneration += 1  // straggler partials become no-ops
         lastScanDuration = Date().timeIntervalSince(started)
         lastRefreshEnd = Date()
         guard root.path == destinationRoot.path else { return }  // root moved mid-scan
@@ -273,12 +314,16 @@ final class AppModel: ObservableObject {
         library = scan.groups
         flatCache = [:]
         fandomCache = nil
+        hasLoadedOnce = true
         requestDownloads(scan.placeholders)
     }
 
     /// The full folder walk. Runs off the main actor — launch and refresh
     /// must never block the UI on filesystem (or cold iCloud metadata) work.
-    private nonisolated static func scanLibrary(root: URL) -> LibraryScan {
+    private nonisolated static func scanLibrary(
+        root: URL,
+        onPartial: (@Sendable ([(author: String, items: [LibraryItem])]) -> Void)? = nil
+    ) -> LibraryScan {
         // Self-heal stray drops (an author folder at the root, etc.) so
         // nothing in the folder can exist undetected.
         LibraryMigrator.normalizeLayout(root: root)
@@ -303,6 +348,7 @@ final class AppModel: ObservableObject {
         // <root>/<provider>/<Author>/<Title>.epub — authors merge across
         // providers into one list per author name.
         var byAuthor: [String: [LibraryItem]] = [:]
+        var lastEmit = Date()
         for providerDir in providerDirs {
             guard (try? providerDir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
                   providerDir.lastPathComponent != Organizer.backupsFolder else { continue }
@@ -323,12 +369,23 @@ final class AppModel: ObservableObject {
                         scan.placeholders.append(item.url)
                     }
                 }
+                if let onPartial, !byAuthor.isEmpty,
+                   Date().timeIntervalSince(lastEmit) > 0.35 {
+                    lastEmit = Date()
+                    onPartial(Self.sortedGroups(byAuthor))
+                }
             }
         }
-        scan.groups = byAuthor
+        scan.groups = Self.sortedGroups(byAuthor)
+        return scan
+    }
+
+    private nonisolated static func sortedGroups(
+        _ byAuthor: [String: [LibraryItem]]
+    ) -> [(author: String, items: [LibraryItem])] {
+        byAuthor
             .map { author, items in (author: author, items: items.sorted { $0.date > $1.date }) }
             .sorted { $0.author.localizedCaseInsensitiveCompare($1.author) == .orderedAscending }
-        return scan
     }
 
     /// Asks iCloud to materialize placeholders so they become readable —
@@ -445,7 +502,9 @@ final class AppModel: ObservableObject {
     func buildDetailsIndex() {
         guard indexTask == nil else { return }
         indexTask = Task { [weak self] in
+            self?.isIndexing = true
             await self?.runDetailsIndexing()
+            self?.isIndexing = false
             self?.indexTask = nil
         }
     }

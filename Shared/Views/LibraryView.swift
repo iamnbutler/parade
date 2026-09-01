@@ -71,11 +71,17 @@ struct LibraryView: View {
                 Button("Try Again") { model.refreshLibrary() }
             }
         } else if model.library.isEmpty {
-            ContentUnavailableView(
-                "No fics yet",
-                systemImage: "books.vertical",
-                description: Text("Tap + and paste an AO3 link to download your first fic.")
-            )
+            if model.isMigrating {
+                LibraryLoadingView(text: "Moving your library into \(model.destinationLabel)…")
+            } else if model.isScanning || !model.hasLoadedOnce {
+                LibraryLoadingView(text: "Loading your library…")
+            } else {
+                ContentUnavailableView(
+                    "No fics yet",
+                    systemImage: "books.vertical",
+                    description: Text("Tap + and paste an AO3 link to download your first fic.")
+                )
+            }
         } else {
             List {
                 if sort != .author {
@@ -94,6 +100,10 @@ struct LibraryView: View {
                             }
                         }
                     }
+                }
+                if model.isScanning, !model.hasLoadedOnce {
+                    // The first scan is still streaming results in.
+                    LibraryLoadingFooter()
                 }
             }
             .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
@@ -115,11 +125,15 @@ struct FavoritesView: View {
         NavigationStack {
             Group {
                 if model.favoriteItems.isEmpty {
-                    ContentUnavailableView(
-                        "No favorites yet",
-                        systemImage: "star",
-                        description: Text("Swipe right on a fic in the Library and tap the star.")
-                    )
+                    if model.isMigrating || model.isScanning || !model.hasLoadedOnce {
+                        LibraryLoadingView(text: "Loading your library…")
+                    } else {
+                        ContentUnavailableView(
+                            "No favorites yet",
+                            systemImage: "star",
+                            description: Text("Swipe right on a fic in the Library and tap the star.")
+                        )
+                    }
                 } else {
                     List {
                         ForEach(items) { item in

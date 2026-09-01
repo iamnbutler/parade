@@ -24,11 +24,15 @@ struct BrowseView: View {
         NavigationStack {
             Group {
                 if model.fandomGroups.isEmpty {
-                    ContentUnavailableView(
-                        "Nothing to browse yet",
-                        systemImage: "theatermasks",
-                        description: Text("Fandom info loads in the background after fics download.")
-                    )
+                    if model.isMigrating || model.isScanning || model.isIndexing || !model.hasLoadedOnce {
+                        LibraryLoadingView(text: "Reading fic details…")
+                    } else {
+                        ContentUnavailableView(
+                            "Nothing to browse yet",
+                            systemImage: "theatermasks",
+                            description: Text("Fandom info loads in the background after fics download.")
+                        )
+                    }
                 } else {
                     List {
                         ForEach(fandoms, id: \.name) { group in

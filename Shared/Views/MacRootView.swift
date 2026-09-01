@@ -133,11 +133,15 @@ struct MacRootView: View {
     @ViewBuilder
     private var fandomsList: some View {
         if model.fandomGroups.isEmpty {
-            ContentUnavailableView(
-                "Nothing to browse yet",
-                systemImage: "theatermasks",
-                description: Text("Fandom info loads in the background after fics download.")
-            )
+            if model.isMigrating || model.isScanning || model.isIndexing || !model.hasLoadedOnce {
+                LibraryLoadingView(text: "Reading fic details…")
+            } else {
+                ContentUnavailableView(
+                    "Nothing to browse yet",
+                    systemImage: "theatermasks",
+                    description: Text("Fandom info loads in the background after fics download.")
+                )
+            }
         } else {
             NavigationStack {
                 List {
@@ -185,11 +189,17 @@ struct MacRootView: View {
                 Button("Try Again") { model.refreshLibrary() }
             }
         } else if model.library.isEmpty {
-            ContentUnavailableView(
-                "No fics yet",
-                systemImage: "books.vertical",
-                description: Text("Click + and paste an AO3 link.")
-            )
+            if model.isMigrating {
+                LibraryLoadingView(text: "Moving your library into \(model.destinationLabel)…")
+            } else if model.isScanning || !model.hasLoadedOnce {
+                LibraryLoadingView(text: "Loading your library…")
+            } else {
+                ContentUnavailableView(
+                    "No fics yet",
+                    systemImage: "books.vertical",
+                    description: Text("Click + and paste an AO3 link.")
+                )
+            }
         } else {
             List(selection: $selectedID) {
                 if LibrarySort(rawValue: sortRaw) ?? .author != .author {

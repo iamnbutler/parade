@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- The library streams in as it's found instead of appearing all at once —
+  on a phone reading a large iCloud library for the first time, fics show
+  up within a second instead of after a long silent scan.
+- Real loading states everywhere: "Loading your library…", "Moving your
+  library into iCloud Drive › Parade…", and "Reading fic details…" replace
+  the misleading empty screens ("No fics yet" while still loading was the
+  bug behind the "library is empty" TestFlight feedback).
+
 ## 0.4.1 — 2026-08-31
 
 ### Fixed
