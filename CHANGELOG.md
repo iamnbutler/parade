@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.2 — 2026-09-01
 
 ### Fixed
 - The library streams in as it's found instead of appearing all at once —
