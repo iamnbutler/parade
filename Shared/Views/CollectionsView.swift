@@ -30,11 +30,12 @@ extension View {
         initial: String = "",
         message: String? = nil,
         action: String = "Create",
+        isValid: @escaping (String) -> Bool,
         onSave: @escaping (String) -> Void
     ) -> some View {
         modifier(CollectionNameAlert(
             title: title, isPresented: isPresented, initial: initial,
-            message: message, action: action, onSave: onSave))
+            message: message, action: action, isValid: isValid, onSave: onSave))
     }
 
     /// "New Collection" prompt; the new collection gets `item` added, if given.
@@ -42,7 +43,8 @@ extension View {
         collectionNameAlert(
             "New Collection", isPresented: isPresented,
             message: item.map { "“\($0.title)” goes in the new collection." }
-                ?? "Collections are your own categories, separate from AO3's tags."
+                ?? "Collections are your own categories, separate from AO3's tags.",
+            isValid: { model.collections.isAvailable($0) }
         ) { name in
             if let created = model.createCollection(name), let item {
                 model.toggle(item, inCollection: created)
@@ -57,6 +59,7 @@ private struct CollectionNameAlert: ViewModifier {
     let initial: String
     let message: String?
     let action: String
+    let isValid: (String) -> Bool
     let onSave: (String) -> Void
     @State private var name = ""
 
@@ -65,8 +68,9 @@ private struct CollectionNameAlert: ViewModifier {
             .alert(title, isPresented: $isPresented) {
                 TextField("Collection name", text: $name)
                 Button("Cancel", role: .cancel) {}
+                // Blank and taken names (any capitalization) can't be saved.
                 Button(action) { onSave(name) }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(!isValid(name))
             } message: {
                 if let message { Text(message) }
             }
@@ -178,6 +182,7 @@ struct CollectionFicsView: View {
                         }
                     }
                 }
+                .noSearchResults(for: searchText, when: items.isEmpty)
                 .searchable(text: $searchText, prompt: "Filter collection…")
             }
         }
@@ -193,7 +198,10 @@ struct CollectionFicsView: View {
                 .accessibilityLabel("Collection options")
             }
         }
-        .collectionNameAlert("Rename Collection", isPresented: $showRename, initial: collection, action: "Rename") { name in
+        .collectionNameAlert(
+            "Rename Collection", isPresented: $showRename, initial: collection, action: "Rename",
+            isValid: { model.collections.isAvailable($0, renaming: collection) }
+        ) { name in
             let clean = name.trimmingCharacters(in: .whitespaces)
             if model.renameCollection(collection, to: clean) { collection = clean }
         }

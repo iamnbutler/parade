@@ -7,8 +7,9 @@ import Sparkle
 /// in Info.plist.
 @MainActor
 final class UpdaterModel: ObservableObject {
+    // A test-library run never checks for (or installs) app updates.
     private let controller = SPUStandardUpdaterController(
-        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        startingUpdater: AppModel.testLibrary == nil, updaterDelegate: nil, userDriverDelegate: nil)
     @Published var canCheck = false
 
     init() {

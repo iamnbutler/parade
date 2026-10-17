@@ -33,6 +33,7 @@ struct LibraryView: View {
                                     Text(s.label).tag(s.rawValue)
                                 }
                             }
+                            .pickerStyle(.inline)
                         } label: {
                             Image(systemName: "arrow.up.arrow.down")
                         }
@@ -96,7 +97,7 @@ struct LibraryView: View {
                 } else {
                     ForEach(flatItems) { item in
                         NavigationLink(value: route(item)) {
-                            FicRow(item: item, showsAuthor: true, showsAddedDate: sort == .added)
+                            FicRow(item: item, showsAuthor: true, date: RowDate(sort))
                         }
                     }
                 }
@@ -105,6 +106,7 @@ struct LibraryView: View {
                     LibraryLoadingFooter()
                 }
             }
+            .noSearchResults(for: searchText, when: sort.isGrouped ? sections.isEmpty : flatItems.isEmpty)
             .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
             .refreshable { model.refreshLibrary() }
         }
@@ -145,6 +147,7 @@ struct FavoritesView: View {
                             }
                         }
                     }
+                    .noSearchResults(for: searchText, when: items.isEmpty)
                     .searchable(text: $searchText, prompt: "Filter favorites…")
                 }
             }

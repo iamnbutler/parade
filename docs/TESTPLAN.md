@@ -33,8 +33,10 @@ PARADE_TEST_LIBRARY=/tmp/parade-test build-mac/Build/Products/Debug/Parade.app/C
 Settings › "Saving to" must read `Test library › /tmp/parade-test` before
 going further.
 
-**Network.** Fixture work ids (90000000+) are not real fics: Update and
-batch downloads against them exercise the error paths. Real downloads go
+**Network.** Fixture work ids (999000000+) are far above any real AO3 id:
+Update and batch downloads against them exercise the error paths. (An
+earlier fixture set used 90000000+, which ARE real works — regenerate old
+fixtures before testing.) Real downloads go
 to one public work at a time, never in bulk, and the results are deleted
 afterwards.
 

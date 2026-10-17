@@ -13,6 +13,7 @@ struct ParadeApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .environmentObject(model)
+                .defaultAppStorage(AppModel.settingsStore)
         }
         .commands {
             CommandGroup(after: .appInfo) {
@@ -32,6 +33,7 @@ struct ParadeApp: App {
         MenuBarExtra("Parade", systemImage: "books.vertical.fill") {
             MenuBarView()
                 .environmentObject(model)
+                .defaultAppStorage(AppModel.settingsStore)
                 .environmentObject(updater)
         }
         .menuBarExtraStyle(.window)
@@ -39,6 +41,7 @@ struct ParadeApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .environmentObject(model)
+                .defaultAppStorage(AppModel.settingsStore)
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
                         model.refreshLibrary()

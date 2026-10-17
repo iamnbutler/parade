@@ -8,8 +8,8 @@ struct FicRow: View {
     /// Set when the row is in a collection's own list: the trailing swipe takes
     /// it out of the collection instead of deleting the file.
     var collection: String?
-    /// Show when the fic was added rather than last saved (Date Added sort).
-    var showsAddedDate = false
+    /// Which date the subtitle shows — the one the list is sorted by.
+    var date: RowDate = .saved
     @EnvironmentObject private var model: AppModel
     @State private var confirmDelete = false
     @State private var showNewCollection = false
@@ -122,8 +122,11 @@ struct FicRow: View {
     }
 
     private var subtitle: Text {
-        let date = showsAddedDate ? item.added : item.date
-        let prefix = showsAddedDate ? "added " : ""
+        let (date, prefix): (Date, String) = switch self.date {
+        case .saved: (item.date, "")
+        case .added: (item.added, "added ")
+        case .updated: (model.contentDate(item), "updated ")
+        }
         if showsAuthor {
             return Text("\(item.author) · \(prefix)\(date.formatted(date: .abbreviated, time: .omitted))")
         } else {
@@ -131,4 +134,22 @@ struct FicRow: View {
         }
     }
 
+}
+
+/// The date a fic row shows.
+enum RowDate {
+    /// When this EPUB was saved.
+    case saved
+    /// When the fic first arrived.
+    case added
+    /// The fic's last content update (from inside the EPUB).
+    case updated
+
+    init(_ sort: LibrarySort) {
+        switch sort {
+        case .added: self = .added
+        case .updated: self = .updated
+        default: self = .saved
+        }
+    }
 }

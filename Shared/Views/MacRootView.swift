@@ -42,6 +42,8 @@ struct MacRootView: View {
     @State private var deletingCollection: String?
     /// The tag opened inside Browse, if any (nil = the list of tags).
     @State private var browseTag: String?
+    /// Where Back returns to after following tags from fic details.
+    @State private var browseHistory: [(kind: String, tag: String?)] = []
 
     private var sort: LibrarySort { LibrarySort(rawValue: sortRaw) ?? .author }
     private var kind: TagKind { TagKind(rawValue: kindRaw) ?? .fandoms }
@@ -62,27 +64,26 @@ struct MacRootView: View {
                                         Text(s.label).tag(s.rawValue)
                                     }
                                 }
+                                .pickerStyle(.inline)
                             } label: {
                                 Image(systemName: "arrow.up.arrow.down")
                             }
                             .help("Sort the library")
                         }
                     }
-                    if section == .browse, browseTag != nil {
+                    if section == .browse, browseTag != nil || !browseHistory.isEmpty {
                         ToolbarItem(placement: .navigation) {
-                            Button {
-                                browseTag = nil
-                            } label: {
+                            Button(action: browseBack) {
                                 Image(systemName: "chevron.backward")
                             }
-                            .help("Back to all \(kind.label.lowercased())")
+                            .help("Back")
                         }
                     }
                     if section == .browse {
                         ToolbarItem {
                             Picker("Browse by", selection: Binding(
                                 get: { kindRaw },
-                                set: { kindRaw = $0; browseTag = nil }
+                                set: { kindRaw = $0; browseTag = nil; browseHistory = [] }
                             )) {
                                 ForEach(TagKind.allCases) { k in
                                     Text(k.label).tag(k.rawValue)
@@ -110,6 +111,9 @@ struct MacRootView: View {
                     // A tapped tag or series opens in the content column;
                     // the fic stays here.
                     .environment(\.openTag) { tag in
+                        if section == .browse {
+                            browseHistory.append((kind: kindRaw, tag: browseTag))
+                        }
                         section = .browse
                         kindRaw = tag.kind.rawValue
                         browseTag = tag.name
@@ -130,7 +134,8 @@ struct MacRootView: View {
             "Rename Collection",
             isPresented: Binding(get: { renamingCollection != nil }, set: { if !$0 { renamingCollection = nil } }),
             initial: renamingCollection ?? "",
-            action: "Rename"
+            action: "Rename",
+            isValid: { model.collections.isAvailable($0, renaming: renamingCollection) }
         ) { name in
             guard let old = renamingCollection else { return }
             let clean = name.trimmingCharacters(in: .whitespaces)
@@ -157,8 +162,38 @@ struct MacRootView: View {
         }
         .onChange(of: section) { _, new in
             // Leaving Browse closes the open tag; coming back starts at the list.
-            if new != .browse { browseTag = nil }
+            if new != .browse {
+                browseTag = nil
+                browseHistory = []
+            }
+            // Don't keep showing a fic the new list doesn't contain.
+            if let id = selectedID, !visibleIDs(in: new).contains(id) {
+                selectedID = nil
+            }
         }
+    }
+
+    private func browseBack() {
+        if let previous = browseHistory.popLast() {
+            kindRaw = previous.kind
+            browseTag = previous.tag
+        } else {
+            browseTag = nil
+        }
+    }
+
+    /// Fic ids the content column lists for a section.
+    private func visibleIDs(in section: SidebarSection?) -> Set<String> {
+        let items: [LibraryItem]
+        switch section {
+        case .favorites: items = model.favoriteItems
+        case .collection(let name): items = model.items(inCollection: name)
+        case .browse:
+            items = browseTag.map { model.items(for: .tag(TagSelection(kind: kind, name: $0))) } ?? []
+        case .settings: items = []
+        default: return Set(model.flatItems(.title).map(\.id))
+        }
+        return Set(items.map(\.id))
     }
 
     private var sidebar: some View {
@@ -169,6 +204,7 @@ struct MacRootView: View {
             Section("Collections") {
                 ForEach(model.collections.names, id: \.self) { name in
                     Label(name, systemImage: "rectangle.stack")
+                        .badge(model.items(inCollection: name).count)
                         .tag(SidebarSection.collection(name))
                         .contextMenu {
                             Button("Rename…") { renamingCollection = name }
@@ -218,12 +254,15 @@ struct MacRootView: View {
                 description: Text("Right-click a fic and choose Add to Favorites.")
             )
         } else {
+            let items = model.favoriteItems.filter { model.item($0, matches: searchText) }
             List(selection: $selectedID) {
-                ForEach(model.favoriteItems.filter { model.item($0, matches: searchText) }) { item in
+                ForEach(items) { item in
                     FicRow(item: item, showsAuthor: true).tag(item.id)
                 }
             }
+            .noSearchResults(for: searchText, when: items.isEmpty)
             .searchable(text: $searchText, prompt: "Filter favorites…")
+            .navigationTitle("Favorites")
         }
     }
 
@@ -245,6 +284,7 @@ struct MacRootView: View {
                     FicRow(item: item, showsAuthor: true, collection: name).tag(item.id)
                 }
             }
+            .noSearchResults(for: searchText, when: !items.contains { model.item($0, matches: searchText) })
             .searchable(text: $searchText, prompt: "Filter collection…")
             .navigationTitle(name)
         }
@@ -263,15 +303,8 @@ struct MacRootView: View {
     @ViewBuilder
     private var browseList: some View {
         if model.tagGroups(kind).isEmpty {
-            if model.isMigrating || model.isScanning || model.isIndexing || !model.hasLoadedOnce {
-                LibraryLoadingView(text: "Reading fic details…")
-            } else {
-                ContentUnavailableView(
-                    "No \(kind.label.lowercased()) yet",
-                    systemImage: "tag",
-                    description: Text("Details load in the background after fics download.")
-                )
-            }
+            BrowseEmptyView(kind: kind)
+                .navigationTitle(kind.label)
         } else {
             Group {
                 if let name = browseTag {
@@ -282,6 +315,8 @@ struct MacRootView: View {
                         }
                     }
                     .navigationTitle(name)
+                    .noSearchResults(for: searchText, when: !model.items(for: .tag(TagSelection(kind: kind, name: name)))
+                        .contains { model.item($0, matches: searchText) })
                 } else {
                     // Selecting a row opens that tag.
                     List(selection: Binding<String?>(get: { nil }, set: { browseTag = $0 })) {
@@ -297,6 +332,7 @@ struct MacRootView: View {
                         }
                     }
                     .navigationTitle(kind.label)
+                    .noSearchResults(for: searchText, when: filteredGroups.isEmpty)
                 }
             }
             .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
@@ -345,11 +381,15 @@ struct MacRootView: View {
                     }
                 } else {
                     ForEach(libraryFlat) { item in
-                        FicRow(item: item, showsAuthor: true, showsAddedDate: sort == .added).tag(item.id)
+                        FicRow(item: item, showsAuthor: true, date: RowDate(sort)).tag(item.id)
                     }
                 }
             }
+            .noSearchResults(
+                for: searchText,
+                when: sort.isGrouped ? filteredSections.isEmpty : libraryFlat.isEmpty)
             .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
+            .navigationTitle("Library")
         }
     }
 

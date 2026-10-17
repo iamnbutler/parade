@@ -33,3 +33,40 @@ struct LibraryLoadingFooter: View {
         .padding(.vertical, 4)
     }
 }
+
+extension View {
+    /// The system "No Results for …" state over a list whose search
+    /// matched nothing — instead of a blank list.
+    func noSearchResults(for query: String, when empty: Bool) -> some View {
+        overlay {
+            if empty, !query.isEmpty {
+                ContentUnavailableView.search(text: query)
+            }
+        }
+    }
+}
+
+/// Empty state for a Browse kind with nothing in it. While fic details are
+/// still being read it says so; after that it says there's simply none.
+struct BrowseEmptyView: View {
+    let kind: TagKind
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        if model.isMigrating || model.isScanning || model.isIndexing || !model.hasLoadedOnce {
+            LibraryLoadingView(text: "Reading fic details…")
+        } else if model.library.isEmpty {
+            ContentUnavailableView(
+                "Nothing to browse yet",
+                systemImage: "tag",
+                description: Text("Fandoms, series, and tags show here once you've added fics.")
+            )
+        } else {
+            ContentUnavailableView(
+                "No \(kind.label.lowercased())",
+                systemImage: "tag",
+                description: Text("None of your fics list any \(kind.label.lowercased()).")
+            )
+        }
+    }
+}

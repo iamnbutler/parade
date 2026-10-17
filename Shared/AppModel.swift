@@ -126,6 +126,14 @@ final class AppModel: ObservableObject {
         return nil
         #endif
     }()
+
+    /// Where settings live — the views' @AppStorage too. A test library
+    /// gets its own suite so testing never touches real preferences.
+    nonisolated static var settingsStore: UserDefaults {
+        testLibrary == nil
+            ? .standard
+            : UserDefaults(suiteName: "com.natebutler.parade.testlibrary") ?? .standard
+    }
     private(set) var destinationRoot: URL
     /// True once the library root is the app's iCloud container.
     private var inCloud = false
@@ -149,9 +157,7 @@ final class AppModel: ObservableObject {
     }
 
     init() {
-        defaults = Self.testLibrary == nil
-            ? .standard
-            : UserDefaults(suiteName: "com.natebutler.parade.testlibrary") ?? .standard
+        defaults = Self.settingsStore
         #if os(macOS)
         autoImport = defaults.object(forKey: Keys.autoImport) as? Bool ?? false
         imported = defaults.dictionary(forKey: Keys.imported) as? [String: TimeInterval] ?? [:]
@@ -362,8 +368,13 @@ final class AppModel: ObservableObject {
         invalidateDerived()
     }
 
+    /// Bumped on every local favorites / collections write, so a scan that
+    /// read the files before the write can't roll the change back.
+    private var localEditStamp = 0
+
     private func performRefresh() async {
         let root = destinationRoot
+        let editStampAtStart = localEditStamp
         scanGeneration += 1
         let gen = scanGeneration
         isScanning = true
@@ -395,8 +406,10 @@ final class AppModel: ObservableObject {
             return
         }
         libraryError = nil
-        favorites = scan.favorites
-        collections = scan.collections
+        if localEditStamp == editStampAtStart {
+            favorites = scan.favorites
+            collections = scan.collections
+        }
         library = scan.groups
         invalidateDerived()
         hasLoadedOnce = true
@@ -851,6 +864,7 @@ final class AppModel: ObservableObject {
     }
 
     private func saveFavorites() {
+        localEditStamp += 1
         let text = favorites.sorted().joined(separator: "\n") + "\n"
         try? text.write(to: favoritesFile, atomically: true, encoding: .utf8)
     }
@@ -908,6 +922,7 @@ final class AppModel: ObservableObject {
     }
 
     private func saveCollections() {
+        localEditStamp += 1
         try? collections.text.write(to: collectionsFile, atomically: true, encoding: .utf8)
     }
 
@@ -1107,8 +1122,12 @@ final class AppModel: ObservableObject {
         if statusLines.count > 8 { statusLines.removeFirst() }
     }
 
+    /// The path below the library root. Both sides are symlink-resolved —
+    /// /tmp vs /private/tmp would otherwise leave the prefix in place.
     private func relativePath(of url: URL) -> String {
-        url.path.replacingOccurrences(of: destinationRoot.path + "/", with: "")
+        let path = url.resolvingSymlinksInPath().path
+        let root = destinationRoot.resolvingSymlinksInPath().path + "/"
+        return path.hasPrefix(root) ? String(path.dropFirst(root.count)) : path
     }
 
     // MARK: - Apple Books (macOS)
@@ -1116,17 +1135,25 @@ final class AppModel: ObservableObject {
     #if os(macOS)
     /// Sends one fic to Apple Books (silent import) and remembers it.
     func addToBooks(_ item: LibraryItem) {
-        guard sendToBooks([item.url]) else { return }
+        guard sendToBooks([item.url]) else {
+            showToast("Couldn't send “\(item.title)” to Apple Books")
+            return
+        }
         markImported(item.url)
         persistImported()
         status("→ Books: \(item.title)")
+        showToast(Self.testLibrary == nil
+            ? "Sent “\(item.title)” to Apple Books"
+            : "Test library — “\(item.title)” not actually sent to Books")
     }
 
     @discardableResult
     private func sendToBooks(_ urls: [URL]) -> Bool {
         guard Self.testLibrary == nil else {
-            status("Test library — not sending \(urls.count) book\(urls.count == 1 ? "" : "s") to Apple Books")
-            return false
+            // Behave as if sent (so nothing is retried every scan) without
+            // touching the real Books library.
+            status("Test library — skipped sending \(urls.count) book\(urls.count == 1 ? "" : "s") to Apple Books")
+            return true
         }
         guard let books = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.iBooksX") else {
             status("⚠️ Apple Books not found")
@@ -1177,14 +1204,14 @@ final class AppModel: ObservableObject {
 
         // First look at a folder: baseline its existing contents as already
         // imported, so switching folders never mass-imports by surprise —
-        // "Import a Folder of Books…" is the explicit way to do that.
+        // "Import All to Apple Books" is the explicit way to do that.
         if defaults.string(forKey: Keys.baselinedFolder) != destinationRoot.path {
             imported = [:]
             downloaded.forEach { markImported($0.url) }
             persistImported()
             defaults.set(destinationRoot.path, forKey: Keys.baselinedFolder)
             if !downloaded.isEmpty {
-                status("Found \(downloaded.count) existing book\(downloaded.count == 1 ? "" : "s") — use “Import a Folder of Books…” to send them to Apple Books.")
+                status("Found \(downloaded.count) existing book\(downloaded.count == 1 ? "" : "s") — use “Import All to Apple Books” in Settings to send them to Books.")
             }
             return
         }
@@ -1234,6 +1261,18 @@ final class AppModel: ObservableObject {
     /// means getting the files into the folder. Files are moved; duplicates
     /// already in the library are left in place at the source.
     func mergeFolder(_ folder: URL) async {
+        // Merging the library (or a folder inside it, or one holding it) into
+        // itself would refile Author/ folders as authors named "ao3".
+        let source = folder.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+        let root = destinationRoot.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+        if source.hasPrefix(root) || root.hasPrefix(source) {
+            status("⚠️ That folder is (or contains) the library itself — pick a folder outside it.")
+            return
+        }
+        if Self.testLibrary != nil, source.contains("/Library/Mobile Documents/") {
+            status("⚠️ Test library — refusing to move files out of iCloud Drive.")
+            return
+        }
         let fm = FileManager.default
         var moved = 0, skipped = 0, failed = 0
         guard let enumerator = fm.enumerator(at: folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {

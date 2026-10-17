@@ -101,6 +101,7 @@ struct TagFicsView: View {
             }
         }
         #if os(iOS)
+        .noSearchResults(for: searchText, when: items.isEmpty)
         .searchable(text: $searchText, prompt: "Filter fics…")
         .navigationBarTitleDisplayMode(.inline)
         #endif

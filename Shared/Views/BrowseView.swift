@@ -22,15 +22,7 @@ struct BrowseView: View {
         NavigationStack {
             Group {
                 if model.tagGroups(kind).isEmpty {
-                    if model.isMigrating || model.isScanning || model.isIndexing || !model.hasLoadedOnce {
-                        LibraryLoadingView(text: "Reading fic details…")
-                    } else {
-                        ContentUnavailableView(
-                            "No \(kind.label.lowercased()) yet",
-                            systemImage: "tag",
-                            description: Text("Details load in the background after fics download.")
-                        )
-                    }
+                    BrowseEmptyView(kind: kind)
                 } else {
                     List {
                         ForEach(groups, id: \.name) { group in
@@ -45,6 +37,7 @@ struct BrowseView: View {
                             }
                         }
                     }
+                    .noSearchResults(for: searchText, when: groups.isEmpty)
                     .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
                 }
             }

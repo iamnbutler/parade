@@ -66,4 +66,14 @@ final class FicCollectionsTests: XCTestCase {
         collections.delete("A")
         XCTAssertEqual(collections.names, ["B"])
     }
+
+    func testNamesAreCaseInsensitive() {
+        var collections = FicCollections()
+        collections.create("Space Stuff")
+        XCTAssertNil(collections.create("space stuff"))
+        XCTAssertFalse(collections.isAvailable("SPACE STUFF"))
+        // Re-casing a collection's own name is a rename, not a clash.
+        XCTAssertTrue(collections.rename("Space Stuff", to: "space stuff"))
+        XCTAssertEqual(collections.names, ["space stuff"])
+    }
 }

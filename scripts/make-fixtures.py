@@ -102,7 +102,9 @@ def links(names):
 
 def main(out_root: Path):
     for i, (title, author, fandoms, category, rating, series, tags, words, chapters, summary) in enumerate(FICS):
-        work_id = 90000000 + i
+        # Far above any real AO3 id, so Update and links 404 instead of
+        # reaching somebody's actual work.
+        work_id = 999_000_000 + i
         series_block = ""
         if series:
             name, part = series

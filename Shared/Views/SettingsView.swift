@@ -30,6 +30,7 @@ struct SettingsView: View {
             .navigationTitle("Settings")
         }
         #if os(macOS)
+        .modifier(NeutralFileDialogStart())
         .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.folder]) { result in
             if case .success(let url) = result {
                 let ok = url.startAccessingSecurityScopedResource()
@@ -48,12 +49,20 @@ struct SettingsView: View {
         } header: {
             Text("Library Folder")
         } footer: {
-            #if os(iOS)
-            Text("The library lives in Parade's own iCloud Drive folder and syncs to all your devices automatically. Fics are filed by source: ao3/Author/Title.epub.")
-            #else
-            Text("The library lives in iCloud Drive › Parade, synced with your other devices. The folder is watched: fics that appear in it — downloaded here or synced from the phone — can be imported into Apple Books.")
-            #endif
+            if AppModel.testLibrary != nil {
+                Text("Test library (debug build): a scratch folder with its own settings. Nothing here touches the real library, iCloud, or Apple Books.")
+            } else {
+                libraryFooter
+            }
         }
+    }
+
+    private var libraryFooter: Text {
+        #if os(iOS)
+        Text("The library lives in Parade's own iCloud Drive folder and syncs to all your devices automatically. Fics are filed by source: ao3/Author/Title.epub.")
+        #else
+        Text("The library lives in iCloud Drive › Parade, synced with your other devices. The folder is watched: fics that appear in it — downloaded here or synced from the phone — can be imported into Apple Books.")
+        #endif
     }
 
     private var updatesSection: some View {
@@ -74,7 +83,11 @@ struct SettingsView: View {
         } header: {
             Text("Fic Updates")
         } footer: {
+            #if os(iOS)
             Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you tap it. Fics with an update get a yellow dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version in the Backups folder.")
+            #else
+            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you click it. Fics with an update get a yellow dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
+            #endif
         }
     }
 
@@ -95,3 +108,17 @@ struct SettingsView: View {
     }
     #endif
 }
+
+#if os(macOS)
+/// "Add a Folder to Library…" moves what it's given, so its picker should
+/// never open inside the library itself (the last place a panel showed).
+private struct NeutralFileDialogStart: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.fileDialogDefaultDirectory(FileManager.default.homeDirectoryForCurrentUser)
+        } else {
+            content
+        }
+    }
+}
+#endif

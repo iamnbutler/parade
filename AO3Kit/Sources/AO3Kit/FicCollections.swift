@@ -51,12 +51,23 @@ public struct FicCollections: Equatable, Sendable {
         names.filter { contains(id, in: $0) }
     }
 
+    /// Whether `name` can be used for a new collection (or for renaming
+    /// `existing`): not blank, and not taken — ignoring case, so "Cozy" and
+    /// "cozy" can't both exist.
+    public func isAvailable(_ name: String, renaming existing: String? = nil) -> Bool {
+        let name = Self.clean(name)
+        guard !name.isEmpty else { return false }
+        return !names.contains {
+            $0 != existing && $0.caseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
     /// Adds an empty collection. Returns the name actually used (trimmed), or nil
     /// when it's blank or already taken.
     @discardableResult
     public mutating func create(_ name: String) -> String? {
         let name = Self.clean(name)
-        guard !name.isEmpty, !names.contains(name) else { return nil }
+        guard isAvailable(name) else { return nil }
         names.append(name)
         members[name] = []
         return name
@@ -65,7 +76,7 @@ public struct FicCollections: Equatable, Sendable {
     @discardableResult
     public mutating func rename(_ old: String, to new: String) -> Bool {
         let new = Self.clean(new)
-        guard let i = names.firstIndex(of: old), !new.isEmpty, !names.contains(new) else { return false }
+        guard let i = names.firstIndex(of: old), isAvailable(new, renaming: old) else { return false }
         names[i] = new
         members[new] = members.removeValue(forKey: old)
         return true
