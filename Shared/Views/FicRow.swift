@@ -126,14 +126,18 @@ struct FicRow: View {
 
     private var subtitle: Text {
         let (date, prefix): (Date, String) = switch self.date {
-        case .saved: (item.date, "")
+        case .saved: (item.date, "downloaded ")
         case .added: (item.added, "added ")
         case .updated: (model.contentDate(item), "updated ")
         }
+        // AO3's update dates are calendar days (stored as UTC midnight);
+        // shown in local time they'd land a day early west of UTC.
+        var style = Date.FormatStyle(date: showsAuthor ? .abbreviated : .long, time: .omitted)
+        if self.date == .updated { style.timeZone = TimeZone(identifier: "UTC")! }
         if showsAuthor {
-            return Text("\(item.author) · \(prefix)\(date.formatted(date: .abbreviated, time: .omitted))")
+            return Text("\(item.author) · \(prefix)\(date.formatted(style))")
         } else {
-            return Text("\(prefix)\(date.formatted(date: .long, time: .omitted))")
+            return Text("\(prefix)\(date.formatted(style))")
         }
     }
 

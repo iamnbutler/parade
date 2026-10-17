@@ -253,6 +253,7 @@ struct MacRootView: View {
                 systemImage: "star",
                 description: Text("Right-click a fic and choose Add to Favorites.")
             )
+            .navigationTitle("Favorites")
         } else {
             let items = model.favoriteItems.filter { model.item($0, matches: searchText) }
             List(selection: $selectedID) {

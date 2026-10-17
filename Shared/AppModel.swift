@@ -1149,7 +1149,7 @@ final class AppModel: ObservableObject {
         }
         markImported(item.url)
         persistImported()
-        status("→ Books: \(item.title)")
+        if Self.testLibrary == nil { status("→ Books: \(item.title)") }
         showToast(Self.testLibrary == nil
             ? "Sent \(item.title.quoted) to Apple Books"
             : "Test library — \(item.title.quoted) not actually sent to Books")

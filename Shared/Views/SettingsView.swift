@@ -30,7 +30,6 @@ struct SettingsView: View {
             .navigationTitle("Settings")
         }
         #if os(macOS)
-        .modifier(NeutralFileDialogStart())
         .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.folder]) { result in
             if case .success(let url) = result {
                 let ok = url.startAccessingSecurityScopedResource()
@@ -40,6 +39,8 @@ struct SettingsView: View {
                 }
             }
         }
+        // After .fileImporter so it applies to that picker.
+        .modifier(NeutralFileDialogStart())
         #endif
     }
 
