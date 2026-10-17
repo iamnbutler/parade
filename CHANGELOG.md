@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-10-17
 
 ### Added
 - **Collections** — your own categories, separate from AO3's tags. Make
@@ -23,6 +23,20 @@
 - **Browse by tag** — the Fandoms tab is now Browse: fandoms, series,
   relationships, characters, or tags. Tags, fandoms, and the series line on
   a fic's page are tappable and open every fic that shares them.
+- An **Update** button on every fic's page, and a "No results" message
+  when a search matches nothing.
+
+### Fixed
+- Fic dates show which date they are (downloaded, added, updated) and are
+  in the order the list is sorted by.
+- Favorites and collection changes no longer flicker back while the
+  library is being rescanned.
+- "Check AO3 for Updates" no longer overlaps other downloads.
+- Mac: "Add a Folder to Library…" refuses the library itself (which would
+  have scrambled it) and starts in your home folder.
+- Mac: following a tag from a fic's details opens it in Browse, with Back
+  retracing your steps; the detail pane clears when the new list doesn't
+  include the fic.
 
 ## 0.4.2 — 2026-09-01
 
