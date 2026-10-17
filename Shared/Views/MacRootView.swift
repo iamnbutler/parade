@@ -40,6 +40,8 @@ struct MacRootView: View {
     @State private var showNewCollection = false
     @State private var renamingCollection: String?
     @State private var deletingCollection: String?
+    /// The tag opened inside Browse, if any (nil = the list of tags).
+    @State private var browseTag: String?
 
     private var sort: LibrarySort { LibrarySort(rawValue: sortRaw) ?? .author }
     private var kind: TagKind { TagKind(rawValue: kindRaw) ?? .fandoms }
@@ -66,9 +68,22 @@ struct MacRootView: View {
                             .help("Sort the library")
                         }
                     }
+                    if section == .browse, browseTag != nil {
+                        ToolbarItem(placement: .navigation) {
+                            Button {
+                                browseTag = nil
+                            } label: {
+                                Image(systemName: "chevron.backward")
+                            }
+                            .help("Back to all \(kind.label.lowercased())")
+                        }
+                    }
                     if section == .browse {
                         ToolbarItem {
-                            Picker("Browse by", selection: $kindRaw) {
+                            Picker("Browse by", selection: Binding(
+                                get: { kindRaw },
+                                set: { kindRaw = $0; browseTag = nil }
+                            )) {
                                 ForEach(TagKind.allCases) { k in
                                     Text(k.label).tag(k.rawValue)
                                 }
@@ -91,14 +106,16 @@ struct MacRootView: View {
             if section == .settings {
                 ContentUnavailableView("", systemImage: "gearshape")
             } else if let item = selectedItem {
-                // Its own stack, so tags and series in the details can be
-                // followed; reset whenever the selection changes.
-                NavigationStack {
-                    FicDetailView(item: item)
-                        .ficDestinations()
-                }
-                .id(item.id)
-                .frame(minWidth: 260)
+                FicDetailView(item: item)
+                    // A tapped tag or series opens in the content column;
+                    // the fic stays here.
+                    .environment(\.openTag) { tag in
+                        section = .browse
+                        kindRaw = tag.kind.rawValue
+                        browseTag = tag.name
+                        searchText = ""
+                    }
+                    .frame(minWidth: 260)
             } else {
                 ContentUnavailableView(
                     "Select a fic", systemImage: "book.closed",
@@ -137,6 +154,10 @@ struct MacRootView: View {
         .onAppear {
             model.refreshLibrary()
             model.buildDetailsIndex()
+        }
+        .onChange(of: section) { _, new in
+            // Leaving Browse closes the open tag; coming back starts at the list.
+            if new != .browse { browseTag = nil }
         }
     }
 
@@ -252,10 +273,19 @@ struct MacRootView: View {
                 )
             }
         } else {
-            NavigationStack {
-                List {
-                    ForEach(filteredGroups, id: \.name) { group in
-                        NavigationLink(value: group.name) {
+            Group {
+                if let name = browseTag {
+                    List(selection: $selectedID) {
+                        ForEach(model.items(for: .tag(TagSelection(kind: kind, name: name)))
+                            .filter { model.item($0, matches: searchText) }) { item in
+                            FicRow(item: item, showsAuthor: true).tag(item.id)
+                        }
+                    }
+                    .navigationTitle(name)
+                } else {
+                    // Selecting a row opens that tag.
+                    List(selection: Binding<String?>(get: { nil }, set: { browseTag = $0 })) {
+                        ForEach(filteredGroups, id: \.name) { group in
                             HStack {
                                 Text(group.name).lineLimit(1)
                                 Spacer()
@@ -263,20 +293,12 @@ struct MacRootView: View {
                                     .foregroundStyle(.secondary)
                                     .monospacedDigit()
                             }
+                            .tag(group.name)
                         }
                     }
-                }
-                .navigationDestination(for: String.self) { name in
-                    List(selection: $selectedID) {
-                        ForEach(model.items(for: .tag(TagSelection(kind: kind, name: name)))) { item in
-                            FicRow(item: item, showsAuthor: true).tag(item.id)
-                        }
-                    }
-                    .navigationTitle(name)
+                    .navigationTitle(kind.label)
                 }
             }
-            // A new kind starts back at its top-level list.
-            .id(kind)
             .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
         }
     }

@@ -108,6 +108,37 @@ struct TagFicsView: View {
     }
 }
 
+/// How a tapped tag (or series) opens. Unset, it pushes onto the current
+/// NavigationStack (iOS); the Mac sets it to show the tag in the content
+/// column instead, leaving the fic in the detail pane.
+private struct OpenTagKey: EnvironmentKey {
+    static let defaultValue: ((TagSelection) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var openTag: ((TagSelection) -> Void)? {
+        get { self[OpenTagKey.self] }
+        set { self[OpenTagKey.self] = newValue }
+    }
+}
+
+/// A tappable tag: opens every fic sharing it.
+struct TagLink<Label: View>: View {
+    let tag: TagSelection
+    @ViewBuilder let label: Label
+    @Environment(\.openTag) private var openTag
+
+    var body: some View {
+        if let openTag {
+            Button { openTag(tag) } label: { label }
+                .buttonStyle(.plain)
+        } else {
+            NavigationLink(value: tag) { label }
+                .buttonStyle(.plain)
+        }
+    }
+}
+
 /// Tags as tappable chips that open every fic sharing that tag.
 struct TagChips: View {
     let kind: TagKind
@@ -116,14 +147,13 @@ struct TagChips: View {
     var body: some View {
         FlowLayout(spacing: 5) {
             ForEach(values, id: \.self) { value in
-                NavigationLink(value: TagSelection(kind: kind, name: value)) {
+                TagLink(tag: TagSelection(kind: kind, name: value)) {
                     Text(value)
                         .font(.callout)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(.quaternary, in: Capsule())
                 }
-                .buttonStyle(.plain)
             }
         }
     }

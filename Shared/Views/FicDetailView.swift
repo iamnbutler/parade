@@ -48,12 +48,11 @@ struct FicDetailView: View {
                 .foregroundStyle(.secondary)
             if let series = details?.series {
                 if let name = details?.seriesName {
-                    NavigationLink(value: TagSelection(kind: .series, name: name)) {
+                    TagLink(tag: TagSelection(kind: .series, name: name)) {
                         Text(series)
                             .font(.subheadline)
                             .foregroundStyle(.tint)
                     }
-                    .buttonStyle(.plain)
                 } else {
                     Text(series)
                         .font(.subheadline)

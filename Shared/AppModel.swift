@@ -111,7 +111,21 @@ final class AppModel: ObservableObject {
     @Published private(set) var hasLoadedOnce = false
 
     private let client = AO3Client()
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
+
+    /// Debug builds only: `PARADE_TEST_LIBRARY=/some/folder` runs the app
+    /// against that folder instead of the iCloud library — no migration,
+    /// separate settings and caches, nothing sent to Apple Books — so it can
+    /// be exercised with fixtures without touching a real library.
+    nonisolated static let testLibrary: URL? = {
+        #if DEBUG
+        guard let path = ProcessInfo.processInfo.environment["PARADE_TEST_LIBRARY"],
+              !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+        #else
+        return nil
+        #endif
+    }()
     private(set) var destinationRoot: URL
     /// True once the library root is the app's iCloud container.
     private var inCloud = false
@@ -135,12 +149,15 @@ final class AppModel: ObservableObject {
     }
 
     init() {
+        defaults = Self.testLibrary == nil
+            ? .standard
+            : UserDefaults(suiteName: "com.natebutler.parade.testlibrary") ?? .standard
         #if os(macOS)
         autoImport = defaults.object(forKey: Keys.autoImport) as? Bool ?? false
         imported = defaults.dictionary(forKey: Keys.imported) as? [String: TimeInterval] ?? [:]
         #endif
         updatesAvailable = Set(defaults.stringArray(forKey: Keys.updatesAvailable) ?? [])
-        destinationRoot = Self.localRoot()
+        destinationRoot = Self.testLibrary ?? Self.localRoot()
         updateDestinationLabel()
         refreshLibrary()
         Task { await self.connectCloudRoot() }
@@ -189,6 +206,14 @@ final class AppModel: ObservableObject {
     /// root and pulls every older store into it. The container lookup runs
     /// off-main because its first call can do real work.
     private func connectCloudRoot() async {
+        if let test = Self.testLibrary {
+            try? FileManager.default.createDirectory(at: test, withIntermediateDirectories: true)
+            destinationRoot = test
+            destinationLabel = "Test library › \(test.path)"
+            await refreshLibraryNow()
+            buildDetailsIndex()
+            return
+        }
         let container = await Task.detached(priority: .userInitiated) {
             FileManager.default.url(forUbiquityContainerIdentifier: nil)?
                 .appendingPathComponent("Documents", isDirectory: true)
@@ -594,8 +619,11 @@ final class AppModel: ObservableObject {
     private var indexTask: Task<Void, Never>?
 
     private nonisolated static var detailsCacheFile: URL {
+        // A test library gets its own cache: the final save prunes entries
+        // for files not in the library, which would empty the real one's.
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("parade-details-cache.json")
+            .appendingPathComponent(testLibrary == nil
+                ? "parade-details-cache.json" : "parade-details-cache-testlibrary.json")
     }
 
     private nonisolated static func cacheKey(_ item: LibraryItem) -> String {
@@ -1096,6 +1124,10 @@ final class AppModel: ObservableObject {
 
     @discardableResult
     private func sendToBooks(_ urls: [URL]) -> Bool {
+        guard Self.testLibrary == nil else {
+            status("Test library — not sending \(urls.count) book\(urls.count == 1 ? "" : "s") to Apple Books")
+            return false
+        }
         guard let books = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.iBooksX") else {
             status("⚠️ Apple Books not found")
             return false
