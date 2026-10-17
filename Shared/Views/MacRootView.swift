@@ -189,7 +189,7 @@ struct MacRootView: View {
         case .favorites: items = model.favoriteItems
         case .collection(let name): items = model.items(inCollection: name)
         case .browse:
-            items = browseTag.map { model.items(for: .tag(TagSelection(kind: kind, name: $0))) } ?? []
+            items = browseTag.map { model.items(for: .tag(TagSelection(kind: kind, name: $0), query: "")) } ?? []
         case .settings: items = []
         default: return Set(model.flatItems(.title).map(\.id))
         }
@@ -309,14 +309,12 @@ struct MacRootView: View {
             Group {
                 if let name = browseTag {
                     List(selection: $selectedID) {
-                        ForEach(model.items(for: .tag(TagSelection(kind: kind, name: name)))
-                            .filter { model.item($0, matches: searchText) }) { item in
+                        ForEach(model.items(for: .tag(TagSelection(kind: kind, name: name), query: searchText))) { item in
                             FicRow(item: item, showsAuthor: true).tag(item.id)
                         }
                     }
                     .navigationTitle(name)
-                    .noSearchResults(for: searchText, when: !model.items(for: .tag(TagSelection(kind: kind, name: name)))
-                        .contains { model.item($0, matches: searchText) })
+                    .noSearchResults(for: searchText, when: model.items(for: .tag(TagSelection(kind: kind, name: name), query: searchText)).isEmpty)
                 } else {
                     // Selecting a row opens that tag.
                     List(selection: Binding<String?>(get: { nil }, set: { browseTag = $0 })) {

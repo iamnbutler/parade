@@ -39,6 +39,7 @@ struct BrowseView: View {
                     }
                     .noSearchResults(for: searchText, when: groups.isEmpty)
                     .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
+                    .refreshable { await model.refreshLibraryNow() }
                 }
             }
             .navigationTitle(kind.label)

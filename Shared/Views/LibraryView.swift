@@ -149,6 +149,7 @@ struct FavoritesView: View {
                     }
                     .noSearchResults(for: searchText, when: items.isEmpty)
                     .searchable(text: $searchText, prompt: "Filter favorites…")
+                    .refreshable { await model.refreshLibraryNow() }
                 }
             }
             .navigationTitle("Favorites")

@@ -86,6 +86,7 @@ struct CollectionsView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showNewCollection = false
     @State private var pendingDelete: String?
+    @State private var renaming: String?
 
     var body: some View {
         NavigationStack {
@@ -115,9 +116,13 @@ struct CollectionsView: View {
                                     Label("Delete", systemImage: "trash")
                                 }
                                 .tint(.red)
+                                Button { renaming = name } label: {
+                                    Label("Rename", systemImage: "pencil")
+                                }
                             }
                         }
                     }
+                    .refreshable { await model.refreshLibraryNow() }
                 }
             }
             .navigationTitle("Collections")
@@ -134,14 +139,25 @@ struct CollectionsView: View {
             .ficDestinations()
         }
         .newCollectionAlert(isPresented: $showNewCollection, model: model)
-        .confirmationDialog(
+        .collectionNameAlert(
+            "Rename Collection",
+            isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }),
+            initial: renaming ?? "",
+            action: "Rename",
+            isValid: { model.collections.isAvailable($0, renaming: renaming) }
+        ) { name in
+            if let old = renaming { model.renameCollection(old, to: name.trimmingCharacters(in: .whitespaces)) }
+        }
+        // An alert, not a confirmation dialog: on iPhone the dialog
+        // anchored itself to the whole screen.
+        .alert(
             "Delete the collection “\(pendingDelete ?? "")”?",
-            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
-            titleVisibility: .visible
+            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })
         ) {
             Button("Delete Collection", role: .destructive) {
                 if let name = pendingDelete { model.deleteCollection(name) }
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("The fics in it stay in your library.")
         }
@@ -177,13 +193,14 @@ struct CollectionFicsView: View {
             } else {
                 List {
                     ForEach(items) { item in
-                        NavigationLink(value: FicRoute(item: item, list: .collection(collection))) {
+                        NavigationLink(value: FicRoute(item: item, list: .collection(collection, query: searchText))) {
                             FicRow(item: item, showsAuthor: true, collection: collection)
                         }
                     }
                 }
                 .noSearchResults(for: searchText, when: items.isEmpty)
                 .searchable(text: $searchText, prompt: "Filter collection…")
+                .refreshable { await model.refreshLibraryNow() }
             }
         }
         .navigationTitle(collection)
@@ -205,11 +222,12 @@ struct CollectionFicsView: View {
             let clean = name.trimmingCharacters(in: .whitespaces)
             if model.renameCollection(collection, to: clean) { collection = clean }
         }
-        .confirmationDialog("Delete the collection “\(collection)”?", isPresented: $confirmDelete, titleVisibility: .visible) {
+        .alert("Delete the collection “\(collection)”?", isPresented: $confirmDelete) {
             Button("Delete Collection", role: .destructive) {
                 model.deleteCollection(collection)
                 dismiss()
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("The fics in it stay in your library.")
         }

@@ -72,14 +72,11 @@ struct FicDetailView: View {
     private var actions: some View {
         // Wraps rather than squeezing labels on a narrow phone.
         FlowLayout(spacing: 8) {
+            // Always available; prominent when a check found an update.
             if model.hasUpdate(item) {
-                Button {
-                    Task { await model.update(item) }
-                } label: {
-                    Label("Update", systemImage: "arrow.down.circle.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.isWorking)
+                updateButton.buttonStyle(.borderedProminent)
+            } else {
+                updateButton.buttonStyle(.bordered)
             }
             if item.isDownloaded {
                 #if os(iOS)
@@ -99,9 +96,7 @@ struct FicDetailView: View {
                 Link(destination: url) {
                     Label("AO3", systemImage: "safari")
                 }
-                #if os(macOS)
                 .buttonStyle(.bordered)
-                #endif
             }
             Button {
                 model.toggleFavorite(item)
@@ -112,15 +107,6 @@ struct FicDetailView: View {
             .buttonStyle(.bordered)
             Menu {
                 CollectionMenuItems(item: item, showNewCollection: $showNewCollection)
-                if !model.hasUpdate(item) {
-                    Divider()
-                    Button {
-                        Task { await model.update(item) }
-                    } label: {
-                        Label("Update from AO3", systemImage: "arrow.down.circle")
-                    }
-                    .disabled(model.isWorking)
-                }
             } label: {
                 Label("Collections", systemImage: "rectangle.stack")
             }
@@ -131,6 +117,16 @@ struct FicDetailView: View {
             #endif
         }
         .controlSize(.small)
+    }
+
+    private var updateButton: some View {
+        Button {
+            Task { await model.update(item) }
+        } label: {
+            Label("Update", systemImage: model.hasUpdate(item) ? "arrow.down.circle.fill" : "arrow.down.circle")
+        }
+        .disabled(model.isWorking)
+        .help("Download this fic again from AO3")
     }
 
     private func metadata(_ d: WorkDetails) -> some View {
@@ -151,7 +147,8 @@ struct FicDetailView: View {
         let parts: [String] = [
             d.words.map { "\($0) words" },
             d.chapters.map { "\($0) chapters" },
-            d.updated.map { "updated \($0)" } ?? d.published.map { "published \($0)" },
+            d.updated.map { "updated \(Self.readableDate($0))" }
+                ?? d.published.map { "published \(Self.readableDate($0))" },
         ].compactMap { $0 }
         if !parts.isEmpty {
             Text(parts.joined(separator: " · "))
@@ -177,5 +174,17 @@ struct FicDetailView: View {
                 }
             }
         }
+    }
+
+    /// AO3's "2026-01-15" as "Jan 15, 2026"; anything unexpected as-is.
+    private static func readableDate(_ iso: String) -> String {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: iso) else { return iso }
+        var style = Date.FormatStyle(date: .abbreviated, time: .omitted)
+        style.timeZone = TimeZone(identifier: "UTC")!
+        return date.formatted(style)
     }
 }

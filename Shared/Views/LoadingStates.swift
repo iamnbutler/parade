@@ -53,7 +53,9 @@ struct BrowseEmptyView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        if model.isMigrating || model.isScanning || model.isIndexing || !model.hasLoadedOnce {
+        // Loading only until details first arrive — not on every periodic
+        // rescan, which would flicker between this and the empty state.
+        if !model.hasLoadedOnce || model.isMigrating || (model.isIndexing && model.detailsIndex.isEmpty) {
             LibraryLoadingView(text: "Reading fic details…")
         } else if model.library.isEmpty {
             ContentUnavailableView(

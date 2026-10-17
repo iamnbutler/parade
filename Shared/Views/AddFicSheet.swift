@@ -5,6 +5,9 @@ struct AddFicSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var linkText = ""
+    /// The log is shown only once a download starts here — older lines are
+    /// some other action's business.
+    @State private var startedHere = false
 
     private var linkCount: Int { AO3Link.all(in: linkText).count }
 
@@ -30,7 +33,7 @@ struct AddFicSheet: View {
                     }
                 }
 
-                if !model.statusLines.isEmpty {
+                if startedHere, !model.statusLines.isEmpty {
                     Section("Activity") {
                         ForEach(Array(model.statusLines.enumerated()), id: \.offset) { _, line in
                             Text(line)
@@ -50,6 +53,7 @@ struct AddFicSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .disabled(model.isWorking)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if model.isWorking {
@@ -89,6 +93,7 @@ struct AddFicSheet: View {
     private func startDownload() {
         let text = linkText
         guard !text.isEmpty, !model.isWorking else { return }
+        startedHere = true
         Task {
             await model.handle(text)
             // Success closes the sheet; an error keeps it open to read.

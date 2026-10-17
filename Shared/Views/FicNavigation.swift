@@ -33,29 +33,35 @@ private struct FicDestinations: ViewModifier {
 
 #if os(iOS)
 /// A fic's detail page that swipes sideways to its neighbors in the list
-/// it was opened from.
+/// it was opened from — the live list, so favoriting, shelving or deleting
+/// along the way keeps the neighbors and the count right.
 struct FicPager: View {
-    /// Pages either side of the opened fic. A window, not the whole list —
+    /// Pages either side of the current fic. A window, not the whole list —
     /// a 100k-fic library shouldn't be laid out to open one page.
     private static let reach = 100
 
-    private let pages: [LibraryItem]
+    let route: FicRoute
+    @EnvironmentObject private var model: AppModel
     @State private var currentID: String
+    /// The pages as last laid out — kept when the current fic drops out of
+    /// the list (unfavorited, removed from a collection) so it stays open.
+    @State private var lastPages: [LibraryItem]
 
     init(route: FicRoute, items: [LibraryItem]) {
-        if let i = items.firstIndex(where: { $0.id == route.item.id }) {
-            pages = Array(items[max(0, i - Self.reach)..<min(items.count, i + Self.reach + 1)])
-        } else {
-            pages = [route.item]
-        }
+        self.route = route
         _currentID = State(initialValue: route.item.id)
+        _lastPages = State(initialValue: Self.window(items, around: route.item.id) ?? [route.item])
     }
 
-    private var currentIndex: Int? {
-        pages.firstIndex { $0.id == currentID }
+    private static func window(_ items: [LibraryItem], around id: String) -> [LibraryItem]? {
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return nil }
+        return Array(items[max(0, i - reach)..<min(items.count, i + reach + 1)])
     }
 
     var body: some View {
+        let items = model.items(for: route.list)
+        let position = items.firstIndex { $0.id == currentID }
+        let pages = Self.window(items, around: currentID) ?? lastPages
         // A page-style TabView rather than a paging ScrollView: its
         // selection reliably opens on the tapped fic, where a scroll
         // position set before first layout can be dropped.
@@ -66,17 +72,22 @@ struct FicPager: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .navigationTitle(currentIndex.map { pages[$0].title } ?? "")
+        .navigationTitle(pages.first { $0.id == currentID }?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if pages.count > 1, let i = currentIndex {
+            // Position in the whole list, not the window.
+            if items.count > 1, let position {
                 ToolbarItem(placement: .primaryAction) {
-                    Text("\(i + 1) of \(pages.count)")
+                    Text("\(position + 1) of \(items.count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        .fixedSize()
                 }
             }
+        }
+        .onChange(of: pages.map(\.id)) { _, _ in
+            lastPages = pages
         }
     }
 }
@@ -89,13 +100,13 @@ struct TagFicsView: View {
     @State private var searchText = ""
 
     private var items: [LibraryItem] {
-        model.items(for: .tag(tag)).filter { model.item($0, matches: searchText) }
+        model.items(for: .tag(tag, query: searchText))
     }
 
     var body: some View {
         List {
             ForEach(items) { item in
-                NavigationLink(value: FicRoute(item: item, list: .tag(tag))) {
+                NavigationLink(value: FicRoute(item: item, list: .tag(tag, query: searchText))) {
                     FicRow(item: item, showsAuthor: true)
                 }
             }

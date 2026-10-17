@@ -74,13 +74,16 @@ struct FicRow: View {
             .disabled(model.isWorking)
         }
         .confirmationDialog(
-            "Delete “\(item.title)”?",
+            "Delete \(item.title.quoted)?",
             isPresented: $confirmDelete,
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) { model.delete(item) }
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Removes the file from your library folder — and, via iCloud, from your other devices. Copies already in Apple Books stay.")
+            Text(model.inCloud
+                ? "Removes the file from your library folder — and, via iCloud, from your other devices. Copies already in Apple Books stay."
+                : "Removes the file from your library folder. Copies already in Apple Books stay.")
         }
         .contextMenu {
             Button {

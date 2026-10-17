@@ -83,8 +83,8 @@ struct CollectionSelection: Hashable {
 enum FicList: Hashable {
     case library(LibrarySort, query: String)
     case favorites(query: String)
-    case tag(TagSelection)
-    case collection(String)
+    case tag(TagSelection, query: String)
+    case collection(String, query: String)
 }
 
 /// Navigation value for opening one fic from a list.
@@ -136,7 +136,7 @@ final class AppModel: ObservableObject {
     }
     private(set) var destinationRoot: URL
     /// True once the library root is the app's iCloud container.
-    private var inCloud = false
+    @Published private(set) var inCloud = false
 
     #if os(macOS)
     @Published var autoImport: Bool {
@@ -612,10 +612,11 @@ final class AppModel: ObservableObject {
             return flatItems(sort).filter { item($0, matches: query) }
         case .favorites(let query):
             return favoriteItems.filter { item($0, matches: query) }
-        case .tag(let tag):
-            return tagGroups(tag.kind).first { $0.name == tag.name }?.items ?? []
-        case .collection(let name):
-            return items(inCollection: name)
+        case .tag(let tag, let query):
+            return (tagGroups(tag.kind).first { $0.name == tag.name }?.items ?? [])
+                .filter { item($0, matches: query) }
+        case .collection(let name, let query):
+            return items(inCollection: name).filter { item($0, matches: query) }
         }
     }
 
@@ -999,7 +1000,7 @@ final class AppModel: ObservableObject {
     }
 
     private func save(_ work: WorkInfo) async throws {
-        status("Downloading “\(work.title)” by \(work.authorLabel)…")
+        status("Downloading \(work.title.quoted) by \(work.authorLabel)…")
         let temp = try await client.downloadEPUB(work)
         let dest = try Organizer(root: destinationRoot).place(temp, for: work)
         status("✓ Saved \(relativePath(of: dest))")
@@ -1030,8 +1031,14 @@ final class AppModel: ObservableObject {
     /// One request per fic, politely spaced — explicit action, never automatic.
     func checkForUpdates() async {
         guard !isCheckingUpdates, !isWorking else { return }
+        // Also "working": downloads and single updates wait, so nothing
+        // interleaves with the politely spaced sweep.
         isCheckingUpdates = true
-        defer { isCheckingUpdates = false }
+        isWorking = true
+        defer {
+            isCheckingUpdates = false
+            isWorking = false
+        }
         await refreshLibraryNow()
         let items = library.flatMap(\.items).filter(\.isDownloaded)
         status("Checking \(items.count) fic\(items.count == 1 ? "" : "s") against AO3…")
@@ -1073,7 +1080,8 @@ final class AppModel: ObservableObject {
     private func showToast(_ text: String) {
         toast = text
         Task {
-            try? await Task.sleep(for: .seconds(3))
+            // Long enough to read: a longer message stays up longer.
+            try? await Task.sleep(for: .seconds(max(3, Double(text.count) / 15)))
             if toast == text { toast = nil }
         }
     }
@@ -1092,8 +1100,8 @@ final class AppModel: ObservableObject {
         var workID = detailsIndex[item.id]?.workID
         if workID == nil { workID = (await details(for: item))?.workID }
         guard let workID else {
-            status("⚠️ “\(item.title)” has no AO3 work link inside it")
-            showToast("“\(item.title)” has no AO3 link inside it")
+            status("⚠️ \(item.title.quoted) has no AO3 work link inside it")
+            showToast("\(item.title.quoted) has no AO3 link inside it")
             return
         }
         isWorking = true
@@ -1106,10 +1114,10 @@ final class AppModel: ObservableObject {
             try await downloadWork(id: workID)
             updatesAvailable.remove(item.id)
             saveUpdatesAvailable()
-            showToast("Updated “\(item.title)”")
+            showToast("Updated \(item.title.quoted)")
         } catch {
             status("⚠️ \(error.localizedDescription)")
-            showToast("Couldn't update “\(item.title)”: \(error.localizedDescription)")
+            showToast("Couldn't update \(item.title.quoted): \(error.localizedDescription)")
         }
         await refreshLibraryNow()
         #if os(macOS)
@@ -1136,15 +1144,15 @@ final class AppModel: ObservableObject {
     /// Sends one fic to Apple Books (silent import) and remembers it.
     func addToBooks(_ item: LibraryItem) {
         guard sendToBooks([item.url]) else {
-            showToast("Couldn't send “\(item.title)” to Apple Books")
+            showToast("Couldn't send \(item.title.quoted) to Apple Books")
             return
         }
         markImported(item.url)
         persistImported()
         status("→ Books: \(item.title)")
         showToast(Self.testLibrary == nil
-            ? "Sent “\(item.title)” to Apple Books"
-            : "Test library — “\(item.title)” not actually sent to Books")
+            ? "Sent \(item.title.quoted) to Apple Books"
+            : "Test library — \(item.title.quoted) not actually sent to Books")
     }
 
     @discardableResult
@@ -1349,4 +1357,16 @@ final class AppModel: ObservableObject {
         defaults.set(imported, forKey: Keys.imported)
     }
     #endif
+}
+
+extension String {
+    /// The string in curly quotes for messages — unless it already is
+    /// quoted (plenty of fic titles are), which would print ““…””.
+    var quoted: String {
+        let quotes: Set<Character> = ["“", "”", "\"", "‘", "’", "'"]
+        if let first = first, let last = last, count > 1, quotes.contains(first), quotes.contains(last) {
+            return self
+        }
+        return "“\(self)”"
+    }
 }
