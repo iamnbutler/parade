@@ -9,9 +9,9 @@ struct LibraryView: View {
 
     private var sort: LibrarySort { LibrarySort(rawValue: sortRaw) ?? .author }
 
-    private var groups: [(author: String, items: [LibraryItem])] {
-        model.library
-            .map { (author: $0.author, items: $0.items.filter { model.item($0, matches: searchText) }) }
+    private var sections: [(name: String, items: [LibraryItem])] {
+        model.sections(sort)
+            .map { (name: $0.name, items: $0.items.filter { model.item($0, matches: searchText) }) }
             .filter { !$0.items.isEmpty }
     }
 
@@ -47,9 +47,7 @@ struct LibraryView: View {
                         .accessibilityLabel("Add fic")
                     }
                 }
-                .navigationDestination(for: LibraryItem.self) { item in
-                    FicDetailView(item: item)
-                }
+                .ficDestinations()
         }
         .sheet(isPresented: $showAddSheet) {
             AddFicSheet()
@@ -79,25 +77,26 @@ struct LibraryView: View {
                 ContentUnavailableView(
                     "No fics yet",
                     systemImage: "books.vertical",
-                    description: Text("Tap + and paste an AO3 link to download your first fic.")
+                    description: Text("Tap + and paste AO3 links to download your first fics.")
                 )
             }
         } else {
             List {
-                if sort != .author {
-                    ForEach(flatItems) { item in
-                        NavigationLink(value: item) {
-                            FicRow(item: item, showsAuthor: true)
+                if sort.isGrouped {
+                    ForEach(sections, id: \.name) { section in
+                        Section(section.name) {
+                            ForEach(section.items) { item in
+                                NavigationLink(value: route(item)) {
+                                    // Series sections hold many authors.
+                                    FicRow(item: item, showsAuthor: sort == .series)
+                                }
+                            }
                         }
                     }
                 } else {
-                    ForEach(groups, id: \.author) { group in
-                        Section(group.author) {
-                            ForEach(group.items) { item in
-                                NavigationLink(value: item) {
-                                    FicRow(item: item)
-                                }
-                            }
+                    ForEach(flatItems) { item in
+                        NavigationLink(value: route(item)) {
+                            FicRow(item: item, showsAuthor: true, showsAddedDate: sort == .added)
                         }
                     }
                 }
@@ -109,6 +108,10 @@ struct LibraryView: View {
             .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
             .refreshable { model.refreshLibrary() }
         }
+    }
+
+    private func route(_ item: LibraryItem) -> FicRoute {
+        FicRoute(item: item, list: .library(sort, query: searchText))
     }
 }
 
@@ -137,7 +140,7 @@ struct FavoritesView: View {
                 } else {
                     List {
                         ForEach(items) { item in
-                            NavigationLink(value: item) {
+                            NavigationLink(value: FicRoute(item: item, list: .favorites(query: searchText))) {
                                 FicRow(item: item, showsAuthor: true)
                             }
                         }
@@ -146,9 +149,7 @@ struct FavoritesView: View {
                 }
             }
             .navigationTitle("Favorites")
-            .navigationDestination(for: LibraryItem.self) { item in
-                FicDetailView(item: item)
-            }
+            .ficDestinations()
         }
         .onAppear { model.refreshLibrary() }
     }

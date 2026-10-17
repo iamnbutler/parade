@@ -31,6 +31,21 @@ public enum AO3Link: Equatable, Sendable {
         return nil
     }
 
+    /// Every distinct AO3 work or series link in `text`, in order — for
+    /// pasting a batch of links at once (one per line, comma-separated, or
+    /// buried in a block of text).
+    public static func all(in text: String) -> [AO3Link] {
+        var links: [AO3Link] = []
+        // Split on whitespace and commas so bare "/works/1" paths on their
+        // own line are found too, not only full URLs.
+        let pieces = text.split(whereSeparator: { $0.isWhitespace || $0 == "," })
+        for piece in pieces {
+            guard let link = AO3Link(text: String(piece)), !links.contains(link) else { continue }
+            links.append(link)
+        }
+        return links
+    }
+
     public var pageURL: URL {
         switch self {
         case .work(let id):

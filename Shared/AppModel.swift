@@ -15,7 +15,10 @@ struct LibraryItem: Identifiable, Hashable {
     let title: String
     /// The real EPUB location (even when only an iCloud placeholder exists yet).
     let url: URL
+    /// Last write — when this version of the EPUB was saved.
     let date: Date
+    /// When the fic first arrived (file creation date; updates keep it).
+    let added: Date
     /// False while the file is still an undownloaded ".….icloud" placeholder.
     let isDownloaded: Bool
 
@@ -24,15 +27,70 @@ struct LibraryItem: Identifiable, Hashable {
 
 /// How the Library list is arranged.
 enum LibrarySort: String, CaseIterable, Identifiable {
-    case author, title, updated
+    case author, title, series, added, updated
     var id: String { rawValue }
     var label: String {
         switch self {
         case .author: "By Author"
         case .title: "By Title"
+        case .series: "By Series"
+        case .added: "Date Added"
         case .updated: "Last Updated"
         }
     }
+    /// Sorts shown as sections (author / series headers) rather than flat.
+    var isGrouped: Bool { self == .author || self == .series }
+}
+
+/// A browsable kind of AO3 metadata — each value becomes a drill-in list.
+enum TagKind: String, CaseIterable, Identifiable, Hashable {
+    case fandoms, series, relationships, characters, tags
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .fandoms: "Fandoms"
+        case .series: "Series"
+        case .relationships: "Relationships"
+        case .characters: "Characters"
+        case .tags: "Tags"
+        }
+    }
+
+    func values(in d: WorkDetails) -> [String] {
+        switch self {
+        case .fandoms: d.fandoms
+        case .series: d.seriesName.map { [$0] } ?? []
+        case .relationships: d.relationships
+        case .characters: d.characters
+        case .tags: d.additionalTags
+        }
+    }
+}
+
+/// One tag (or fandom, series…), as a navigation value.
+struct TagSelection: Hashable {
+    let kind: TagKind
+    let name: String
+}
+
+/// One user collection, as a navigation value.
+struct CollectionSelection: Hashable {
+    let name: String
+}
+
+/// Which list a fic was opened from — so the detail screen can page
+/// through its neighbors in the same order.
+enum FicList: Hashable {
+    case library(LibrarySort, query: String)
+    case favorites(query: String)
+    case tag(TagSelection)
+    case collection(String)
+}
+
+/// Navigation value for opening one fic from a list.
+struct FicRoute: Hashable {
+    let item: LibraryItem
+    let list: FicList
 }
 
 @MainActor
@@ -73,6 +131,7 @@ final class AppModel: ObservableObject {
         static let autoImport = "autoImport.v1"
         static let imported = "importedFiles.v1"
         static let baselinedFolder = "baselinedFolder.v1"
+        static let updatesAvailable = "updatesAvailable.v1"
     }
 
     init() {
@@ -80,6 +139,7 @@ final class AppModel: ObservableObject {
         autoImport = defaults.object(forKey: Keys.autoImport) as? Bool ?? false
         imported = defaults.dictionary(forKey: Keys.imported) as? [String: TimeInterval] ?? [:]
         #endif
+        updatesAvailable = Set(defaults.stringArray(forKey: Keys.updatesAvailable) ?? [])
         destinationRoot = Self.localRoot()
         updateDestinationLabel()
         refreshLibrary()
@@ -232,6 +292,7 @@ final class AppModel: ObservableObject {
     private struct LibraryScan {
         var groups: [(author: String, items: [LibraryItem])] = []
         var favorites: Set<String> = []
+        var collections = FicCollections()
         var placeholders: [URL] = []
         var error: String?
     }
@@ -273,8 +334,7 @@ final class AppModel: ObservableObject {
     private func applyPartialScan(_ groups: [(author: String, items: [LibraryItem])], generation: Int) {
         guard scanGeneration == generation else { return }
         library = groups
-        flatCache = [:]
-        fandomCache = nil
+        invalidateDerived()
     }
 
     private func performRefresh() async {
@@ -311,9 +371,9 @@ final class AppModel: ObservableObject {
         }
         libraryError = nil
         favorites = scan.favorites
+        collections = scan.collections
         library = scan.groups
-        flatCache = [:]
-        fandomCache = nil
+        invalidateDerived()
         hasLoadedOnce = true
         requestDownloads(scan.placeholders)
     }
@@ -334,6 +394,11 @@ final class AppModel: ObservableObject {
             scan.placeholders.append(favoritesFile)
         }
         scan.favorites = favoriteIDs(at: favoritesFile)
+        let collectionsFile = root.appendingPathComponent(Self.collectionsFileName)
+        if fm.fileExists(atPath: root.appendingPathComponent(".\(Self.collectionsFileName).icloud").path) {
+            scan.placeholders.append(collectionsFile)
+        }
+        scan.collections = (try? String(contentsOf: collectionsFile, encoding: .utf8)).map(FicCollections.init(text:)) ?? FicCollections()
 
         let providerDirs: [URL]
         do {
@@ -360,7 +425,8 @@ final class AppModel: ObservableObject {
                 guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
                       dir.lastPathComponent != Organizer.backupsFolder else { continue }
                 let files = (try? fm.contentsOfDirectory(
-                    at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [])) ?? []
+                    at: dir, includingPropertiesForKeys: [.contentModificationDateKey, .creationDateKey],
+                    options: [])) ?? []
                 for file in files {
                     guard let item = Self.libraryItem(for: file, provider: provider, author: dir.lastPathComponent)
                     else { continue }
@@ -402,13 +468,14 @@ final class AppModel: ObservableObject {
 
     private nonisolated static func libraryItem(for file: URL, provider: String, author: String) -> LibraryItem? {
         let name = file.lastPathComponent
-        let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?
-            .contentModificationDate ?? .distantPast
+        let values = try? file.resourceValues(forKeys: [.contentModificationDateKey, .creationDateKey])
+        let date = values?.contentModificationDate ?? .distantPast
+        let added = values?.creationDate ?? date
         if name.lowercased().hasSuffix(".epub") {
             return LibraryItem(
                 provider: provider, author: author,
                 title: file.deletingPathExtension().lastPathComponent,
-                url: file, date: date, isDownloaded: true)
+                url: file, date: date, added: added, isDownloaded: true)
         }
         // iCloud placeholder: ".Title.epub.icloud" stands in for "Title.epub".
         if name.hasPrefix("."), name.hasSuffix(".icloud") {
@@ -418,7 +485,7 @@ final class AppModel: ObservableObject {
             return LibraryItem(
                 provider: provider, author: author,
                 title: (realName as NSString).deletingPathExtension,
-                url: realURL, date: date, isDownloaded: false)
+                url: realURL, date: date, added: added, isDownloaded: false)
         }
         return nil
     }
@@ -426,28 +493,92 @@ final class AppModel: ObservableObject {
     // MARK: - sorted views of the library (cached, never per-render)
 
     private var flatCache: [LibrarySort: [LibraryItem]] = [:]
-    private var fandomCache: [(name: String, items: [LibraryItem])]?
+    private var sectionCache: [LibrarySort: [(name: String, items: [LibraryItem])]] = [:]
+    private var tagCache: [TagKind: [(name: String, items: [LibraryItem])]] = [:]
+    private var idCache: [String: LibraryItem]?
+
+    /// Drops every derived view of the library. `detailsOnly` keeps the
+    /// orderings that don't read EPUB metadata.
+    private func invalidateDerived(detailsOnly: Bool = false) {
+        if detailsOnly {
+            for sort in [LibrarySort.updated, .series] {
+                flatCache[sort] = nil
+                sectionCache[sort] = nil
+            }
+        } else {
+            flatCache = [:]
+            sectionCache = [:]
+            idCache = nil
+        }
+        tagCache = [:]
+    }
 
     /// Every item in the given order — computed once per library/details
     /// change so list bodies never re-sort 100k items per render.
     func flatItems(_ sort: LibrarySort) -> [LibraryItem] {
         if let cached = flatCache[sort] { return cached }
-        let all = library.flatMap(\.items)
         let sorted: [LibraryItem]
         switch sort {
-        case .author:
-            sorted = all  // library groups are already author-ordered
+        case .author, .series:
+            sorted = sections(sort).flatMap(\.items)
         case .title:
             // Precompute keys: a localized compare inside sort() is O(n log n)
             // expensive comparisons; lowercasing once per item is O(n).
-            sorted = all.map { ($0.title.lowercased(), $0) }
+            sorted = library.flatMap(\.items).map { ($0.title.lowercased(), $0) }
                 .sorted { $0.0 < $1.0 }.map(\.1)
+        case .added:
+            sorted = library.flatMap(\.items).sorted { $0.added > $1.added }
         case .updated:
-            sorted = all.map { (contentDate($0), $0) }
+            sorted = library.flatMap(\.items).map { (contentDate($0), $0) }
                 .sorted { $0.0 > $1.0 }.map(\.1)
         }
         flatCache[sort] = sorted
         return sorted
+    }
+
+    /// The library as titled sections, for the grouped sorts: one per
+    /// author, or one per series (in part order) with standalone fics last.
+    /// Flat sorts come back as a single untitled section.
+    func sections(_ sort: LibrarySort) -> [(name: String, items: [LibraryItem])] {
+        if let cached = sectionCache[sort] { return cached }
+        let result: [(name: String, items: [LibraryItem])]
+        switch sort {
+        case .author:
+            result = library.map { (name: $0.author, items: $0.items) }
+        case .series:
+            let series = tagGroups(.series)
+            let inSeries = Set(series.flatMap { $0.items.map(\.id) })
+            let standalone = flatItems(.title).filter { !inSeries.contains($0.id) }
+            result = series + (standalone.isEmpty ? [] : [(name: Self.standaloneSection, items: standalone)])
+        default:
+            result = [(name: "", items: flatItems(sort))]
+        }
+        sectionCache[sort] = result
+        return result
+    }
+
+    static let standaloneSection = "Not in a Series"
+
+    /// Looks a fic up by id (favorites, collections, selection).
+    func item(withID id: String) -> LibraryItem? {
+        if idCache == nil {
+            idCache = Dictionary(library.flatMap(\.items).map { ($0.id, $0) }) { first, _ in first }
+        }
+        return idCache?[id]
+    }
+
+    /// The fics in one list, in the order that list shows them.
+    func items(for list: FicList) -> [LibraryItem] {
+        switch list {
+        case .library(let sort, let query):
+            return flatItems(sort).filter { item($0, matches: query) }
+        case .favorites(let query):
+            return favoriteItems.filter { item($0, matches: query) }
+        case .tag(let tag):
+            return tagGroups(tag.kind).first { $0.name == tag.name }?.items ?? []
+        case .collection(let name):
+            return items(inCollection: name)
+        }
     }
 
     // MARK: - fic details (parsed out of the EPUB itself)
@@ -472,8 +603,7 @@ final class AppModel: ObservableObject {
     }
 
     private func didUpdateDetails() {
-        flatCache[.updated] = nil
-        fandomCache = nil
+        invalidateDerived(detailsOnly: true)
     }
 
     /// Rich metadata for one fic, read from inside its EPUB (summary, tags,
@@ -579,26 +709,38 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Fics grouped by fandom (a fic in several fandoms appears in each).
-    /// Only as complete as the details index; cached between changes.
-    var fandomGroups: [(name: String, items: [LibraryItem])] {
-        if let cached = fandomCache { return cached }
-        var byFandom: [String: [LibraryItem]] = [:]
+    /// Fics grouped by one kind of metadata — fandom, series, tag… (a fic
+    /// with several values appears under each). Series list in part order;
+    /// the rest by author, then title. Only as complete as the details
+    /// index; cached between changes.
+    func tagGroups(_ kind: TagKind) -> [(name: String, items: [LibraryItem])] {
+        if let cached = tagCache[kind] { return cached }
+        var byValue: [String: [LibraryItem]] = [:]
         for item in library.flatMap(\.items) {
             guard let details = detailsIndex[item.id] else { continue }
-            for fandom in details.fandoms {
-                byFandom[fandom, default: []].append(item)
+            for value in kind.values(in: details) {
+                byValue[value, default: []].append(item)
             }
         }
-        let groups = byFandom
-            .map { name, items in
-                (name: name, items: items.sorted {
-                    ($0.author.lowercased(), $0.title.lowercased()) < ($1.author.lowercased(), $1.title.lowercased())
-                })
-            }
+        let groups = byValue
+            .map { name, items in (name: name, items: sortedForGroup(items, kind: kind)) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        fandomCache = groups
+        tagCache[kind] = groups
         return groups
+    }
+
+    /// Series in part order; everything else by author, then title.
+    private func sortedForGroup(_ items: [LibraryItem], kind: TagKind) -> [LibraryItem] {
+        if kind == .series {
+            let keyed: [(part: Int, title: String, item: LibraryItem)] = items.map {
+                (detailsIndex[$0.id]?.seriesPart ?? Int.max, $0.title.lowercased(), $0)
+            }
+            return keyed.sorted { ($0.part, $0.title) < ($1.part, $1.title) }.map(\.item)
+        }
+        let keyed: [(author: String, title: String, item: LibraryItem)] = items.map {
+            ($0.author.lowercased(), $0.title.lowercased(), $0)
+        }
+        return keyed.sorted { ($0.author, $0.title) < ($1.author, $1.title) }.map(\.item)
     }
 
     /// Search across title, author, and (once indexed) series, fandoms,
@@ -628,14 +770,18 @@ final class AppModel: ObservableObject {
         persistImported()
         #endif
         if favorites.remove(item.id) != nil { saveFavorites() }
+        if !collections.collections(containing: item.id).isEmpty {
+            collections.removeEverywhere(item.id)
+            saveCollections()
+        }
+        if updatesAvailable.remove(item.id) != nil { saveUpdatesAvailable() }
         // Drop it from the visible list immediately; the background rescan
         // confirms.
         library = library.compactMap { group in
             let items = group.items.filter { $0.id != item.id }
             return items.isEmpty ? nil : (author: group.author, items: items)
         }
-        flatCache = [:]
-        fandomCache = nil
+        invalidateDerived()
         refreshLibrary()
     }
 
@@ -681,11 +827,70 @@ final class AppModel: ObservableObject {
         try? text.write(to: favoritesFile, atomically: true, encoding: .utf8)
     }
 
+    // MARK: - collections (user-made, separate from AO3 tags)
+
+    /// Backed by Collections.txt in the library folder — see FicCollections.
+    @Published private(set) var collections = FicCollections()
+
+    private nonisolated static let collectionsFileName = "Collections.txt"
+    private var collectionsFile: URL { destinationRoot.appendingPathComponent(Self.collectionsFileName) }
+
+    /// A collection's fics, most recently added first. Ids whose file is gone
+    /// (or still arriving through iCloud) are skipped, not dropped.
+    func items(inCollection collection: String) -> [LibraryItem] {
+        collections.items(in: collection).reversed().compactMap { item(withID: $0) }
+    }
+
+    func isInCollection(_ item: LibraryItem, _ collection: String) -> Bool {
+        collections.contains(item.id, in: collection)
+    }
+
+    func toggle(_ item: LibraryItem, inCollection collection: String) {
+        if collections.contains(item.id, in: collection) {
+            collections.remove(item.id, from: collection)
+        } else {
+            collections.add(item.id, to: collection)
+        }
+        saveCollections()
+    }
+
+    func remove(_ item: LibraryItem, fromCollection collection: String) {
+        collections.remove(item.id, from: collection)
+        saveCollections()
+    }
+
+    /// Returns the created collection's name, or nil if blank or taken.
+    @discardableResult
+    func createCollection(_ name: String) -> String? {
+        guard let created = collections.create(name) else { return nil }
+        saveCollections()
+        return created
+    }
+
+    @discardableResult
+    func renameCollection(_ old: String, to new: String) -> Bool {
+        guard collections.rename(old, to: new) else { return false }
+        saveCollections()
+        return true
+    }
+
+    func deleteCollection(_ name: String) {
+        collections.delete(name)
+        saveCollections()
+    }
+
+    private func saveCollections() {
+        try? collections.text.write(to: collectionsFile, atomically: true, encoding: .utf8)
+    }
+
     // MARK: - download pipeline
 
+    /// Downloads every AO3 work and series link in `text` — one link, or a
+    /// whole batch pasted at once — one after another.
     func handle(_ text: String) async {
         guard !isWorking else { return }
-        guard let link = AO3Link(text: text) else {
+        let links = AO3Link.all(in: text)
+        guard !links.isEmpty else {
             status("⚠️ \(AO3Error.notAnAO3Link.localizedDescription)")
             return
         }
@@ -693,24 +898,51 @@ final class AppModel: ObservableObject {
         statusLines = []
         defer { isWorking = false }
 
-        do {
-            let ids = try await client.workIDs(for: link)
-            if case .series = link {
-                status("Series with \(ids.count) work\(ids.count == 1 ? "" : "s")…")
-            }
-            for (index, id) in ids.enumerated() {
-                if index > 0 {
-                    // Be polite to AO3 between series downloads.
+        if links.count > 1 {
+            status("\(links.count) links…")
+        }
+        var saved = 0, failed = 0
+        var requested = false
+        for link in links {
+            do {
+                if requested {
+                    // Be polite to AO3 between links.
                     try? await Task.sleep(for: .seconds(1.5))
                 }
-                do {
-                    try await downloadWork(id: id)
-                } catch {
-                    status("⚠️ Work \(id): \(error.localizedDescription)")
+                requested = true
+                let ids = try await client.workIDs(for: link)
+                if case .series = link {
+                    status("Series with \(ids.count) work\(ids.count == 1 ? "" : "s")…")
                 }
+                for (index, id) in ids.enumerated() {
+                    if index > 0 {
+                        // …and between a series' works.
+                        try? await Task.sleep(for: .seconds(1.5))
+                    }
+                    do {
+                        try await downloadWork(id: id)
+                        saved += 1
+                    } catch AO3Error.rateLimited(let retry) {
+                        throw AO3Error.rateLimited(retryAfter: retry)
+                    } catch {
+                        failed += 1
+                        status("⚠️ Work \(id): \(error.localizedDescription)")
+                    }
+                }
+            } catch AO3Error.rateLimited(let retry) {
+                // Hammering on would only make it worse — stop the batch.
+                status("⚠️ \(AO3Error.rateLimited(retryAfter: retry).localizedDescription) Stopped after \(saved) fic\(saved == 1 ? "" : "s").")
+                failed += 1
+                break
+            } catch {
+                failed += 1
+                status("⚠️ \(error.localizedDescription)")
             }
-        } catch {
-            status("⚠️ \(error.localizedDescription)")
+        }
+        if saved + failed > 1 {
+            status(failed == 0
+                ? "✓ Saved all \(saved) fics"
+                : "Saved \(saved) fic\(saved == 1 ? "" : "s"), \(failed) failed")
         }
         await refreshLibraryNow()
         #if os(macOS)
@@ -720,7 +952,10 @@ final class AppModel: ObservableObject {
 
     private func downloadWork(id: Int) async throws {
         status("Fetching work \(id)…")
-        let work = try await client.fetchWork(id: id)
+        try await save(client.fetchWork(id: id))
+    }
+
+    private func save(_ work: WorkInfo) async throws {
         status("Downloading “\(work.title)” by \(work.authorLabel)…")
         let temp = try await client.downloadEPUB(work)
         let dest = try Organizer(root: destinationRoot).place(temp, for: work)
@@ -730,8 +965,13 @@ final class AppModel: ObservableObject {
     // MARK: - fic updates (against AO3)
 
     /// Item ids whose work changed on AO3 since the local EPUB. Filled by
-    /// checkForUpdates(); cleared per fic when it's re-downloaded.
+    /// checkForUpdates(); cleared per fic when it's re-downloaded. Kept
+    /// across launches — a sweep is slow, its findings shouldn't vanish.
     @Published private(set) var updatesAvailable: Set<String> = []
+
+    private func saveUpdatesAvailable() {
+        defaults.set(updatesAvailable.sorted(), forKey: Keys.updatesAvailable)
+    }
     @Published private(set) var isCheckingUpdates = false
 
     func hasUpdate(_ item: LibraryItem) -> Bool { updatesAvailable.contains(item.id) }
@@ -766,6 +1006,7 @@ final class AppModel: ObservableObject {
                 if let ts = info.updatedAt,
                    Date(timeIntervalSince1970: TimeInterval(ts)).timeIntervalSince(local) >= 86_400 {
                     updatesAvailable.insert(item.id)
+                    saveUpdatesAvailable()
                     found += 1
                 }
                 if checked % 10 == 0 { status("…\(checked)/\(items.count) checked") }
@@ -781,22 +1022,51 @@ final class AppModel: ObservableObject {
             : "✓ \(found) update\(found == 1 ? "" : "s") available")
     }
 
-    /// Re-downloads one fic from AO3. The old EPUB is kept in Backups/.
+    /// A one-line result shown briefly over the app, for actions started
+    /// from a list row or menu whose outcome would otherwise only reach
+    /// the Activity log.
+    @Published private(set) var toast: String?
+
+    private func showToast(_ text: String) {
+        toast = text
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            if toast == text { toast = nil }
+        }
+    }
+
+    /// Fics being updated individually right now (row spinners).
+    @Published private(set) var updating: Set<String> = []
+
+    /// Re-downloads one fic from AO3, whenever the user asks — it never
+    /// second-guesses them or runs on its own. The old EPUB is kept in
+    /// Backups/.
     func update(_ item: LibraryItem) async {
-        guard !isWorking else { return }
+        guard !isWorking else {
+            showToast("Busy — try again when the current download finishes")
+            return
+        }
         var workID = detailsIndex[item.id]?.workID
         if workID == nil { workID = (await details(for: item))?.workID }
         guard let workID else {
             status("⚠️ “\(item.title)” has no AO3 work link inside it")
+            showToast("“\(item.title)” has no AO3 link inside it")
             return
         }
         isWorking = true
-        defer { isWorking = false }
+        updating.insert(item.id)
+        defer {
+            isWorking = false
+            updating.remove(item.id)
+        }
         do {
             try await downloadWork(id: workID)
             updatesAvailable.remove(item.id)
+            saveUpdatesAvailable()
+            showToast("Updated “\(item.title)”")
         } catch {
             status("⚠️ \(error.localizedDescription)")
+            showToast("Couldn't update “\(item.title)”: \(error.localizedDescription)")
         }
         await refreshLibraryNow()
         #if os(macOS)

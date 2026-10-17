@@ -76,4 +76,15 @@ final class OrganizerTests: XCTestCase {
         XCTAssertEqual(Organizer.sanitize("///"), "- - -".replacingOccurrences(of: " ", with: "")) // "---"
         XCTAssertLessThanOrEqual(Organizer.sanitize(String(repeating: "x", count: 500)).count, 120)
     }
+
+    func testReplacingKeepsOriginalAddedDate() throws {
+        let organizer = Organizer(root: root)
+        let work = makeWork(title: "Fic", authors: ["a"])
+        let first = try organizer.place(makeTempEPUB(), for: work)
+        let added = Date(timeIntervalSince1970: 1_600_000_000)
+        try FileManager.default.setAttributes([.creationDate: added], ofItemAtPath: first.path)
+        let second = try organizer.place(makeTempEPUB(), for: work)
+        let created = try second.resourceValues(forKeys: [.creationDateKey]).creationDate
+        XCTAssertEqual(created, added)
+    }
 }

@@ -30,10 +30,17 @@ public struct Organizer: Sendable {
         let dest = authorDir
             .appendingPathComponent(Self.sanitize(work.title))
             .appendingPathExtension("epub")
+        // An update keeps the fic's original "added" date (the file's
+        // creation date), so it doesn't jump to the top of Date Added.
+        var added: Date?
         if FileManager.default.fileExists(atPath: dest.path) {
+            added = (try? dest.resourceValues(forKeys: [.creationDateKey]))?.creationDate
             try backUp(dest)
         }
         try FileManager.default.moveItem(at: epubFile, to: dest)
+        if let added {
+            try? FileManager.default.setAttributes([.creationDate: added], ofItemAtPath: dest.path)
+        }
         return dest
     }
 

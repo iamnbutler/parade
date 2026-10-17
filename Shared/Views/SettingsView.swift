@@ -74,7 +74,7 @@ struct SettingsView: View {
         } header: {
             Text("Fic Updates")
         } footer: {
-            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Updated fics get a badge; updating keeps the old version in the Backups folder.")
+            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you tap it. Fics with an update get a yellow dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version in the Backups folder.")
         }
     }
 

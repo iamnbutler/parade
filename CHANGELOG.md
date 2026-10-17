@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Collections** — your own categories, separate from AO3's tags. Make
+  them in the Collections tab (or the Mac sidebar), then long-press /
+  right-click any fic, or use the Collections button on its page. Stored in
+  `Collections.txt` in the library folder, so they sync through iCloud and
+  can be edited by hand.
+- **Batch download** — paste any number of AO3 work or series links at once
+  (one per line, comma-separated, or buried in text). They download one
+  after another, politely spaced; duplicates are skipped.
+- **Update one fic** — Update is in every fic's swipe actions and
+  long-press / right-click menu, and always re-downloads the fic when
+  tapped. Updating is only ever manual. Fics flagged by "Check AO3 for
+  Updates" show a yellow dot at the end of the row, and that now survives
+  relaunching the app.
+- **Swipe between fics** (iPhone/iPad) — a fic's page swipes sideways to
+  its neighbors in whatever list you opened it from.
+- **New sorts**: By Series (sections in part order, standalone fics last)
+  and Date Added. Updating a fic keeps its original added date.
+- **Browse by tag** — the Fandoms tab is now Browse: fandoms, series,
+  relationships, characters, or tags. Tags, fandoms, and the series line on
+  a fic's page are tappable and open every fic that shares them.
+
 ## 0.4.2 — 2026-09-01
 
 ### Fixed

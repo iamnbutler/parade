@@ -11,7 +11,7 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                TextField("Paste an AO3 link…", text: $linkText)
+                TextField("Paste AO3 links…", text: $linkText)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit(startDownload)
                 Button(action: startDownload) {

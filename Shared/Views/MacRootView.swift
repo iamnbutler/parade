@@ -4,33 +4,50 @@ import SwiftUI
 /// Standard macOS three-column layout: sidebar (sections) / list / detail,
 /// with the system sidebar toggle, collapsing, and resizable columns.
 struct MacRootView: View {
-    enum SidebarSection: String, CaseIterable, Identifiable {
-        case library, fandoms, favorites, settings
-        var id: String { rawValue }
-        var title: String { rawValue.capitalized }
+    enum SidebarSection: Hashable {
+        case library, browse, favorites, settings
+        case collection(String)
+
+        static let main: [SidebarSection] = [.library, .browse, .favorites, .settings]
+
+        var title: String {
+            switch self {
+            case .library: "Library"
+            case .browse: "Browse"
+            case .favorites: "Favorites"
+            case .settings: "Settings"
+            case .collection(let name): name
+            }
+        }
         var icon: String {
             switch self {
             case .library: "books.vertical"
-            case .fandoms: "theatermasks"
+            case .browse: "tag"
             case .favorites: "star"
             case .settings: "gearshape"
+            case .collection: "rectangle.stack"
             }
         }
     }
 
     @EnvironmentObject private var model: AppModel
     @AppStorage("librarySort.v1") private var sortRaw = LibrarySort.author.rawValue
+    @AppStorage("browseKind.v1") private var kindRaw = TagKind.fandoms.rawValue
     @State private var section: SidebarSection? = .library
     @State private var selectedID: String?
     @State private var searchText = ""
     @State private var showAddSheet = false
+    @State private var showNewCollection = false
+    @State private var renamingCollection: String?
+    @State private var deletingCollection: String?
+
+    private var sort: LibrarySort { LibrarySort(rawValue: sortRaw) ?? .author }
+    private var kind: TagKind { TagKind(rawValue: kindRaw) ?? .fandoms }
 
     var body: some View {
         NavigationSplitView {
-            List(SidebarSection.allCases, selection: $section) { s in
-                Label(s.title, systemImage: s.icon).tag(s)
-            }
-            .navigationSplitViewColumnWidth(min: 140, ideal: 170)
+            sidebar
+                .navigationSplitViewColumnWidth(min: 140, ideal: 170)
         } content: {
             contentColumn
                 .navigationSplitViewColumnWidth(min: 280, ideal: 340)
@@ -49,6 +66,16 @@ struct MacRootView: View {
                             .help("Sort the library")
                         }
                     }
+                    if section == .browse {
+                        ToolbarItem {
+                            Picker("Browse by", selection: $kindRaw) {
+                                ForEach(TagKind.allCases) { k in
+                                    Text(k.label).tag(k.rawValue)
+                                }
+                            }
+                            .help("Browse by fandom, series, relationship, character, or tag")
+                        }
+                    }
                     if section != .settings {
                         ToolbarItem(placement: .primaryAction) {
                             Button {
@@ -56,7 +83,7 @@ struct MacRootView: View {
                             } label: {
                                 Image(systemName: "plus")
                             }
-                            .help("Add fic from an AO3 link")
+                            .help("Add fics from AO3 links")
                         }
                     }
                 }
@@ -64,8 +91,14 @@ struct MacRootView: View {
             if section == .settings {
                 ContentUnavailableView("", systemImage: "gearshape")
             } else if let item = selectedItem {
-                FicDetailView(item: item)
-                    .frame(minWidth: 260)
+                // Its own stack, so tags and series in the details can be
+                // followed; reset whenever the selection changes.
+                NavigationStack {
+                    FicDetailView(item: item)
+                        .ficDestinations()
+                }
+                .id(item.id)
+                .frame(minWidth: 260)
             } else {
                 ContentUnavailableView(
                     "Select a fic", systemImage: "book.closed",
@@ -75,15 +108,66 @@ struct MacRootView: View {
         .sheet(isPresented: $showAddSheet) {
             AddFicSheet()
         }
+        .newCollectionAlert(isPresented: $showNewCollection, model: model)
+        .collectionNameAlert(
+            "Rename Collection",
+            isPresented: Binding(get: { renamingCollection != nil }, set: { if !$0 { renamingCollection = nil } }),
+            initial: renamingCollection ?? "",
+            action: "Rename"
+        ) { name in
+            guard let old = renamingCollection else { return }
+            let clean = name.trimmingCharacters(in: .whitespaces)
+            if model.renameCollection(old, to: clean), section == .collection(old) {
+                section = .collection(clean)
+            }
+        }
+        .confirmationDialog(
+            "Delete the collection “\(deletingCollection ?? "")”?",
+            isPresented: Binding(get: { deletingCollection != nil }, set: { if !$0 { deletingCollection = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete Collection", role: .destructive) {
+                guard let name = deletingCollection else { return }
+                if section == .collection(name) { section = .library }
+                model.deleteCollection(name)
+            }
+        } message: {
+            Text("The fics in it stay in your library.")
+        }
         .onAppear {
             model.refreshLibrary()
             model.buildDetailsIndex()
         }
     }
 
+    private var sidebar: some View {
+        List(selection: $section) {
+            ForEach(SidebarSection.main, id: \.self) { s in
+                Label(s.title, systemImage: s.icon).tag(s)
+            }
+            Section("Collections") {
+                ForEach(model.collections.names, id: \.self) { name in
+                    Label(name, systemImage: "rectangle.stack")
+                        .tag(SidebarSection.collection(name))
+                        .contextMenu {
+                            Button("Rename…") { renamingCollection = name }
+                            Button("Delete Collection", role: .destructive) { deletingCollection = name }
+                        }
+                }
+                Button {
+                    showNewCollection = true
+                } label: {
+                    Label("New Collection…", systemImage: "plus")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
     private var selectedItem: LibraryItem? {
         guard let selectedID else { return nil }
-        return model.library.flatMap(\.items).first { $0.id == selectedID }
+        return model.item(withID: selectedID)
     }
 
     @ViewBuilder
@@ -91,10 +175,12 @@ struct MacRootView: View {
         switch section {
         case .settings:
             SettingsView()
-        case .fandoms:
-            fandomsList
+        case .browse:
+            browseList
         case .favorites:
             favoritesList
+        case .collection(let name):
+            collectionList(name)
         default:
             libraryList
         }
@@ -120,10 +206,33 @@ struct MacRootView: View {
         }
     }
 
-    // MARK: - fandoms (drill into a fandom)
+    // MARK: - collections
 
-    private var filteredFandoms: [(name: String, items: [LibraryItem])] {
-        model.fandomGroups.filter { group in
+    @ViewBuilder
+    private func collectionList(_ name: String) -> some View {
+        let items = model.items(inCollection: name)
+        if items.isEmpty {
+            ContentUnavailableView(
+                "Nothing in this collection yet",
+                systemImage: "rectangle.stack",
+                description: Text("Right-click any fic and choose Collections › \(name).")
+            )
+            .navigationTitle(name)
+        } else {
+            List(selection: $selectedID) {
+                ForEach(items.filter { model.item($0, matches: searchText) }) { item in
+                    FicRow(item: item, showsAuthor: true, collection: name).tag(item.id)
+                }
+            }
+            .searchable(text: $searchText, prompt: "Filter collection…")
+            .navigationTitle(name)
+        }
+    }
+
+    // MARK: - browse (drill into a fandom, series, tag…)
+
+    private var filteredGroups: [(name: String, items: [LibraryItem])] {
+        model.tagGroups(kind).filter { group in
             searchText.isEmpty
                 || group.name.localizedCaseInsensitiveContains(searchText)
                 || group.items.contains { model.item($0, matches: searchText) }
@@ -131,21 +240,21 @@ struct MacRootView: View {
     }
 
     @ViewBuilder
-    private var fandomsList: some View {
-        if model.fandomGroups.isEmpty {
+    private var browseList: some View {
+        if model.tagGroups(kind).isEmpty {
             if model.isMigrating || model.isScanning || model.isIndexing || !model.hasLoadedOnce {
                 LibraryLoadingView(text: "Reading fic details…")
             } else {
                 ContentUnavailableView(
-                    "Nothing to browse yet",
-                    systemImage: "theatermasks",
-                    description: Text("Fandom info loads in the background after fics download.")
+                    "No \(kind.label.lowercased()) yet",
+                    systemImage: "tag",
+                    description: Text("Details load in the background after fics download.")
                 )
             }
         } else {
             NavigationStack {
                 List {
-                    ForEach(filteredFandoms, id: \.name) { group in
+                    ForEach(filteredGroups, id: \.name) { group in
                         NavigationLink(value: group.name) {
                             HStack {
                                 Text(group.name).lineLimit(1)
@@ -157,24 +266,26 @@ struct MacRootView: View {
                         }
                     }
                 }
-                .navigationDestination(for: String.self) { fandom in
+                .navigationDestination(for: String.self) { name in
                     List(selection: $selectedID) {
-                        ForEach(model.fandomGroups.first { $0.name == fandom }?.items ?? []) { item in
-                            FicRow(item: item).tag(item.id)
+                        ForEach(model.items(for: .tag(TagSelection(kind: kind, name: name)))) { item in
+                            FicRow(item: item, showsAuthor: true).tag(item.id)
                         }
                     }
-                    .navigationTitle(fandom)
+                    .navigationTitle(name)
                 }
             }
-            .searchable(text: $searchText, prompt: "Filter fandoms…")
+            // A new kind starts back at its top-level list.
+            .id(kind)
+            .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
         }
     }
 
     // MARK: - library
 
-    private var filteredLibrary: [(author: String, items: [LibraryItem])] {
-        model.library
-            .map { (author: $0.author, items: $0.items.filter { model.item($0, matches: searchText) }) }
+    private var filteredSections: [(name: String, items: [LibraryItem])] {
+        model.sections(sort)
+            .map { (name: $0.name, items: $0.items.filter { model.item($0, matches: searchText) }) }
             .filter { !$0.items.isEmpty }
     }
 
@@ -197,22 +308,22 @@ struct MacRootView: View {
                 ContentUnavailableView(
                     "No fics yet",
                     systemImage: "books.vertical",
-                    description: Text("Click + and paste an AO3 link.")
+                    description: Text("Click + and paste AO3 links.")
                 )
             }
         } else {
             List(selection: $selectedID) {
-                if LibrarySort(rawValue: sortRaw) ?? .author != .author {
-                    ForEach(libraryFlat) { item in
-                        FicRow(item: item, showsAuthor: true).tag(item.id)
-                    }
-                } else {
-                    ForEach(filteredLibrary, id: \.author) { group in
-                        Section(group.author) {
-                            ForEach(group.items) { item in
-                                FicRow(item: item).tag(item.id)
+                if sort.isGrouped {
+                    ForEach(filteredSections, id: \.name) { section in
+                        Section(section.name) {
+                            ForEach(section.items) { item in
+                                FicRow(item: item, showsAuthor: sort == .series).tag(item.id)
                             }
                         }
+                    }
+                } else {
+                    ForEach(libraryFlat) { item in
+                        FicRow(item: item, showsAuthor: true, showsAddedDate: sort == .added).tag(item.id)
                     }
                 }
             }
@@ -223,8 +334,7 @@ struct MacRootView: View {
     private var libraryFlat: [LibraryItem] {
         // Ordering comes pre-sorted from the model's cache; only the search
         // filter runs per render.
-        model.flatItems(LibrarySort(rawValue: sortRaw) ?? .updated)
-            .filter { model.item($0, matches: searchText) }
+        model.flatItems(sort).filter { model.item($0, matches: searchText) }
     }
 
 }

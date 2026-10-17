@@ -52,4 +52,19 @@ final class AO3LinkTests: XCTestCase {
         let url = AO3Link.work(id: 5).pageURL.absoluteString
         XCTAssertTrue(url.contains("view_adult=true"))
     }
+
+    func testAllFindsEveryLinkInOrder() {
+        let text = """
+        https://archiveofourown.org/works/1
+        https://archiveofourown.org/series/2, https://archiveofourown.org/works/3/chapters/9
+        /works/4
+        """
+        XCTAssertEqual(AO3Link.all(in: text), [.work(id: 1), .series(id: 2), .work(id: 3), .work(id: 4)])
+    }
+
+    func testAllDropsDuplicatesAndNoise() {
+        let text = "read https://archiveofourown.org/works/7 and archiveofourown.org/works/7?view_adult=true lol https://example.com/works/8"
+        XCTAssertEqual(AO3Link.all(in: text), [.work(id: 7)])
+        XCTAssertEqual(AO3Link.all(in: "nothing here"), [])
+    }
 }

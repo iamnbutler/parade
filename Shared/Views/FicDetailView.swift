@@ -7,6 +7,7 @@ struct FicDetailView: View {
     let item: LibraryItem
     @EnvironmentObject private var model: AppModel
     @State private var details: WorkDetails?
+    @State private var showNewCollection = false
 
     var body: some View {
         ScrollView {
@@ -35,10 +36,7 @@ struct FicDetailView: View {
             details = nil
             details = await model.details(for: item)
         }
-        #if os(iOS)
-        .navigationTitle(item.title)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .newCollectionAlert(isPresented: $showNewCollection, adding: item, model: model)
     }
 
     private var header: some View {
@@ -49,15 +47,32 @@ struct FicDetailView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             if let series = details?.series {
-                Text(series)
-                    .font(.subheadline)
-                    .foregroundStyle(.tint)
+                if let name = details?.seriesName {
+                    NavigationLink(value: TagSelection(kind: .series, name: name)) {
+                        Text(series)
+                            .font(.subheadline)
+                            .foregroundStyle(.tint)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text(series)
+                        .font(.subheadline)
+                        .foregroundStyle(.tint)
+                }
+            }
+            let collections = model.collections.collections(containing: item.id)
+            if !collections.isEmpty {
+                Label(collections.joined(separator: ", "), systemImage: "rectangle.stack")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
             }
         }
     }
 
     private var actions: some View {
-        HStack(spacing: 10) {
+        // Wraps rather than squeezing labels on a narrow phone.
+        FlowLayout(spacing: 8) {
             if model.hasUpdate(item) {
                 Button {
                     Task { await model.update(item) }
@@ -96,6 +111,25 @@ struct FicDetailView: View {
                       systemImage: model.isFavorite(item) ? "star.fill" : "star")
             }
             .buttonStyle(.bordered)
+            Menu {
+                CollectionMenuItems(item: item, showNewCollection: $showNewCollection)
+                if !model.hasUpdate(item) {
+                    Divider()
+                    Button {
+                        Task { await model.update(item) }
+                    } label: {
+                        Label("Update from AO3", systemImage: "arrow.down.circle")
+                    }
+                    .disabled(model.isWorking)
+                }
+            } label: {
+                Label("Collections", systemImage: "rectangle.stack")
+            }
+            #if os(iOS)
+            .buttonStyle(.bordered)
+            #else
+            .fixedSize()
+            #endif
         }
         .controlSize(.small)
     }
@@ -106,10 +140,10 @@ struct FicDetailView: View {
             field("Rating", d.rating)
             field("Warnings", d.warnings)
             field("Category", d.categories)
-            field("Fandom", d.fandoms)
-            field("Relationships", d.relationships)
-            field("Characters", d.characters)
-            field("Tags", d.additionalTags)
+            field("Fandom", d.fandoms, kind: .fandoms)
+            field("Relationships", d.relationships, kind: .relationships)
+            field("Characters", d.characters, kind: .characters)
+            field("Tags", d.additionalTags, kind: .tags)
         }
     }
 
@@ -128,15 +162,20 @@ struct FicDetailView: View {
     }
 
     @ViewBuilder
-    private func field(_ label: String, _ values: [String]) -> some View {
+    private func field(_ label: String, _ values: [String], kind: TagKind? = nil) -> some View {
         if !values.isEmpty {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(label.uppercased())
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.tertiary)
-                Text(values.joined(separator: " · "))
-                    .font(.callout)
-                    .textSelection(.enabled)
+                if let kind {
+                    // Tap a tag to see every fic that has it.
+                    TagChips(kind: kind, values: values)
+                } else {
+                    Text(values.joined(separator: " · "))
+                        .font(.callout)
+                        .textSelection(.enabled)
+                }
             }
         }
     }

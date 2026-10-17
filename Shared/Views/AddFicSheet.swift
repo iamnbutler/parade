@@ -1,9 +1,12 @@
 import SwiftUI
+import AO3Kit
 
 struct AddFicSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var linkText = ""
+
+    private var linkCount: Int { AO3Link.all(in: linkText).count }
 
     var body: some View {
         NavigationStack {
@@ -20,7 +23,11 @@ struct AddFicSheet: View {
                     .labelStyle(.titleAndIcon)
                     .buttonBorderShape(.capsule)
                 } footer: {
-                    Text("Works and whole series. The EPUB is AO3's own export, filed as Author/Title in your library.")
+                    if linkCount > 1 {
+                        Text("\(linkCount) links — they download one after another.")
+                    } else {
+                        Text("Works and whole series — paste one link or a whole batch. The EPUB is AO3's own export, filed as Author/Title in your library.")
+                    }
                 }
 
                 if !model.statusLines.isEmpty {
@@ -36,7 +43,7 @@ struct AddFicSheet: View {
             #if os(macOS)
             .formStyle(.grouped)
             #endif
-            .navigationTitle("Add Fic")
+            .navigationTitle("Add Fics")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -51,8 +58,8 @@ struct AddFicSheet: View {
                             .controlSize(.small)
                             #endif
                     } else {
-                        Button("Download", action: startDownload)
-                            .disabled(linkText.isEmpty)
+                        Button(linkCount > 1 ? "Download \(linkCount)" : "Download", action: startDownload)
+                            .disabled(linkCount == 0)
                     }
                 }
             }
@@ -66,7 +73,8 @@ struct AddFicSheet: View {
     }
 
     private var linkField: some View {
-        let field = TextField("AO3 work or series link", text: $linkText, axis: .vertical)
+        let field = TextField("AO3 work or series links", text: $linkText, axis: .vertical)
+            .lineLimit(1...8)
             .autocorrectionDisabled()
             .onSubmit(startDownload)
         #if os(iOS)
