@@ -654,7 +654,9 @@ final class AppModel: ObservableObject {
         let key = Self.cacheKey(item)
         if let hit = detailsCache[key] {
             guard hit != WorkDetails() else { return nil }  // known unparseable
-            detailsIndex[item.id] = hit
+            // Only publish a change: a no-op write still redraws every
+            // observer, which made the pager stutter mid-swipe.
+            if detailsIndex[item.id] != hit { detailsIndex[item.id] = hit }
             return hit
         }
         let url = item.url
@@ -667,6 +669,13 @@ final class AppModel: ObservableObject {
             didUpdateDetails()
         }
         return parsed
+    }
+
+    /// Details already parsed for this version of the file, if any — lets a
+    /// page draw complete on its first frame instead of flashing a spinner.
+    func cachedDetails(for item: LibraryItem) -> WorkDetails? {
+        guard let hit = detailsCache[Self.cacheKey(item)], hit != WorkDetails() else { return nil }
+        return hit
     }
 
     /// Walks the library parsing any EPUBs not yet in the index — off the

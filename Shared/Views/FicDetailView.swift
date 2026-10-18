@@ -6,7 +6,16 @@ import AO3Kit
 struct FicDetailView: View {
     let item: LibraryItem
     @EnvironmentObject private var model: AppModel
-    @State private var details: WorkDetails?
+    @State private var loaded: WorkDetails?
+    /// The fic `loaded` belongs to (the Mac reuses this view across fics).
+    @State private var loadedID: String?
+
+    /// Cached details draw on the very first frame — no spinner flash, no
+    /// height jump while a page slides in. While a fic is being updated the
+    /// old details stay up until the new ones are read.
+    private var details: WorkDetails? {
+        model.cachedDetails(for: item) ?? (loadedID == item.id ? loaded : nil)
+    }
     @State private var showNewCollection = false
 
     var body: some View {
@@ -33,8 +42,10 @@ struct FicDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: item.id + String(item.date.timeIntervalSince1970)) {
-            details = nil
-            details = await model.details(for: item)
+            guard model.cachedDetails(for: item) == nil else { return }
+            let parsed = await model.details(for: item)
+            loaded = parsed
+            loadedID = item.id
         }
         .newCollectionAlert(isPresented: $showNewCollection, adding: item, model: model)
     }

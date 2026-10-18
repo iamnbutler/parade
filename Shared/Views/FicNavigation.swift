@@ -36,20 +36,27 @@ private struct FicDestinations: ViewModifier {
 /// it was opened from — the live list, so favoriting, shelving or deleting
 /// along the way keeps the neighbors and the count right.
 struct FicPager: View {
-    /// Pages either side of the current fic. A window, not the whole list —
-    /// a 100k-fic library shouldn't be laid out to open one page.
+    /// Pages either side of the window's anchor. A window, not the whole
+    /// list — a 100k-fic library shouldn't be laid out to open one page.
     private static let reach = 100
+    /// How close to the window's edge the current page gets before the
+    /// window re-centers. Re-centering on every swipe changed the pages
+    /// under the pager mid-gesture and made it jerk.
+    private static let margin = 20
 
     let route: FicRoute
     @EnvironmentObject private var model: AppModel
     @State private var currentID: String
-    /// The pages as last laid out — kept when the current fic drops out of
-    /// the list (unfavorited, removed from a collection) so it stays open.
+    /// The fic the window is centered on — moves rarely, not every swipe.
+    @State private var anchorID: String
+    /// The pages as last laid out — kept when the anchor drops out of the
+    /// list (unfavorited, removed from a collection) so the pager stays put.
     @State private var lastPages: [LibraryItem]
 
     init(route: FicRoute, items: [LibraryItem]) {
         self.route = route
         _currentID = State(initialValue: route.item.id)
+        _anchorID = State(initialValue: route.item.id)
         _lastPages = State(initialValue: Self.window(items, around: route.item.id) ?? [route.item])
     }
 
@@ -61,7 +68,9 @@ struct FicPager: View {
     var body: some View {
         let items = model.items(for: route.list)
         let position = items.firstIndex { $0.id == currentID }
-        let pages = Self.window(items, around: currentID) ?? lastPages
+        let pages = Self.window(items, around: anchorID)
+            ?? Self.window(items, around: currentID)
+            ?? lastPages
         // A page-style TabView rather than a paging ScrollView: its
         // selection reliably opens on the tapped fic, where a scroll
         // position set before first layout can be dropped.
@@ -85,6 +94,14 @@ struct FicPager: View {
                         .fixedSize()
                 }
             }
+        }
+        .onChange(of: currentID) { _, id in
+            // Re-center only near an edge that isn't the list's own end.
+            guard let i = pages.firstIndex(where: { $0.id == id }) else { return }
+            let nearStart = i < Self.margin && pages.first?.id != items.first?.id
+            let nearEnd = i >= pages.count - Self.margin && pages.last?.id != items.last?.id
+            let anchorGone = !items.contains { $0.id == anchorID }
+            if nearStart || nearEnd || anchorGone { anchorID = id }
         }
         .onChange(of: pages.map(\.id)) { _, _ in
             lastPages = pages
