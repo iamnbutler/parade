@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 — 2026-10-20
+
+### Fixed
+- Swiping between fics no longer jerks or bounces: pages arrive with their
+  details already showing instead of flashing a spinner and jumping, and
+  the pager no longer redraws itself mid-swipe.
+
 ## 0.5.0 — 2026-10-17
 
 ### Added
