@@ -14,6 +14,7 @@ struct ReaderView: View {
     @State private var start: ReadingPosition?
     @AppStorage("reader.textSize.v1") private var textSize = ReaderTextSize.standard.rawValue
     @AppStorage("reader.paper.v1") private var paperRaw = ReaderPaper.leather.rawValue
+    @AppStorage("reader.mode.v1") private var modeRaw = ReaderMode.pages.rawValue
     @State private var showContents = false
     @State private var showType = false
     /// Set to scroll the page to a section — a chapter picked from the
@@ -26,12 +27,21 @@ struct ReaderView: View {
     var body: some View {
         Group {
             if let book {
-                ReaderPage(
-                    book: book,
-                    scale: size.scale,
-                    start: start,
-                    jump: $jump,
-                    onPosition: { model.saveReadingPosition($0, for: item) })
+                if ReaderMode(rawValue: modeRaw) == .scroll {
+                    ReaderPage(
+                        book: book,
+                        scale: size.scale,
+                        start: start,
+                        jump: $jump,
+                        onPosition: { model.saveReadingPosition($0, for: item) })
+                } else {
+                    PagedReader(
+                        book: book,
+                        scale: size.scale,
+                        start: start,
+                        jump: $jump,
+                        onPosition: { model.saveReadingPosition($0, for: item) })
+                }
             } else if let failure {
                 EmptyPage(title: "This fic won't open", message: failure)
             } else {
@@ -66,7 +76,7 @@ struct ReaderView: View {
                 }
                 .help("Text size and page color")
                 .popover(isPresented: $showType, arrowEdge: .bottom) {
-                    TypeControls(textSize: $textSize, paperRaw: $paperRaw)
+                    TypeControls(textSize: $textSize, paperRaw: $paperRaw, modeRaw: $modeRaw)
                         .palette(paper.palette)
                 }
             }
@@ -151,19 +161,11 @@ struct ReadingType {
 
 /// The text itself. Every block of every chapter is one lazy row, so a
 /// 300,000-word fic only lays out what's on screen.
-private struct ReaderPage: View {
-    let book: EPUBBook
-    let scale: CGFloat
-    /// Where to open.
-    let start: ReadingPosition?
-    @Binding var jump: Int?
-    let onPosition: (ReadingPosition) -> Void
-    @State private var topLine: Int?
-    @State private var restored = false
-
+/// The page's rows, shared by the scrolling and paged readers.
+private enum ReaderLines {
     /// One row of the page: a block, or a labelled note (AO3's "Summary",
     /// "Notes", "End Notes" with the quoted paragraphs that follow).
-    private struct Line: Identifiable {
+    struct Line: Identifiable {
         let id: Int
         let content: Content
         let section: Int
@@ -175,7 +177,7 @@ private struct ReaderPage: View {
         }
     }
 
-    private var lines: [Line] {
+    static func build(_ book: EPUBBook) -> [Line] {
         var out: [Line] = []
         for (s, section) in book.sections.enumerated() {
             let blocks = section.blocks
@@ -202,6 +204,21 @@ private struct ReaderPage: View {
         }
         return out
     }
+
+}
+
+private struct ReaderPage: View {
+    let book: EPUBBook
+    let scale: CGFloat
+    /// Where to open.
+    let start: ReadingPosition?
+    @Binding var jump: Int?
+    let onPosition: (ReadingPosition) -> Void
+    @State private var topLine: Int?
+    @State private var restored = false
+
+    private typealias Line = ReaderLines.Line
+    private var lines: [Line] { ReaderLines.build(book) }
 
     var body: some View {
         let lines = lines
@@ -473,10 +490,18 @@ private struct ContentsList: View {
 private struct TypeControls: View {
     @Binding var textSize: Int
     @Binding var paperRaw: String
+    @Binding var modeRaw: String
     @Environment(\.palette) private var palette
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Text("Layout").textRole(.kicker)
+            HStack(spacing: 10) {
+                ForEach(ReaderMode.allCases) { mode in
+                    Button(mode.label) { modeRaw = mode.rawValue }
+                        .buttonStyle(LeatherButtonStyle(prominent: modeRaw == mode.rawValue))
+                }
+            }
             Text("Text").textRole(.kicker)
             HStack(spacing: 10) {
                 Button {
@@ -524,5 +549,366 @@ private struct TypeControls: View {
         .padding(20)
         .background { LeatherBackground() }
         .presentationCompactAdaptation(.popover)
+    }
+}
+
+// MARK: - pages
+
+#if os(macOS)
+import AppKit
+private typealias PlatformFont = NSFont
+private typealias PlatformColor = NSColor
+#else
+import UIKit
+private typealias PlatformFont = UIFont
+private typealias PlatformColor = UIColor
+#endif
+
+/// Scroll the fic as one long page, or turn it like a book.
+enum ReaderMode: String, CaseIterable, Identifiable {
+    case pages, scroll
+    var id: String { rawValue }
+    var label: String { self == .pages ? "Pages" : "Scroll" }
+}
+
+/// The fic as one attributed string for TextKit to cut into pages, with
+/// where each row starts so positions map both ways.
+private struct PagedText {
+    let text: NSAttributedString
+    /// Character offset of each line's start, by line id.
+    let lineStarts: [Int]
+    let lines: [ReaderLines.Line]
+    /// Section index → title, for the running head.
+    let sectionTitles: [String]
+
+    @MainActor
+    static func build(_ book: EPUBBook, scale: CGFloat, palette: Palette) -> PagedText {
+        let lines = ReaderLines.build(book)
+        let ink = PlatformColor(palette.ink)
+        let soft = PlatformColor(palette.inkSoft)
+        let gold = PlatformColor(palette.gold)
+        let rose = PlatformColor(palette.rose)
+
+        func font(_ name: String, _ size: CGFloat) -> PlatformFont {
+            PlatformFont(name: name, size: size * scale) ?? .systemFont(ofSize: size * scale)
+        }
+        let body = 18.0, quote = 17.0
+        func para(spacing: CGFloat = 22, before: CGFloat = 0, indent: CGFloat = 0, line: CGFloat = 13,
+                  align: NSTextAlignment = .natural) -> NSParagraphStyle {
+            let p = NSMutableParagraphStyle()
+            p.lineSpacing = line * scale
+            p.paragraphSpacing = spacing * scale
+            p.paragraphSpacingBefore = before * scale
+            p.headIndent = indent
+            p.firstLineHeadIndent = indent
+            p.alignment = align
+            return p
+        }
+
+        let out = NSMutableAttributedString()
+        var starts: [Int] = []
+        var titles: [String] = []
+        for (i, section) in book.sections.enumerated() {
+            let heading = section.blocks.first { if case .heading = $0.kind { return true } else { return false } }
+            titles.append(section.title ?? heading?.text ?? book.title ?? "")
+            _ = i
+        }
+
+        func appendRuns(_ runs: [EPUBBook.Run], size: CGFloat, italicBase: Bool, color: PlatformColor, style: NSParagraphStyle) {
+            for run in runs {
+                let italic = italicBase != run.italic
+                let name = Typeface.readingName(italic: italic, heavy: run.bold)
+                var attrs: [NSAttributedString.Key: Any] = [
+                    .font: font(name, size), .foregroundColor: run.link != nil ? rose : color, .paragraphStyle: style,
+                ]
+                if run.underline { attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue }
+                if let link = run.link { attrs[.link] = link }
+                out.append(NSAttributedString(string: run.text, attributes: attrs))
+            }
+        }
+        func newline(_ style: NSParagraphStyle) {
+            out.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: style, .font: font(Typeface.readingName(italic: false, heavy: false), body)]))
+        }
+
+        var lastSection = -1
+        for line in lines {
+            if line.section != lastSection {
+                // Each chapter opens a fresh page (form feed = container break).
+                if lastSection >= 0 { out.append(NSAttributedString(string: "\u{000C}")) }
+                lastSection = line.section
+            }
+            starts.append(out.length)
+            switch line.content {
+            case .block(let block):
+                switch block.kind {
+                case .rule:
+                    let style = para(spacing: 22, before: 6, align: .center)
+                    out.append(NSAttributedString(string: "❦", attributes: [
+                        .font: PlatformFont(name: "ZapfDingbatsITC", size: 18 * scale) ?? font("Newsreader-Regular", 18),
+                        .foregroundColor: gold, .paragraphStyle: style]))
+                    newline(style)
+                case .heading(let level):
+                    if let chapter = BlockView.chapter(block.text) {
+                        let style = para(spacing: 34, before: 40, line: 4)
+                        out.append(NSAttributedString(string: String(format: "%02d   ", chapter.number), attributes: [
+                            .font: font(Typeface.displayName(italic: false, heavy: false), 26), .foregroundColor: gold, .paragraphStyle: style]))
+                        out.append(NSAttributedString(string: chapter.title ?? BlockView.spelledChapter(chapter.number), attributes: [
+                            .font: font(Typeface.displayName(italic: true, heavy: false), 30), .foregroundColor: gold, .paragraphStyle: style]))
+                        newline(style)
+                    } else {
+                        let style = para(spacing: level <= 2 ? 22 : 14, before: 8, line: 4)
+                        let size: CGFloat = level <= 1 ? 32 : 26
+                        out.append(NSAttributedString(string: block.text, attributes: [
+                            .font: font(Typeface.displayName(italic: false, heavy: false), size), .foregroundColor: ink, .paragraphStyle: style]))
+                        newline(style)
+                    }
+                case .paragraph:
+                    let quoted = block.quoteDepth > 0
+                    let style = para(spacing: quoted ? 16 : 22, indent: quoted ? 18 * CGFloat(block.quoteDepth) : 0, line: quoted ? 10 : 13)
+                    appendRuns(block.runs, size: quoted ? quote : body, italicBase: quoted, color: quoted ? soft : ink, style: style)
+                    newline(style)
+                }
+            case .note(let label, let blocks):
+                // On a page the card becomes an indented, gold-labelled aside.
+                let isSummary = label.lowercased().contains("summary")
+                let labelStyle = para(spacing: 6, before: 10, indent: 18, line: 2)
+                out.append(NSAttributedString(string: isSummary ? "The summary" : label, attributes: [
+                    .font: font(Typeface.displayName(italic: true, heavy: false), 19), .foregroundColor: gold, .paragraphStyle: labelStyle]))
+                newline(labelStyle)
+                for (j, block) in blocks.enumerated() {
+                    let style = para(spacing: j == blocks.count - 1 ? 28 : 12, indent: 18, line: 10)
+                    if case .rule = block.kind { continue }
+                    appendRuns(block.runs, size: quote, italicBase: !isSummary, color: isSummary ? ink : soft, style: style)
+                    newline(style)
+                }
+            }
+        }
+        return PagedText(text: out, lineStarts: starts, lines: lines, sectionTitles: titles)
+    }
+
+    /// The line a character offset falls in.
+    func line(at offset: Int) -> ReaderLines.Line? {
+        var lo = 0, hi = lineStarts.count - 1, found: Int?
+        while lo <= hi {
+            let mid = (lo + hi) / 2
+            if lineStarts[mid] <= offset { found = mid; lo = mid + 1 } else { hi = mid - 1 }
+        }
+        return found.map { lines[$0] }
+    }
+}
+
+/// Character ranges of each page, cut by TextKit off the main thread.
+private func paginate(_ text: NSAttributedString, size: CGSize) -> [NSRange] {
+    let storage = NSTextStorage(attributedString: text)
+    let manager = NSLayoutManager()
+    storage.addLayoutManager(manager)
+    var pages: [NSRange] = []
+    while pages.count < 20_000 {
+        let container = NSTextContainer(size: size)
+        container.lineFragmentPadding = 0
+        manager.addTextContainer(container)
+        let glyphs = manager.glyphRange(for: container)
+        if glyphs.length == 0 { break }
+        pages.append(manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil))
+        if NSMaxRange(glyphs) >= manager.numberOfGlyphs { break }
+    }
+    return pages.isEmpty ? [NSRange(location: 0, length: text.length)] : pages
+}
+
+/// Draws one page of text with its own small TextKit stack.
+private final class PageCanvas: PlatformView {
+    var text = NSAttributedString() { didSet { rebuild() } }
+    private let storage = NSTextStorage()
+    private let manager = NSLayoutManager()
+    private let container = NSTextContainer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        storage.addLayoutManager(manager)
+        container.lineFragmentPadding = 0
+        manager.addTextContainer(container)
+        #if os(iOS)
+        backgroundColor = .clear
+        isOpaque = false
+        contentMode = .redraw
+        #endif
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    #if os(macOS)
+    override var isFlipped: Bool { true }
+    override func layout() { super.layout(); rebuild() }
+    #else
+    override func layoutSubviews() { super.layoutSubviews(); rebuild() }
+    #endif
+
+    private func rebuild() {
+        container.size = CGSize(width: bounds.width, height: .greatestFiniteMagnitude)
+        storage.setAttributedString(text)
+        #if os(macOS)
+        needsDisplay = true
+        #else
+        setNeedsDisplay()
+        #endif
+    }
+
+    override func draw(_ rect: CGRect) {
+        let glyphs = manager.glyphRange(for: container)
+        manager.drawBackground(forGlyphRange: glyphs, at: .zero)
+        manager.drawGlyphs(forGlyphRange: glyphs, at: .zero)
+    }
+}
+
+#if os(macOS)
+private typealias PlatformView = NSView
+private struct PageText: NSViewRepresentable {
+    let text: NSAttributedString
+    func makeNSView(context: Context) -> PageCanvas { PageCanvas(frame: .zero) }
+    func updateNSView(_ view: PageCanvas, context: Context) { view.text = text }
+}
+#else
+private typealias PlatformView = UIView
+private struct PageText: UIViewRepresentable {
+    let text: NSAttributedString
+    func makeUIView(context: Context) -> PageCanvas { PageCanvas(frame: .zero) }
+    func updateUIView(_ view: PageCanvas, context: Context) { view.text = text }
+}
+#endif
+
+/// The fic as pages: TextKit fills each page to the bottom, chapters open on
+/// a fresh page, and the place is kept by character, not by page number, so
+/// a new text size or window size lands on the same sentence.
+private struct PagedReader: View {
+    let book: EPUBBook
+    let scale: CGFloat
+    let start: ReadingPosition?
+    @Binding var jump: Int?
+    let onPosition: (ReadingPosition) -> Void
+    @Environment(\.palette) private var palette
+
+    @State private var paged: PagedText?
+    @State private var pages: [NSRange] = []
+    @State private var page = 0
+    /// The character the reader is at — survives re-pagination.
+    @State private var anchor: Int?
+    /// The page takes keyboard focus so arrows and space turn it.
+    @FocusState private var focused: Bool
+
+    private static let margin = CGSize(width: 32, height: 34)
+    private static let furniture: CGFloat = 26  // running head and folio
+
+    var body: some View {
+        GeometryReader { geo in
+            let pageSize = Self.textSize(in: geo.size, scale: scale)
+            Group {
+                if let paged, !pages.isEmpty {
+                    pager(paged, pageSize: pageSize)
+                } else {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .task(id: "\(Int(pageSize.width))x\(Int(pageSize.height))@\(scale)-\(palette.ink.description)") {
+                await layOut(pageSize)
+            }
+        }
+        .onChange(of: jump) { _, section in
+            guard let section, let paged else { return }
+            if let line = paged.lines.first(where: { $0.section >= section }) {
+                go(to: pageIndex(for: paged.lineStarts[line.id]))
+            }
+            jump = nil
+        }
+    }
+
+    /// The text block on a page: the reading measure, the window's height.
+    private static func textSize(in size: CGSize, scale: CGFloat) -> CGSize {
+        let width = min(640 * min(scale, 1.15), size.width - margin.width * 2)
+        let height = size.height - margin.height * 2 - furniture * 2
+        return CGSize(width: max(200, width), height: max(200, height))
+    }
+
+    @ViewBuilder
+    private func pager(_ paged: PagedText, pageSize: CGSize) -> some View {
+        #if os(iOS)
+        TabView(selection: Binding(get: { page }, set: { go(to: $0) })) {
+            ForEach(pages.indices, id: \.self) { i in
+                pageView(i, paged: paged, pageSize: pageSize).tag(i)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        #else
+        pageView(page, paged: paged, pageSize: pageSize)
+            .id(page)
+            .transition(.opacity)
+            .contentShape(Rectangle())
+            // Click the left or right edge to turn back or on.
+            .overlay {
+                HStack(spacing: 0) {
+                    Color.clear.contentShape(Rectangle()).onTapGesture { go(to: page - 1) }
+                    Spacer().frame(width: pageSize.width * 0.6)
+                    Color.clear.contentShape(Rectangle()).onTapGesture { go(to: page + 1) }
+                }
+            }
+            .focusable()
+            .focused($focused)
+            .focusEffectDisabled()
+            .onAppear { focused = true }
+            .onKeyPress(.rightArrow) { go(to: page + 1); return .handled }
+            .onKeyPress(.leftArrow) { go(to: page - 1); return .handled }
+            .onKeyPress(.space) { go(to: page + 1); return .handled }
+            .onKeyPress(.pageDown) { go(to: page + 1); return .handled }
+            .onKeyPress(.pageUp) { go(to: page - 1); return .handled }
+        #endif
+    }
+
+    private func pageView(_ i: Int, paged: PagedText, pageSize: CGSize) -> some View {
+        let range = pages[i]
+        let section = paged.line(at: range.location)?.section ?? 0
+        return VStack(spacing: 0) {
+            // Running head: the chapter, quiet.
+            Text(paged.sectionTitles.indices.contains(section) ? paged.sectionTitles[section] : "")
+                .textRole(.runningHead)
+                .lineLimit(1)
+                .frame(height: Self.furniture, alignment: .top)
+            PageText(text: paged.text.attributedSubstring(from: range))
+                .frame(width: pageSize.width, height: pageSize.height)
+            Text("\(i + 1) of \(pages.count)")
+                .textRole(.runningHead)
+                .monospacedDigit()
+                .frame(height: Self.furniture, alignment: .bottom)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func layOut(_ size: CGSize) async {
+        let built = PagedText.build(book, scale: scale, palette: palette)
+        nonisolated(unsafe) let text = built.text
+        let ranges = await Task.detached(priority: .userInitiated) { paginate(text, size: size) }.value
+        guard !Task.isCancelled else { return }
+        // Keep the place: the anchor character, or the saved position.
+        let target: Int
+        if let anchor {
+            target = anchor
+        } else if let start, let line = built.lines.first(where: { $0.section == start.section && $0.indexInSection >= start.block }) {
+            target = built.lineStarts[line.id]
+        } else {
+            target = 0
+        }
+        paged = built
+        pages = ranges
+        page = pageIndex(for: target)
+    }
+
+    private func pageIndex(for offset: Int) -> Int {
+        pages.lastIndex { $0.location <= offset } ?? 0
+    }
+
+    private func go(to index: Int) {
+        guard let paged, pages.indices.contains(index) else { return }
+        withAnimation(.easeInOut(duration: 0.18)) { page = index }
+        anchor = pages[index].location
+        if let line = paged.line(at: pages[index].location) {
+            onPosition(ReadingPosition(section: line.section, block: line.indexInSection))
+        }
     }
 }
