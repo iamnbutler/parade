@@ -148,6 +148,8 @@ struct ReadingType {
     var heading: Font { .display(26 * scale, relativeTo: .title2) }
     var title: Font { .display(32 * scale, relativeTo: .title) }
     var label: Font { .display(19 * scale, relativeTo: .subheadline, italic: true) }
+    var byline: Font { .display(21 * scale, relativeTo: .title3, italic: true) }
+    var aside: Font { .reading(15 * scale, relativeTo: .callout, italic: true) }
     var numeral: Font { .display(26 * scale, relativeTo: .title2) }
     var chapterTitle: Font { .display(30 * scale, relativeTo: .title2, italic: true) }
     var headingLeading: CGFloat { 4 * scale }
@@ -174,6 +176,10 @@ private enum ReaderLines {
         enum Content {
             case block(EPUBBook.Block)
             case note(label: String, blocks: [EPUBBook.Block])
+            /// "by evilphrog" under the title.
+            case byline(EPUBBook.Block)
+            /// Front matter around the summary ("Inspired by …"), set quietly.
+            case aside(EPUBBook.Block)
         }
     }
 
@@ -181,6 +187,8 @@ private enum ReaderLines {
         var out: [Line] = []
         for (s, section) in book.sections.enumerated() {
             let blocks = section.blocks
+            // The title page: the section with the byline.
+            let front = blocks.contains(where: BlockView.isByline)
             var b = 0
             while b < blocks.count {
                 let block = blocks[b]
@@ -196,7 +204,11 @@ private enum ReaderLines {
                     b = end
                     continue
                 }
-                if !BlockView.isFurniture(block) {
+                if BlockView.isByline(block) {
+                    out.append(Line(id: out.count, content: .byline(block), section: s, indexInSection: b))
+                } else if front, block.kind == .paragraph, block.quoteDepth == 0 {
+                    out.append(Line(id: out.count, content: .aside(BlockView.unbulleted(block)), section: s, indexInSection: b))
+                } else if !BlockView.isFurniture(block) {
                     out.append(Line(id: out.count, content: .block(block), section: s, indexInSection: b))
                 }
                 b += 1
@@ -231,6 +243,8 @@ private struct ReaderPage: View {
                             switch line.content {
                             case .block(let block): BlockView(block: block, type: type)
                             case .note(let label, let blocks): NoteView(label: label, blocks: blocks, type: type)
+                            case .byline(let block): BylineView(block: block, type: type)
+                            case .aside(let block): AsideView(block: block, type: type)
                             }
                         }
                         .padding(.top, line.section > 0 && line.indexInSection == 0 ? 64 * scale : 0)
@@ -314,6 +328,37 @@ private struct NoteView: View {
                 }
             }
         }
+    }
+}
+
+/// "by evilphrog": quiet italic, the name in ink.
+private struct BylineView: View {
+    let block: EPUBBook.Block
+    let type: ReadingType
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Text(BlockView(block: block, type: type).styled(block.runs, link: palette.ink))
+            .font(type.byline)
+            .foregroundStyle(palette.inkSoft)
+            .padding(.top, -10 * type.scale)
+            .padding(.bottom, 26 * type.scale)
+    }
+}
+
+/// Title-page odds and ends ("Inspired by …"): small italic, out of the way.
+private struct AsideView: View {
+    let block: EPUBBook.Block
+    let type: ReadingType
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Text(BlockView(block: block, type: type).styled(block.runs, link: palette.ink))
+            .font(type.aside)
+            .foregroundStyle(palette.inkSoft)
+            .lineSpacing(type.lineSpacing * 0.6)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, type.paragraphSpacing * 0.6)
     }
 }
 
@@ -411,6 +456,22 @@ private struct BlockView: View {
         return "Chapter " + (f.string(from: NSNumber(value: n)) ?? String(n))
     }
 
+    /// AO3's "by author" line under the work's title.
+    static func isByline(_ block: EPUBBook.Block) -> Bool {
+        block.kind == .paragraph && block.quoteDepth == 0 && block.text.count < 300
+            && block.text.trimmingCharacters(in: .whitespaces).hasPrefix("by ")
+            && block.runs.contains { $0.link != nil }
+    }
+
+    /// A list item without the "• " the parser gives it.
+    static func unbulleted(_ block: EPUBBook.Block) -> EPUBBook.Block {
+        var block = block
+        if let first = block.runs.first, first.text.hasPrefix("• ") {
+            block.runs[0].text = String(first.text.dropFirst(2))
+        }
+        return block
+    }
+
     /// A lone label line AO3 puts before a quoted summary or notes block.
     static func isLabel(_ block: EPUBBook.Block) -> Bool {
         block.quoteDepth == 0 && labels.contains(block.text.lowercased().trimmingCharacters(in: .punctuationCharacters))
@@ -418,7 +479,7 @@ private struct BlockView: View {
 
     /// Runs as one attributed string: italic and bold through presentation
     /// intents, so they pick the reading face's own italic and semibold.
-    func styled(_ runs: [EPUBBook.Run]) -> AttributedString {
+    func styled(_ runs: [EPUBBook.Run], link linkColor: Color? = nil) -> AttributedString {
         var out = AttributedString()
         for run in runs {
             var piece = AttributedString(run.text)
@@ -429,7 +490,7 @@ private struct BlockView: View {
             if run.underline { piece.underlineStyle = .single }
             if let link = run.link {
                 piece.link = link
-                piece.foregroundColor = palette.rose
+                piece.foregroundColor = linkColor ?? palette.rose
             }
             out.append(piece)
         }
@@ -593,7 +654,7 @@ private struct PagedText {
             PlatformFont(name: name, size: size * scale) ?? .systemFont(ofSize: size * scale)
         }
         let body = 18.0, quote = 17.0
-        func para(spacing: CGFloat = 22, before: CGFloat = 0, indent: CGFloat = 0, line: CGFloat = 13,
+        func para(spacing: CGFloat = 22, before: CGFloat = 0, indent: CGFloat = 0, tail: CGFloat = 0, line: CGFloat = 13,
                   align: NSTextAlignment = .natural) -> NSParagraphStyle {
             let p = NSMutableParagraphStyle()
             p.lineSpacing = line * scale
@@ -601,6 +662,7 @@ private struct PagedText {
             p.paragraphSpacingBefore = before * scale
             p.headIndent = indent
             p.firstLineHeadIndent = indent
+            p.tailIndent = -tail
             p.alignment = align
             return p
         }
@@ -614,17 +676,27 @@ private struct PagedText {
             _ = i
         }
 
-        func appendRuns(_ runs: [EPUBBook.Run], size: CGFloat, italicBase: Bool, color: PlatformColor, style: NSParagraphStyle) {
+        // No `.link` attribute: TextKit would draw it system blue and
+        // underlined, and a drawn page can't follow it anyway.
+        func appendRuns(_ runs: [EPUBBook.Run], size: CGFloat, italicBase: Bool, color: PlatformColor,
+                        link: PlatformColor? = nil, display: Bool = false, style: NSParagraphStyle) {
             for run in runs {
                 let italic = italicBase != run.italic
-                let name = Typeface.readingName(italic: italic, heavy: run.bold)
+                let name = display ? Typeface.displayName(italic: italic, heavy: run.bold)
+                                   : Typeface.readingName(italic: italic, heavy: run.bold)
                 var attrs: [NSAttributedString.Key: Any] = [
-                    .font: font(name, size), .foregroundColor: run.link != nil ? rose : color, .paragraphStyle: style,
+                    .font: font(name, size), .foregroundColor: run.link != nil ? (link ?? rose) : color, .paragraphStyle: style,
                 ]
                 if run.underline { attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue }
-                if let link = run.link { attrs[.link] = link }
                 out.append(NSAttributedString(string: run.text, attributes: attrs))
             }
+        }
+        /// Empty room inside a panel, above or below its text.
+        func spacer(_ height: CGFloat) {
+            let p = NSMutableParagraphStyle()
+            p.minimumLineHeight = height * scale
+            p.maximumLineHeight = height * scale
+            out.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: p, .font: font(Typeface.readingName(italic: false, heavy: false), 4)]))
         }
         func newline(_ style: NSParagraphStyle) {
             out.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: style, .font: font(Typeface.readingName(italic: false, heavy: false), body)]))
@@ -669,18 +741,40 @@ private struct PagedText {
                     newline(style)
                 }
             case .note(let label, let blocks):
-                // On a page the card becomes an indented, gold-labelled aside.
+                // The summary in a stitched card, notes on a paper clipping:
+                // the panel is drawn behind these characters (PageCanvas).
                 let isSummary = label.lowercased().contains("summary")
-                let labelStyle = para(spacing: 6, before: 10, indent: 18, line: 2)
-                out.append(NSAttributedString(string: isSummary ? "The summary" : label, attributes: [
-                    .font: font(Typeface.displayName(italic: true, heavy: false), 19), .foregroundColor: gold, .paragraphStyle: labelStyle]))
+                let colors = isSummary || palette.silk ? palette : Palette.paper
+                let noteInk = PlatformColor(colors.ink)
+                let pad: CGFloat = 26 * scale
+                let start = out.length
+                spacer(16)
+                let labelStyle = para(spacing: 6, indent: pad, tail: pad, line: 2)
+                out.append(NSAttributedString(
+                    string: isSummary ? "The summary" : label.prefix(1).uppercased() + label.dropFirst().lowercased(),
+                    attributes: [.font: font(Typeface.displayName(italic: true, heavy: false), 19),
+                                 .foregroundColor: PlatformColor(colors.gold), .paragraphStyle: labelStyle]))
                 newline(labelStyle)
-                for (j, block) in blocks.enumerated() {
-                    let style = para(spacing: j == blocks.count - 1 ? 28 : 12, indent: 18, line: 10)
-                    if case .rule = block.kind { continue }
-                    appendRuns(block.runs, size: quote, italicBase: !isSummary, color: isSummary ? ink : soft, style: style)
+                let paragraphs = blocks.filter { if case .rule = $0.kind { return false } else { return true } }
+                for (j, block) in paragraphs.enumerated() {
+                    let style = para(spacing: j == paragraphs.count - 1 ? 0 : 12, indent: pad, tail: pad, line: 10)
+                    appendRuns(block.runs, size: isSummary ? body : quote, italicBase: !isSummary, color: noteInk,
+                               link: PlatformColor(colors.rose), style: style)
                     newline(style)
                 }
+                spacer(20)
+                out.addAttribute(.readerPanel, value: isSummary ? PanelKind.card : PanelKind.clipping,
+                                 range: NSRange(location: start, length: out.length - start))
+                // Room below the panel, outside it.
+                spacer(30)
+            case .byline(let block):
+                let style = para(spacing: 30, line: 4)
+                appendRuns(block.runs, size: 21, italicBase: true, color: soft, link: ink, display: true, style: style)
+                newline(style)
+            case .aside(let block):
+                let style = para(spacing: 12, line: 8)
+                appendRuns(block.runs, size: 15, italicBase: true, color: soft, link: ink, style: style)
+                newline(style)
             }
         }
         return PagedText(text: out, lineStarts: starts, lines: lines, sectionTitles: titles)
@@ -715,9 +809,20 @@ private func paginate(_ text: NSAttributedString, size: CGSize) -> [NSRange] {
     return pages.isEmpty ? [NSRange(location: 0, length: text.length)] : pages
 }
 
-/// Draws one page of text with its own small TextKit stack.
+private enum PanelKind: String {
+    case card, clipping
+}
+
+extension NSAttributedString.Key {
+    /// Marks characters drawn on a panel (a `PanelKind`).
+    fileprivate static let readerPanel = NSAttributedString.Key("parade.readerPanel")
+}
+
+/// Draws one page of text with its own small TextKit stack, and the summary
+/// card and note clippings behind their text.
 private final class PageCanvas: PlatformView {
     var text = NSAttributedString() { didSet { rebuild() } }
+    var palette = Palette.leather
     private let storage = NSTextStorage()
     private let manager = NSLayoutManager()
     private let container = NSTextContainer()
@@ -753,9 +858,103 @@ private final class PageCanvas: PlatformView {
     }
 
     override func draw(_ rect: CGRect) {
-        let glyphs = manager.glyphRange(for: container)
-        manager.drawBackground(forGlyphRange: glyphs, at: .zero)
-        manager.drawGlyphs(forGlyphRange: glyphs, at: .zero)
+        let all = manager.glyphRange(for: container)
+        #if os(macOS)
+        let context = NSGraphicsContext.current?.cgContext
+        #else
+        let context = UIGraphicsGetCurrentContext()
+        #endif
+        guard let cg = context else {
+            manager.drawGlyphs(forGlyphRange: all, at: .zero)
+            return
+        }
+        var cursor = all.location
+        storage.enumerateAttribute(.readerPanel, in: NSRange(location: 0, length: storage.length)) { value, chars, _ in
+            guard let kind = value as? PanelKind else { return }
+            let glyphs = manager.glyphRange(forCharacterRange: chars, actualCharacterRange: nil)
+            manager.drawGlyphs(forGlyphRange: NSRange(location: cursor, length: max(0, glyphs.location - cursor)), at: .zero)
+            var top = CGFloat.greatestFiniteMagnitude, bottom: CGFloat = 0
+            manager.enumerateLineFragments(forGlyphRange: glyphs) { _, used, _, _, _ in
+                top = min(top, used.minY)
+                bottom = max(bottom, used.maxY)
+            }
+            guard top < bottom else { return }
+            let panel = CGRect(x: 0, y: top, width: bounds.width, height: bottom - top)
+            cg.saveGState()
+            if kind == .clipping, !palette.silk {
+                // Tilted a touch, text and all, like the clipping elsewhere.
+                cg.translateBy(x: panel.midX, y: panel.midY)
+                cg.rotate(by: -0.5 * .pi / 180)
+                cg.translateBy(x: -panel.midX, y: -panel.midY)
+            }
+            drawPanel(kind, in: panel, cg)
+            manager.drawGlyphs(forGlyphRange: glyphs, at: .zero)
+            cg.restoreGState()
+            cursor = NSMaxRange(glyphs)
+        }
+        manager.drawGlyphs(forGlyphRange: NSRange(location: cursor, length: max(0, NSMaxRange(all) - cursor)), at: .zero)
+    }
+
+    /// Both pages draw y-down, but CoreGraphics shadow offsets ignore the
+    /// Mac view's flip.
+    #if os(macOS)
+    private static let down: CGFloat = -1
+    #else
+    private static let down: CGFloat = 1
+    #endif
+
+    private func drawPanel(_ kind: PanelKind, in rect: CGRect, _ cg: CGContext) {
+        func cgColor(_ color: Color) -> CGColor { PlatformColor(color).cgColor }
+        func fill(_ path: CGPath, _ top: Color, _ bottom: Color, shadow: (CGFloat, CGFloat, Double)) {
+            cg.saveGState()
+            cg.setShadow(offset: CGSize(width: 0, height: shadow.1 * Self.down), blur: shadow.0,
+                         color: CGColor(gray: 0, alpha: shadow.2))
+            cg.addPath(path)
+            cg.setFillColor(cgColor(bottom))
+            cg.fillPath()
+            cg.restoreGState()
+            cg.saveGState()
+            cg.addPath(path)
+            cg.clip()
+            if let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB),
+                                         colors: [cgColor(top), cgColor(bottom)] as CFArray, locations: [0, 1]) {
+                cg.drawLinearGradient(gradient, start: CGPoint(x: 0, y: rect.minY), end: CGPoint(x: 0, y: rect.maxY), options: [])
+            }
+            cg.restoreGState()
+        }
+        func stroke(inset: CGFloat, radius: CGFloat, dashed: Bool) {
+            cg.saveGState()
+            let r = rect.insetBy(dx: inset + 0.5, dy: inset + 0.5)
+            cg.addPath(CGPath(roundedRect: r, cornerWidth: radius, cornerHeight: radius, transform: nil))
+            cg.setStrokeColor(cgColor(palette.goldFaint))
+            cg.setLineWidth(1)
+            if dashed { cg.setLineDash(phase: 0, lengths: [4, 3]) }
+            cg.strokePath()
+            cg.restoreGState()
+        }
+
+        switch kind {
+        case .card:
+            fill(CGPath(roundedRect: rect, cornerWidth: 14, cornerHeight: 14, transform: nil),
+                 palette.raised2, palette.raised, shadow: (15, 10, 0.28))
+            stroke(inset: 7, radius: 9, dashed: !palette.solidStitch)
+        case .clipping where palette.silk:
+            fill(CGPath(roundedRect: rect, cornerWidth: 4, cornerHeight: 4, transform: nil),
+                 palette.raised2, palette.raised, shadow: (15, 10, 0.28))
+            stroke(inset: 6, radius: 2, dashed: false)
+        case .clipping:
+            fill(CGPath(roundedRect: rect, cornerWidth: 2, cornerHeight: 2, transform: nil),
+                 Color(hex: 0xEFE4D3), Color(hex: 0xE3D4BF), shadow: (18, 14, 0.4))
+        }
+        if kind == .clipping {
+            // Rose tape across the top-left corner.
+            cg.saveGState()
+            cg.translateBy(x: rect.minX + 52, y: rect.minY)
+            cg.rotate(by: -3 * .pi / 180)
+            cg.setFillColor(cgColor(palette.rose.opacity(0.4)))
+            cg.fill(CGRect(x: -28, y: -9, width: 56, height: 18))
+            cg.restoreGState()
+        }
     }
 }
 
@@ -763,15 +962,23 @@ private final class PageCanvas: PlatformView {
 private typealias PlatformView = NSView
 private struct PageText: NSViewRepresentable {
     let text: NSAttributedString
+    @Environment(\.palette) private var palette
     func makeNSView(context: Context) -> PageCanvas { PageCanvas(frame: .zero) }
-    func updateNSView(_ view: PageCanvas, context: Context) { view.text = text }
+    func updateNSView(_ view: PageCanvas, context: Context) {
+        view.palette = palette
+        view.text = text
+    }
 }
 #else
 private typealias PlatformView = UIView
 private struct PageText: UIViewRepresentable {
     let text: NSAttributedString
+    @Environment(\.palette) private var palette
     func makeUIView(context: Context) -> PageCanvas { PageCanvas(frame: .zero) }
-    func updateUIView(_ view: PageCanvas, context: Context) { view.text = text }
+    func updateUIView(_ view: PageCanvas, context: Context) {
+        view.palette = palette
+        view.text = text
+    }
 }
 #endif
 
@@ -864,9 +1071,12 @@ private struct PagedReader: View {
     private func pageView(_ i: Int, paged: PagedText, pageSize: CGSize) -> some View {
         let range = pages[i]
         let section = paged.line(at: range.location)?.section ?? 0
+        // A chapter's opening page carries its own heading, as in a book.
+        let opens = range.location == 0
+            || (paged.text.string as NSString).character(at: range.location - 1) == 0x0C
         return VStack(spacing: 0) {
             // Running head: the chapter, quiet.
-            Text(paged.sectionTitles.indices.contains(section) ? paged.sectionTitles[section] : "")
+            Text(!opens && paged.sectionTitles.indices.contains(section) ? paged.sectionTitles[section] : "")
                 .textRole(.runningHead)
                 .lineLimit(1)
                 .frame(height: Self.furniture, alignment: .top)
