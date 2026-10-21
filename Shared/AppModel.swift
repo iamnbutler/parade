@@ -1088,6 +1088,29 @@ final class AppModel: ObservableObject {
         #endif
     }
 
+    // MARK: - AO3 search and tags
+
+    /// One page of an AO3 search or tag listing. One request, when asked.
+    func ao3Works(_ query: AO3WorkQuery) async throws -> WorkResults {
+        try await client.works(query)
+    }
+
+    /// The library's copy of an AO3 work, if there is one.
+    func libraryItem(workID: Int) -> LibraryItem? {
+        guard let id = detailsIndex.first(where: { $0.value.workID == workID })?.key else { return nil }
+        return item(withID: id)
+    }
+
+    /// Saves one work found on AO3, through the same pipeline as a pasted link.
+    func download(workID: Int) async {
+        guard !isWorking else {
+            showToast("Busy — try again when the current download finishes")
+            return
+        }
+        await handle(AO3Link.work(id: workID).pageURL.absoluteString)
+        buildDetailsIndex()
+    }
+
     private func downloadWork(id: Int) async throws {
         status("Fetching work \(id)…")
         try await save(client.fetchWork(id: id))

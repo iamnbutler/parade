@@ -7,6 +7,7 @@ struct BrowseView: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("browseKind.v1") private var kindRaw = TagKind.fandoms.rawValue
     @State private var searchText = ""
+    @StateObject private var ao3 = AO3Browser()
 
     private var kind: TagKind { TagKind(rawValue: kindRaw) ?? .fandoms }
 
@@ -56,8 +57,15 @@ struct BrowseView: View {
                     }
                     .accessibilityLabel("Browse by")
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(value: AO3SearchRoute()) {
+                        Image(systemName: "globe")
+                    }
+                    .accessibilityLabel("Find on AO3")
+                }
             }
             .ficDestinations()
+            .ao3SearchDestinations(ao3)
         }
         .onAppear {
             model.refreshLibrary()
