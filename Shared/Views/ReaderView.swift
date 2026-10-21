@@ -512,7 +512,9 @@ private struct ContentsList: View {
     }
 
     private var entries: [Entry] {
-        book.sections.enumerated().map { i, section in
+        // Sections with nothing to show (AO3's tag-only preface) are left out.
+        let shown = Set(ReaderLines.build(book).map(\.section))
+        return book.sections.enumerated().filter { shown.contains($0.offset) }.map { i, section in
             let heading = section.blocks.first { if case .heading = $0.kind { return true } else { return false } }
             return Entry(id: i, title: section.title ?? heading?.text ?? "Section \(i + 1)")
         }
@@ -749,6 +751,7 @@ private struct PagedText {
                 let pad: CGFloat = 26 * scale
                 let start = out.length
                 spacer(16)
+                out.addAttribute(.readerPanelStart, value: true, range: NSRange(location: start, length: 1))
                 let labelStyle = para(spacing: 6, indent: pad, tail: pad, line: 2)
                 out.append(NSAttributedString(
                     string: isSummary ? "The summary" : label.prefix(1).uppercased() + label.dropFirst().lowercased(),
@@ -763,6 +766,7 @@ private struct PagedText {
                     newline(style)
                 }
                 spacer(20)
+                out.addAttribute(.readerPanelEnd, value: true, range: NSRange(location: out.length - 1, length: 1))
                 out.addAttribute(.readerPanel, value: isSummary ? PanelKind.card : PanelKind.clipping,
                                  range: NSRange(location: start, length: out.length - start))
                 // Room below the panel, outside it.
@@ -791,19 +795,33 @@ private struct PagedText {
     }
 }
 
-/// Character ranges of each page, cut by TextKit off the main thread.
-private func paginate(_ text: NSAttributedString, size: CGSize) -> [NSRange] {
+/// Character ranges of each page, cut by TextKit off the main thread. A
+/// panel split across pages keeps its padding on both: the page it breaks
+/// from gives up `pad` at the bottom, the page it continues on at the top.
+private func paginate(_ text: NSAttributedString, size: CGSize, pad: CGFloat) -> [NSRange] {
     let storage = NSTextStorage(attributedString: text)
     let manager = NSLayoutManager()
     storage.addLayoutManager(manager)
     var pages: [NSRange] = []
+    var start = 0
     while pages.count < 20_000 {
-        let container = NSTextContainer(size: size)
+        let top = PanelKind.continues(text, at: start) ? pad : 0
+        let container = NSTextContainer(size: CGSize(width: size.width, height: size.height - top))
         container.lineFragmentPadding = 0
         manager.addTextContainer(container)
-        let glyphs = manager.glyphRange(for: container)
+        var glyphs = manager.glyphRange(for: container)
         if glyphs.length == 0 { break }
-        pages.append(manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil))
+        var chars = manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+        if PanelKind.breaks(text, before: NSMaxRange(chars)) {
+            container.size = CGSize(width: size.width, height: size.height - top - pad)
+            let shorter = manager.glyphRange(for: container)
+            if shorter.length > 0 {
+                glyphs = shorter
+                chars = manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+            }
+        }
+        pages.append(chars)
+        start = NSMaxRange(chars)
         if NSMaxRange(glyphs) >= manager.numberOfGlyphs { break }
     }
     return pages.isEmpty ? [NSRange(location: 0, length: text.length)] : pages
@@ -811,11 +829,28 @@ private func paginate(_ text: NSAttributedString, size: CGSize) -> [NSRange] {
 
 private enum PanelKind: String {
     case card, clipping
+
+    /// A page starting at `offset` opens partway through a panel.
+    static func continues(_ text: NSAttributedString, at offset: Int) -> Bool {
+        guard offset > 0, offset < text.length else { return false }
+        let attrs = text.attributes(at: offset, effectiveRange: nil)
+        return attrs[.readerPanel] != nil && attrs[.readerPanelStart] == nil && attrs[.readerPanelEnd] == nil
+    }
+
+    /// A page ending just before `end` cuts a panel in two.
+    static func breaks(_ text: NSAttributedString, before end: Int) -> Bool {
+        guard end > 0, end < text.length else { return false }
+        let attrs = text.attributes(at: end - 1, effectiveRange: nil)
+        return attrs[.readerPanel] != nil && attrs[.readerPanelEnd] == nil
+    }
 }
 
 extension NSAttributedString.Key {
     /// Marks characters drawn on a panel (a `PanelKind`).
     fileprivate static let readerPanel = NSAttributedString.Key("parade.readerPanel")
+    /// The panel's first and last characters (its padding spacers).
+    fileprivate static let readerPanelStart = NSAttributedString.Key("parade.readerPanelStart")
+    fileprivate static let readerPanelEnd = NSAttributedString.Key("parade.readerPanelEnd")
 }
 
 /// Draws one page of text with its own small TextKit stack, and the summary
@@ -823,6 +858,10 @@ extension NSAttributedString.Key {
 private final class PageCanvas: PlatformView {
     var text = NSAttributedString() { didSet { rebuild() } }
     var palette = Palette.leather
+    /// Padding a panel gets where a page cuts it.
+    var pad: CGFloat = 18
+    /// The page opens partway through a panel from the page before.
+    var carried = false
     private let storage = NSTextStorage()
     private let manager = NSLayoutManager()
     private let container = NSTextContainer()
@@ -868,9 +907,14 @@ private final class PageCanvas: PlatformView {
             manager.drawGlyphs(forGlyphRange: all, at: .zero)
             return
         }
+        // A panel carried over from the last page: room above it, as
+        // paginate() left for it.
+        if carried { cg.translateBy(x: 0, y: pad) }
         var cursor = all.location
         storage.enumerateAttribute(.readerPanel, in: NSRange(location: 0, length: storage.length)) { value, chars, _ in
             guard let kind = value as? PanelKind else { return }
+            // Only the bottom spacer spilled onto this page: no panel to draw.
+            if chars.length == 1, storage.attribute(.readerPanelEnd, at: chars.location, effectiveRange: nil) != nil { return }
             let glyphs = manager.glyphRange(forCharacterRange: chars, actualCharacterRange: nil)
             manager.drawGlyphs(forGlyphRange: NSRange(location: cursor, length: max(0, glyphs.location - cursor)), at: .zero)
             var top = CGFloat.greatestFiniteMagnitude, bottom: CGFloat = 0
@@ -879,6 +923,11 @@ private final class PageCanvas: PlatformView {
                 bottom = max(bottom, used.maxY)
             }
             guard top < bottom else { return }
+            if carried, chars.location == 0 { top -= pad }
+            if NSMaxRange(chars) == storage.length,
+               storage.attribute(.readerPanelEnd, at: storage.length - 1, effectiveRange: nil) == nil {
+                bottom += pad  // continues on the next page
+            }
             let panel = CGRect(x: 0, y: top, width: bounds.width, height: bottom - top)
             cg.saveGState()
             if kind == .clipping, !palette.silk {
@@ -962,10 +1011,14 @@ private final class PageCanvas: PlatformView {
 private typealias PlatformView = NSView
 private struct PageText: NSViewRepresentable {
     let text: NSAttributedString
+    var carried = false
+    var pad: CGFloat = 18
     @Environment(\.palette) private var palette
     func makeNSView(context: Context) -> PageCanvas { PageCanvas(frame: .zero) }
     func updateNSView(_ view: PageCanvas, context: Context) {
         view.palette = palette
+        view.carried = carried
+        view.pad = pad
         view.text = text
     }
 }
@@ -973,10 +1026,14 @@ private struct PageText: NSViewRepresentable {
 private typealias PlatformView = UIView
 private struct PageText: UIViewRepresentable {
     let text: NSAttributedString
+    var carried = false
+    var pad: CGFloat = 18
     @Environment(\.palette) private var palette
     func makeUIView(context: Context) -> PageCanvas { PageCanvas(frame: .zero) }
     func updateUIView(_ view: PageCanvas, context: Context) {
         view.palette = palette
+        view.carried = carried
+        view.pad = pad
         view.text = text
     }
 }
@@ -998,11 +1055,13 @@ private struct PagedReader: View {
     @State private var page = 0
     /// The character the reader is at — survives re-pagination.
     @State private var anchor: Int?
-    /// The page takes keyboard focus so arrows and space turn it.
-    @FocusState private var focused: Bool
+    #if os(macOS)
+    @State private var keyMonitor: Any?
+    #endif
 
     private static let margin = CGSize(width: 32, height: 34)
     private static let furniture: CGFloat = 26  // running head and folio
+    private static let panelPad: CGFloat = 18
 
     var body: some View {
         GeometryReader { geo in
@@ -1056,15 +1115,17 @@ private struct PagedReader: View {
                     Color.clear.contentShape(Rectangle()).onTapGesture { go(to: page + 1) }
                 }
             }
-            .focusable()
-            .focused($focused)
-            .focusEffectDisabled()
-            .onAppear { focused = true }
-            .onKeyPress(.rightArrow) { go(to: page + 1); return .handled }
-            .onKeyPress(.leftArrow) { go(to: page - 1); return .handled }
-            .onKeyPress(.space) { go(to: page + 1); return .handled }
-            .onKeyPress(.pageDown) { go(to: page + 1); return .handled }
-            .onKeyPress(.pageUp) { go(to: page - 1); return .handled }
+            // Keys turn pages whatever has focus (the toolbar, a closed
+            // popover): SwiftUI focus on a custom page view kept slipping.
+            .onAppear {
+                keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                    turnPage(for: event) ? nil : event
+                }
+            }
+            .onDisappear {
+                if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+                keyMonitor = nil
+            }
         #endif
     }
 
@@ -1080,7 +1141,9 @@ private struct PagedReader: View {
                 .textRole(.runningHead)
                 .lineLimit(1)
                 .frame(height: Self.furniture, alignment: .top)
-            PageText(text: paged.text.attributedSubstring(from: range))
+            PageText(text: paged.text.attributedSubstring(from: range),
+                     carried: PanelKind.continues(paged.text, at: range.location),
+                     pad: Self.panelPad * scale)
                 .frame(width: pageSize.width, height: pageSize.height)
             Text("\(i + 1) of \(pages.count)")
                 .textRole(.runningHead)
@@ -1093,7 +1156,8 @@ private struct PagedReader: View {
     private func layOut(_ size: CGSize) async {
         let built = PagedText.build(book, scale: scale, palette: palette)
         nonisolated(unsafe) let text = built.text
-        let ranges = await Task.detached(priority: .userInitiated) { paginate(text, size: size) }.value
+        let pad = Self.panelPad * scale
+        let ranges = await Task.detached(priority: .userInitiated) { paginate(text, size: size, pad: pad) }.value
         guard !Task.isCancelled else { return }
         // Keep the place: the anchor character, or the saved position.
         let target: Int
@@ -1112,6 +1176,23 @@ private struct PagedReader: View {
     private func pageIndex(for offset: Int) -> Int {
         pages.lastIndex { $0.location <= offset } ?? 0
     }
+
+    #if os(macOS)
+    /// Arrows, space (Shift-space back), Page Up and Page Down.
+    private func turnPage(for event: NSEvent) -> Bool {
+        guard !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.option),
+              !event.modifierFlags.contains(.control),
+              !(event.window?.firstResponder is NSTextView)
+        else { return false }
+        switch event.keyCode {
+        case 124, 121: go(to: page + 1)  // right, page down
+        case 123, 116: go(to: page - 1)  // left, page up
+        case 49: go(to: event.modifierFlags.contains(.shift) ? page - 1 : page + 1)  // space
+        default: return false
+        }
+        return true
+    }
+    #endif
 
     private func go(to index: Int) {
         guard let paged, pages.indices.contains(index) else { return }
