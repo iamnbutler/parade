@@ -40,6 +40,30 @@ struct LeatherBackground: View {
     }
 }
 
+private struct LeatherPage: ViewModifier {
+    @Environment(\.leatherBackdrop) private var backdrop
+
+    func body(content: Content) -> some View {
+        if backdrop {
+            content
+        } else {
+            content.background { LeatherBackground() }
+        }
+    }
+}
+
+private struct LeatherBackdropKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Set where one `LeatherBackground` already spans the area.
+    var leatherBackdrop: Bool {
+        get { self[LeatherBackdropKey.self] }
+        set { self[LeatherBackdropKey.self] = newValue }
+    }
+}
+
 /// A tile of fine film grain, baked once. The web version blends fractal
 /// noise in overlay mode; on leather that mostly darkens, so the tile is
 /// faint dark and light specks blended normally — no per-frame blending.
@@ -76,9 +100,11 @@ enum Grain {
 }
 
 extension View {
-    /// The leather page behind a screen.
+    /// The leather page behind a screen — unless an ancestor already draws
+    /// one leather backdrop for several columns (the Mac window), where a
+    /// page of its own would restart the gradient at each column edge.
     func leatherBackground() -> some View {
-        background { LeatherBackground() }
+        modifier(LeatherPage())
     }
 
     /// Raised: cards, the active nav row, primary doors. A top-lit gradient

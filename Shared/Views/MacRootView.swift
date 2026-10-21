@@ -100,6 +100,7 @@ struct MacRootView: View {
                 .navigationSplitViewColumnWidth(min: 170, ideal: 210)
         } content: {
             contentColumn
+                .environment(\.leatherBackdrop, true)
                 .navigationSplitViewColumnWidth(min: 280, ideal: 340)
                 .toolbar {
                     if section == .library {
@@ -140,6 +141,13 @@ struct MacRootView: View {
             detailColumn
                 // Favorites is Noir end to end, the open fic included.
                 .palette(section == .favorites ? .noir : .leather)
+                .environment(\.leatherBackdrop, true)
+        }
+        // One sheet of leather behind the list and the fic, so the light and
+        // vignette run across the window instead of restarting per column.
+        .background {
+            LeatherBackground()
+                .environment(\.palette, section == .favorites ? .noir : .leather)
         }
         .sheet(isPresented: $showAddSheet) {
             AddFicSheet()
