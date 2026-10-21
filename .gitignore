@@ -10,3 +10,4 @@ dist/
 *.dmg
 build-sim/
 build-mac/
+scripts/app-icon/build/
