@@ -83,6 +83,7 @@ struct LibraryView: View {
             }
         } else {
             List {
+                if searchText.isEmpty { ContinueReadingRow() }
                 if sort.isGrouped {
                     ForEach(sections, id: \.name) { section in
                         Section {
@@ -113,7 +114,7 @@ struct LibraryView: View {
             }
             .leatherList()
             .noSearchResults(for: searchText, when: sort.isGrouped ? sections.isEmpty : flatItems.isEmpty)
-            .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
+            .searchable(text: $searchText, prompt: "Search titles, tags, summaries…")
             .refreshable { model.refreshLibrary() }
         }
     }

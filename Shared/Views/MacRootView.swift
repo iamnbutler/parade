@@ -562,6 +562,7 @@ struct MacRootView: View {
         } else {
             List(selection: $selectedID) {
                 PageHeader(title: "Library", subtitle: librarySubtitle)
+                if searchText.isEmpty { ContinueReadingRow() }
                 if sort.isGrouped {
                     ForEach(filteredSections, id: \.name) { section in
                         Section {
@@ -585,7 +586,7 @@ struct MacRootView: View {
             .noSearchResults(
                 for: searchText,
                 when: sort.isGrouped ? filteredSections.isEmpty : libraryFlat.isEmpty)
-            .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
+            .searchable(text: $searchText, prompt: "Search titles, tags, summaries…")
             .navigationTitle("Library")
             .pageTitleInContent()
         }

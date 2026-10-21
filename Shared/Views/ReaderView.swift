@@ -115,6 +115,8 @@ struct ReaderView: View {
             }
         }
         start = model.readingPosition(for: item)
+        // Opened counts as read, for Continue reading.
+        model.saveReadingPosition(start ?? ReadingPosition(section: 0, block: 0), for: item)
         do {
             // Unzipping and parsing a long fic takes a moment; keep it off
             // the main thread.

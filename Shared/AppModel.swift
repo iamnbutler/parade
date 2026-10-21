@@ -116,6 +116,12 @@ enum FicList: Hashable {
 struct ReadingPosition: Codable, Equatable {
     var section: Int
     var block: Int
+    /// When it was last read (absent in positions saved before this).
+    var date: Date?
+
+    func samePlace(as other: ReadingPosition?) -> Bool {
+        other.map { $0.section == section && $0.block == block } ?? false
+    }
 }
 
 /// Navigation value for opening one fic from a list.
@@ -379,6 +385,7 @@ final class AppModel: ObservableObject {
     }
 
     func refreshLibraryNow() async {
+        refreshLastRead()
         if let running = refreshTask {
             await running.value
             return
@@ -852,7 +859,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Search across title, author, and (once indexed) series, fandoms,
-    /// tags, relationships, and characters. Allocation-free per item —
+    /// tags, relationships, characters and summary. Allocation-free per item —
     /// this runs library-size times per keystroke.
     func item(_ item: LibraryItem, matches query: String) -> Bool {
         guard !query.isEmpty else { return true }
@@ -863,6 +870,8 @@ final class AppModel: ObservableObject {
         for list in [d.fandoms, d.additionalTags, d.relationships, d.characters, d.categories, d.rating, d.warnings] {
             for value in list where value.localizedCaseInsensitiveContains(query) { return true }
         }
+        // Longest, so last.
+        if let summary = d.summary, summary.localizedCaseInsensitiveContains(query) { return true }
         return false
     }
 
@@ -946,7 +955,9 @@ final class AppModel: ObservableObject {
 
     private func readingPositions() -> [String: ReadingPosition] {
         guard let data = try? Data(contentsOf: readingFile) else { return [:] }
-        return (try? JSONDecoder().decode([String: ReadingPosition].self, from: data)) ?? [:]
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode([String: ReadingPosition].self, from: data)) ?? [:]
     }
 
     func readingPosition(for item: LibraryItem) -> ReadingPosition? {
@@ -955,14 +966,37 @@ final class AppModel: ObservableObject {
 
     func saveReadingPosition(_ position: ReadingPosition, for item: LibraryItem) {
         var all = readingPositions()
-        guard all[item.id] != position else { return }
+        var position = position
+        position.date = Date()
+        lastReadID = item.id
+        lastReadDate = position.date
+        // Opening a fic counts as reading it, even without turning a page.
+        if position.samePlace(as: all[item.id]),
+           let saved = all[item.id]?.date, position.date!.timeIntervalSince(saved) < 60 { return }
         all[item.id] = position
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(all) {
             try? data.write(to: readingFile, options: .atomic)
         }
     }
+
+    /// The fic read most recently, on any device — for Continue reading.
+    @Published private(set) var lastReadID: String?
+    @Published private(set) var lastReadDate: Date?
+
+    /// Re-reads Reading.json for the latest fic (another device may have
+    /// read since).
+    func refreshLastRead() {
+        let latest = readingPositions()
+            .compactMap { id, p in p.date.map { (id, $0) } }
+            .max { $0.1 < $1.1 }
+        if latest?.0 != lastReadID { lastReadID = latest?.0 }
+        if latest?.1 != lastReadDate { lastReadDate = latest?.1 }
+    }
+
+    var lastReadItem: LibraryItem? { lastReadID.flatMap(item(withID:)) }
 
     // MARK: - collections (user-made, separate from AO3 tags)
 
