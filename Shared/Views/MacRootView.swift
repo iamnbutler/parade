@@ -152,6 +152,9 @@ struct MacRootView: View {
         } content: {
             contentColumn
                 .environment(\.leatherBackdrop, true)
+                // Every state of the column, empty and loading included,
+                // titles itself in the page, not the toolbar.
+                .pageTitleInContent()
                 .navigationSplitViewColumnWidth(min: 280, ideal: 340)
                 .toolbar {
                     if section == .library {
