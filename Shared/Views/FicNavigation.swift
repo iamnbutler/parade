@@ -67,34 +67,25 @@ struct FicPager: View {
 
     var body: some View {
         let items = model.items(for: route.list)
-        let position = items.firstIndex { $0.id == currentID }
         let pages = Self.window(items, around: anchorID)
             ?? Self.window(items, around: currentID)
             ?? lastPages
         // A page-style TabView rather than a paging ScrollView: its
         // selection reliably opens on the tapped fic, where a scroll
         // position set before first layout can be dropped.
+        // Pages are a contiguous run of the list, so one lookup places them all.
+        let offset = pages.first.flatMap { first in items.firstIndex { $0.id == first.id } }
         TabView(selection: $currentID) {
-            ForEach(pages) { item in
-                FicDetailView(item: item)
+            ForEach(Array(pages.enumerated()), id: \.element.id) { i, item in
+                FicDetailView(item: item, runningHead: runningHead(offset.map { $0 + i }, of: items))
                     .tag(item.id)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .navigationTitle(pages.first { $0.id == currentID }?.title ?? "")
+        .leatherBackground()
+        // The page carries its own title and running head.
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // Position in the whole list, not the window.
-            if items.count > 1, let position {
-                ToolbarItem(placement: .primaryAction) {
-                    Text("\(position + 1) of \(items.count)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                        .fixedSize()
-                }
-            }
-        }
         .onChange(of: currentID) { _, id in
             // Re-center only near an edge that isn't the list's own end.
             guard let i = pages.firstIndex(where: { $0.id == id }) else { return }
@@ -106,6 +97,12 @@ struct FicPager: View {
         .onChange(of: pages.map(\.id)) { _, _ in
             lastPages = pages
         }
+    }
+
+    /// "Library, 3 of 26": position in the whole list, not the window.
+    private func runningHead(_ index: Int?, of items: [LibraryItem]) -> String? {
+        guard let index, index < items.count, items.count > 1 else { return nil }
+        return "\(route.list.title), \(index + 1) of \(items.count)"
     }
 }
 #endif
@@ -127,7 +124,9 @@ struct TagFicsView: View {
                     FicRow(item: item, showsAuthor: true)
                 }
             }
+            .leatherRows()
         }
+        .leatherList()
         #if os(iOS)
         .noSearchResults(for: searchText, when: items.isEmpty)
         .searchable(text: $searchText, prompt: "Filter fics…")
@@ -174,14 +173,10 @@ struct TagChips: View {
     let values: [String]
 
     var body: some View {
-        FlowLayout(spacing: 5) {
+        FlowLayout(spacing: 6) {
             ForEach(values, id: \.self) { value in
                 TagLink(tag: TagSelection(kind: kind, name: value)) {
-                    Text(value)
-                        .font(.callout)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(.quaternary, in: Capsule())
+                    Chip(text: value)
                 }
             }
         }

@@ -11,21 +11,23 @@ struct FicRow: View {
     /// Which date the subtitle shows — the one the list is sorted by.
     var date: RowDate = .saved
     @EnvironmentObject private var model: AppModel
+    @Environment(\.palette) private var palette
     @State private var confirmDelete = false
     @State private var showNewCollection = false
 
     var body: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Text(item.title).font(.body.weight(.medium)).lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(item.title).textRole(.rowTitle).lineLimit(1)
                     if model.isFavorite(item) {
                         Image(systemName: "star.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.yellow)
+                            .font(.system(size: 9))
+                            .foregroundStyle(palette.gold)
+                            .accessibilityLabel("Favorite")
                     }
                 }
-                subtitle.font(.caption).foregroundStyle(.secondary)
+                subtitle.textRole(.meta).lineLimit(1)
             }
             Spacer()
             if model.updating.contains(item.id) {
@@ -34,14 +36,13 @@ struct FicRow: View {
             } else if model.hasUpdate(item) {
                 // An update is waiting on AO3.
                 Circle()
-                    .fill(.yellow)
+                    .fill(palette.gold)
                     .frame(width: 8, height: 8)
                     .accessibilityLabel("Update available")
             }
             if !item.isDownloaded {
                 Label("iCloud…", systemImage: "icloud.and.arrow.down")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .textRole(.meta)
             }
         }
         .swipeActions(edge: .leading) {
@@ -51,26 +52,26 @@ struct FicRow: View {
                 Label(model.isFavorite(item) ? "Unfavorite" : "Favorite",
                       systemImage: model.isFavorite(item) ? "star.slash" : "star")
             }
-            .tint(.yellow)
+            .tint(SwipeTint.favorite)
         }
         .swipeActions(edge: .trailing) {
             if let collection {
                 Button { model.remove(item, fromCollection: collection) } label: {
                     Label("Remove", systemImage: "rectangle.stack.badge.minus")
                 }
-                .tint(.orange)
+                .tint(SwipeTint.remove)
             } else {
                 // No .destructive role: that would collapse the row before the
                 // confirmation dialog can ask.
                 Button { confirmDelete = true } label: {
                     Label("Delete", systemImage: "trash")
                 }
-                .tint(.red)
+                .tint(SwipeTint.delete)
             }
             Button { Task { await model.update(item) } } label: {
                 Label("Update", systemImage: "arrow.down.circle")
             }
-            .tint(.blue)
+            .tint(SwipeTint.update)
             .disabled(model.isWorking)
         }
         .confirmationDialog(

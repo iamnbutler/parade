@@ -9,25 +9,29 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                #if os(macOS)
+                PageHeader(title: "Settings")
+                #endif
                 folderSection
                 updatesSection
                 #if os(macOS)
                 booksSection
                 #endif
                 if !model.statusLines.isEmpty {
-                    Section("Activity") {
+                    LeatherSection("Activity") {
                         ForEach(Array(model.statusLines.enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.callout.monospaced())
-                                .foregroundStyle(line.hasPrefix("⚠️") ? .red : .secondary)
+                            ActivityLine(line: line)
                         }
                     }
                 }
             }
+            .leatherForm()
             #if os(macOS)
             .formStyle(.grouped)
+            .buttonStyle(.leather)
             #endif
             .navigationTitle("Settings")
+            .pageTitleInContent()
         }
         #if os(macOS)
         .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.folder]) { result in
@@ -45,10 +49,8 @@ struct SettingsView: View {
     }
 
     private var folderSection: some View {
-        Section {
+        LeatherSection(title: "Library folder") {
             LabeledContent("Saving to", value: model.destinationLabel)
-        } header: {
-            Text("Library Folder")
         } footer: {
             if AppModel.testLibrary != nil {
                 Text("Test library (debug build): a scratch folder with its own settings. Nothing here touches the real library, iCloud, or Apple Books.")
@@ -69,7 +71,7 @@ struct SettingsView: View {
     }
 
     private var updatesSection: some View {
-        Section {
+        LeatherSection(title: "Fic updates") {
             Button {
                 Task { await model.checkForUpdates() }
             } label: {
@@ -83,28 +85,24 @@ struct SettingsView: View {
                 }
             }
             .disabled(model.isCheckingUpdates || model.isWorking)
-        } header: {
-            Text("Fic Updates")
         } footer: {
             #if os(iOS)
-            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you tap it. Fics with an update get a yellow dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version in the Backups folder.")
+            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you tap it. Fics with an update get a gold dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version in the Backups folder.")
             #else
-            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you click it. Fics with an update get a yellow dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
+            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
             #endif
         }
     }
 
     #if os(macOS)
     private var booksSection: some View {
-        Section {
+        LeatherSection(title: "Apple Books") {
             Toggle("Auto-import new fics into Apple Books", isOn: $model.autoImport)
             Button("Add a Folder to Library…") { showImportPicker = true }
             Button("Import All to Apple Books") {
                 Task { await model.importAllToBooks() }
             }
             Button("Scan Now") { model.scan() }
-        } header: {
-            Text("Apple Books")
         } footer: {
             Text("“Add a Folder to Library…” moves an existing [Author]/[epub] tree (like a Calibre library) into the library folder — the watcher then imports new arrivals into Apple Books. “Import All” re-sends everything in the library to Books.")
         }

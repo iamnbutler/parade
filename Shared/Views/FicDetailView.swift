@@ -5,7 +5,11 @@ import AO3Kit
 /// A sidebar pane on macOS; a pushed screen on iOS.
 struct FicDetailView: View {
     let item: LibraryItem
+    /// Where the fic sits in the list it was opened from ("Library, 3 of
+    /// 26"); without one, the running head names its fandom.
+    var runningHead: String?
     @EnvironmentObject private var model: AppModel
+    @Environment(\.palette) private var palette
     @State private var loaded: WorkDetails?
     /// The fic `loaded` belongs to (the Mac reuses this view across fics).
     @State private var loadedID: String?
@@ -20,27 +24,36 @@ struct FicDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 22) {
                 header
+                if let summary = details?.summary {
+                    // The page's one bold object.
+                    StitchedCard(label: "The summary") {
+                        Text(summary)
+                            .textRole(.body)
+                            .textSelection(.enabled)
+                    }
+                }
                 actions
                 if let details {
-                    if let summary = details.summary {
-                        Text(summary)
-                            .font(.callout)
-                            .foregroundStyle(.primary)
-                    }
-                    Divider()
+                    statsRow(details)
+                    Hairline()
                     metadata(details)
+                    Fleuron()
+                        .padding(.top, 8)
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                         .padding(.top, 20)
                 }
-                Spacer(minLength: 0)
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 40)
+            .frame(maxWidth: 680, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
+        .leatherBackground()
         .task(id: item.id + String(item.date.timeIntervalSince1970)) {
             guard model.cachedDetails(for: item) == nil else { return }
             let parsed = await model.details(for: item)
@@ -51,31 +64,30 @@ struct FicDetailView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 6) {
+            if let head = runningHead ?? details?.fandoms.first {
+                Text(head).textRole(.runningHead).lineLimit(1)
+            }
             Text(details?.title ?? item.title)
-                .font(.title3.weight(.semibold))
-            Text(details?.authors.joined(separator: " & ") ?? item.author)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .textRole(.title)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("by \(details?.authors.joined(separator: " & ") ?? item.author)")
+                .textRole(.dek)
             if let series = details?.series {
                 if let name = details?.seriesName {
                     TagLink(tag: TagSelection(kind: .series, name: name)) {
                         Text(series)
-                            .font(.subheadline)
-                            .foregroundStyle(.tint)
+                            .textRole(.meta)
+                            .foregroundStyle(palette.rose)
                     }
                 } else {
-                    Text(series)
-                        .font(.subheadline)
-                        .foregroundStyle(.tint)
+                    Text(series).textRole(.meta)
                 }
             }
             let collections = model.collections.collections(containing: item.id)
             if !collections.isEmpty {
-                Label(collections.joined(separator: ", "), systemImage: "rectangle.stack")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 2)
+                Text("Kept in \(collections.joined(separator: ", "))")
+                    .textRole(.meta)
             }
         }
     }
@@ -84,30 +96,28 @@ struct FicDetailView: View {
         // Wraps rather than squeezing labels on a narrow phone.
         FlowLayout(spacing: 8) {
             // Always available; prominent when a check found an update.
-            if model.hasUpdate(item) {
-                updateButton.buttonStyle(.borderedProminent)
-            } else {
-                updateButton.buttonStyle(.bordered)
-            }
+            updateButton
+                .buttonStyle(LeatherButtonStyle(prominent: model.hasUpdate(item)))
             if item.isDownloaded {
                 #if os(iOS)
                 ShareLink(item: item.url) {
-                    Label("Books", systemImage: "book.closed.fill")
+                    Label("Books", systemImage: "book.closed")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.leather)
                 #else
                 Button {
                     model.addToBooks(item)
                 } label: {
-                    Label("Books", systemImage: "book.closed.fill")
+                    Label("Books", systemImage: "book.closed")
                 }
+                .buttonStyle(.leather)
                 #endif
             }
             if let url = details?.workURL {
                 Link(destination: url) {
                     Label("AO3", systemImage: "safari")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.leather)
             }
             Button {
                 model.toggleFavorite(item)
@@ -115,19 +125,16 @@ struct FicDetailView: View {
                 Label(model.isFavorite(item) ? "Favorited" : "Favorite",
                       systemImage: model.isFavorite(item) ? "star.fill" : "star")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.leather)
             Menu {
                 CollectionMenuItems(item: item, showNewCollection: $showNewCollection)
             } label: {
                 Label("Collections", systemImage: "rectangle.stack")
             }
-            #if os(iOS)
-            .buttonStyle(.bordered)
-            #else
+            .menuStyle(.button)
+            .buttonStyle(.leather)
             .fixedSize()
-            #endif
         }
-        .controlSize(.small)
     }
 
     private var updateButton: some View {
@@ -141,11 +148,8 @@ struct FicDetailView: View {
     }
 
     private func metadata(_ d: WorkDetails) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            statsRow(d)
-            field("Rating", d.rating)
-            field("Warnings", d.warnings)
-            field("Category", d.categories)
+        VStack(alignment: .leading, spacing: 18) {
+            facts(d)
             field("Fandom", d.fandoms, kind: .fandoms)
             field("Relationships", d.relationships, kind: .relationships)
             field("Characters", d.characters, kind: .characters)
@@ -163,24 +167,38 @@ struct FicDetailView: View {
         ].compactMap { $0 }
         if !parts.isEmpty {
             Text(parts.joined(separator: " · "))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .textRole(.meta)
+        }
+    }
+
+    /// Rating, warnings and category as a small two-column table: italic
+    /// gold labels, plain values.
+    private func facts(_ d: WorkDetails) -> some View {
+        let rows = [("Rating", d.rating), ("Warnings", d.warnings), ("Category", d.categories)]
+            .filter { !$0.1.isEmpty }
+        return Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 8) {
+            ForEach(rows, id: \.0) { label, values in
+                GridRow {
+                    Text(label).textRole(.kicker)
+                    Text(values.joined(separator: ", "))
+                        .textRole(.body)
+                        .textSelection(.enabled)
+                }
+            }
         }
     }
 
     @ViewBuilder
     private func field(_ label: String, _ values: [String], kind: TagKind? = nil) -> some View {
         if !values.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(label.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(label).textRole(.kicker)
                 if let kind {
                     // Tap a tag to see every fic that has it.
                     TagChips(kind: kind, values: values)
                 } else {
                     Text(values.joined(separator: " · "))
-                        .font(.callout)
+                        .textRole(.body)
                         .textSelection(.enabled)
                 }
             }

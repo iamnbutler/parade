@@ -92,36 +92,38 @@ struct CollectionsView: View {
         NavigationStack {
             Group {
                 if model.collections.names.isEmpty {
-                    ContentUnavailableView {
-                        Label("No collections yet", systemImage: "rectangle.stack")
-                    } description: {
-                        Text("Collections are your own categories, separate from AO3's tags. Make one, then long-press any fic to add it.")
-                    } actions: {
-                        Button("New Collection") { showNewCollection = true }
+                    EmptyPage(
+                        drawing: "EmptyCollections",
+                        title: "No collections yet",
+                        message: "Collections are your own shelves, separate from AO3's tags. Make one, then long-press any fic to add it.")
+                    {
+                        Button { showNewCollection = true } label: { Label("New collection", systemImage: "plus") }
                     }
+                    .leatherBackground()
                 } else {
                     List {
                         ForEach(model.collections.names, id: \.self) { name in
                             NavigationLink(value: CollectionSelection(name: name)) {
-                                HStack {
-                                    Label(name, systemImage: "rectangle.stack")
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(name).textRole(.rowTitle).lineLimit(1)
                                     Spacer()
-                                    Text("\(model.items(inCollection: name).count)")
-                                        .foregroundStyle(.secondary)
-                                        .monospacedDigit()
+                                    Numeral(value: model.items(inCollection: name).count)
                                 }
                             }
                             .swipeActions(edge: .trailing) {
                                 Button { pendingDelete = name } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
-                                .tint(.red)
+                                .tint(SwipeTint.delete)
                                 Button { renaming = name } label: {
                                     Label("Rename", systemImage: "pencil")
                                 }
+                                .tint(SwipeTint.update)
                             }
                         }
+                        .leatherRows()
                     }
+                    .leatherList()
                     .refreshable { await model.refreshLibraryNow() }
                 }
             }
@@ -185,11 +187,10 @@ struct CollectionFicsView: View {
     var body: some View {
         Group {
             if model.items(inCollection: collection).isEmpty {
-                ContentUnavailableView(
-                    "Nothing in this collection yet",
-                    systemImage: "rectangle.stack",
-                    description: Text("Long-press a fic anywhere in Parade and choose Collections.")
-                )
+                EmptyPage(
+                    title: "Nothing in this collection yet",
+                    message: "Long-press a fic anywhere in Parade and choose Collections.")
+                .leatherBackground()
             } else {
                 List {
                     ForEach(items) { item in
@@ -197,7 +198,9 @@ struct CollectionFicsView: View {
                             FicRow(item: item, showsAuthor: true, collection: collection)
                         }
                     }
+                    .leatherRows()
                 }
+                .leatherList()
                 .noSearchResults(for: searchText, when: items.isEmpty)
                 .searchable(text: $searchText, prompt: "Filter collection…")
                 .refreshable { await model.refreshLibraryNow() }

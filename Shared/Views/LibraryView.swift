@@ -62,36 +62,39 @@ struct LibraryView: View {
     @ViewBuilder
     private var content: some View {
         if let error = model.libraryError {
-            ContentUnavailableView {
-                Label("Can't read library folder", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error)
-            } actions: {
-                Button("Try Again") { model.refreshLibrary() }
+            EmptyPage(title: "Parade can't read your library folder", message: error) {
+                Button("Try again") { model.refreshLibrary() }
             }
+            .leatherBackground()
         } else if model.library.isEmpty {
             if model.isMigrating {
                 LibraryLoadingView(text: "Moving your library into \(model.destinationLabel)…")
             } else if model.isScanning || !model.hasLoadedOnce {
                 LibraryLoadingView(text: "Loading your library…")
             } else {
-                ContentUnavailableView(
-                    "No fics yet",
-                    systemImage: "books.vertical",
-                    description: Text("Tap + and paste AO3 links to download your first fics.")
-                )
+                EmptyPage(
+                    drawing: "EmptyShelf",
+                    title: "Nothing on the shelf yet",
+                    message: "Paste a link to a work on AO3 and Parade will bring it home.")
+                {
+                    Button { showAddSheet = true } label: { Label("Add a fic", systemImage: "plus") }
+                }
+                .leatherBackground()
             }
         } else {
             List {
                 if sort.isGrouped {
                     ForEach(sections, id: \.name) { section in
-                        Section(section.name) {
+                        Section {
                             ForEach(section.items) { item in
                                 NavigationLink(value: route(item)) {
                                     // Series sections hold many authors.
                                     FicRow(item: item, showsAuthor: sort == .series)
                                 }
                             }
+                            .leatherRows()
+                        } header: {
+                            SectionHeading(name: section.name)
                         }
                     }
                 } else {
@@ -100,12 +103,15 @@ struct LibraryView: View {
                             FicRow(item: item, showsAuthor: true, date: RowDate(sort))
                         }
                     }
+                    .leatherRows()
                 }
                 if model.isScanning, !model.hasLoadedOnce {
                     // The first scan is still streaming results in.
                     LibraryLoadingFooter()
+                        .leatherRows()
                 }
             }
+            .leatherList()
             .noSearchResults(for: searchText, when: sort.isGrouped ? sections.isEmpty : flatItems.isEmpty)
             .searchable(text: $searchText, prompt: "Filter fics, tags, fandoms…")
             .refreshable { model.refreshLibrary() }
@@ -133,11 +139,11 @@ struct FavoritesView: View {
                     if model.isMigrating || model.isScanning || !model.hasLoadedOnce {
                         LibraryLoadingView(text: "Loading your library…")
                     } else {
-                        ContentUnavailableView(
-                            "No favorites yet",
-                            systemImage: "star",
-                            description: Text("Swipe right on a fic in the Library and tap the star.")
-                        )
+                        EmptyPage(
+                            drawing: "EmptyFavorites",
+                            title: "No favorites yet",
+                            message: "Swipe right on a fic in your library and tap the star. The ones you keep coming back to gather here.")
+                        .leatherBackground()
                     }
                 } else {
                     List {
@@ -146,7 +152,9 @@ struct FavoritesView: View {
                                 FicRow(item: item, showsAuthor: true)
                             }
                         }
+                        .leatherRows()
                     }
+                    .leatherList()
                     .noSearchResults(for: searchText, when: items.isEmpty)
                     .searchable(text: $searchText, prompt: "Filter favorites…")
                     .refreshable { await model.refreshLibraryNow() }
@@ -155,6 +163,8 @@ struct FavoritesView: View {
             .navigationTitle("Favorites")
             .ficDestinations()
         }
+        // Favorites is the after-hours room: black leather, garnet, gold.
+        .palette(.noir)
         .onAppear { model.refreshLibrary() }
     }
 }

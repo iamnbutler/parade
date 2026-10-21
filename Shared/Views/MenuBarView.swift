@@ -27,9 +27,7 @@ struct MenuBarView: View {
             if !model.statusLines.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(Array(model.statusLines.enumerated()), id: \.offset) { _, line in
-                        Text(line)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(line.hasPrefix("⚠️") ? .red : .secondary)
+                        ActivityLine(line: line)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -50,6 +48,10 @@ struct MenuBarView: View {
         }
         .padding(12)
         .frame(width: 340)
+        .font(TextRole.small.font)
+        .palette(.leather)
+        .background { LeatherBackground() }
+        .preferredColorScheme(.dark)
     }
 
     private func startDownload() {

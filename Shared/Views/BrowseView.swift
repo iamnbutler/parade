@@ -27,16 +27,16 @@ struct BrowseView: View {
                     List {
                         ForEach(groups, id: \.name) { group in
                             NavigationLink(value: TagSelection(kind: kind, name: group.name)) {
-                                HStack {
-                                    Text(group.name).lineLimit(1)
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(group.name).textRole(.rowTitle).lineLimit(1)
                                     Spacer()
-                                    Text("\(group.items.count)")
-                                        .foregroundStyle(.secondary)
-                                        .monospacedDigit()
+                                    Numeral(value: group.items.count)
                                 }
                             }
                         }
+                        .leatherRows()
                     }
+                    .leatherList()
                     .noSearchResults(for: searchText, when: groups.isEmpty)
                     .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
                     .refreshable { await model.refreshLibraryNow() }

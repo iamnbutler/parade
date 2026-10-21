@@ -8,6 +8,11 @@ struct ParadeApp: App {
     @StateObject private var updater = UpdaterModel()
     #endif
 
+    init() {
+        Typeface.register()
+        Chrome.install()
+    }
+
     var body: some Scene {
         #if os(macOS)
         WindowGroup(id: "main") {

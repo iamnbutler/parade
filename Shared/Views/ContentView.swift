@@ -4,6 +4,27 @@ struct ContentView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
+        themedRoot
+            .palette(.leather)
+            .font(TextRole.body.font)
+            .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private var themedRoot: some View {
+        #if DEBUG
+        if ThemeGallery.requested != nil {
+            ThemeGallery()
+                .palette(ThemeGallery.requested?.contains("noir") == true ? .noir : .leather)
+        } else {
+            appRoot
+        }
+        #else
+        appRoot
+        #endif
+    }
+
+    private var appRoot: some View {
         root
             .overlay(alignment: .bottom) {
                 if let toast = model.toast {
@@ -42,12 +63,11 @@ private struct ToastView: View {
 
     var body: some View {
         Text(text)
-            .font(.callout)
+            .font(TextRole.dek.font)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 18)
             .padding(.vertical, 10)
-            .background(.regularMaterial, in: Capsule())
-            .shadow(radius: 6, y: 2)
+            .embossed(cornerRadius: 22, lifted: true)
             .padding(.horizontal, 24)
             #if os(iOS)
             .padding(.bottom, 96)  // clear the tab bar

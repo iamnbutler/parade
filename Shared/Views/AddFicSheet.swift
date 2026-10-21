@@ -4,6 +4,7 @@ import AO3Kit
 struct AddFicSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.palette) private var palette
     @State private var linkText = ""
     /// The log is shown only once a download starts here — older lines are
     /// some other action's business.
@@ -14,7 +15,7 @@ struct AddFicSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
+                LeatherSection(title: "Links from AO3") {
                     linkField
                     PasteButton(payloadType: String.self) { strings in
                         guard let text = strings.first else { return }
@@ -25,6 +26,7 @@ struct AddFicSheet: View {
                     }
                     .labelStyle(.titleAndIcon)
                     .buttonBorderShape(.capsule)
+                    .tint(palette.rose)
                 } footer: {
                     if linkCount > 1 {
                         Text("\(linkCount) links — they download one after another.")
@@ -34,19 +36,19 @@ struct AddFicSheet: View {
                 }
 
                 if startedHere, !model.statusLines.isEmpty {
-                    Section("Activity") {
+                    LeatherSection("Activity") {
                         ForEach(Array(model.statusLines.enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.callout.monospaced())
-                                .foregroundStyle(line.hasPrefix("⚠️") ? .red : .secondary)
+                            ActivityLine(line: line)
                         }
                     }
                 }
             }
+            .leatherForm()
             #if os(macOS)
             .formStyle(.grouped)
+            .buttonStyle(.leather)
             #endif
-            .navigationTitle("Add Fics")
+            .navigationTitle("Add fics")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

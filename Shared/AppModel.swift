@@ -85,6 +85,16 @@ enum FicList: Hashable {
     case favorites(query: String)
     case tag(TagSelection, query: String)
     case collection(String, query: String)
+
+    /// The list's name, as a running head says it: "Library, 3 of 26".
+    var title: String {
+        switch self {
+        case .library: "Library"
+        case .favorites: "Favorites"
+        case .tag(let tag, _): tag.name
+        case .collection(let name, _): name
+        }
+    }
 }
 
 /// Navigation value for opening one fic from a list.
