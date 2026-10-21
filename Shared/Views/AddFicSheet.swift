@@ -13,6 +13,87 @@ struct AddFicSheet: View {
     private var linkCount: Int { AO3Link.all(in: linkText).count }
 
     var body: some View {
+        #if os(macOS)
+        macSheet
+            .interactiveDismissDisabled(model.isWorking)
+        #else
+        iosSheet
+            .presentationDetents([.medium, .large])
+            .interactiveDismissDisabled(model.isWorking)
+        #endif
+    }
+
+    private var footnote: String {
+        linkCount > 1
+            ? "\(linkCount) links — they download one after another."
+            : "Works and whole series — paste one link or a whole batch. The EPUB is AO3's own export, filed as Author/Title in your library."
+    }
+
+    private var activity: [String] {
+        startedHere ? model.statusLines : []
+    }
+
+    private var downloadTitle: String {
+        linkCount > 1 ? "Download \(linkCount)" : "Download"
+    }
+
+    #if os(macOS)
+    /// The Mac sheet is drawn whole: a toolbar here would bring back the
+    /// system title bar and button strip.
+    private var macSheet: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Add fics").textRole(.heading)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Links from AO3").textRole(.kicker)
+                linkField
+                    .textFieldStyle(.plain)
+                    .font(TextRole.body.font)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .debossed(cornerRadius: 10)
+                Text(footnote).textRole(.meta)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !activity.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Activity").textRole(.kicker)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(Array(activity.enumerated()), id: \.offset) { _, line in
+                                ActivityLine(line: line)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 110)
+                }
+            }
+            Spacer(minLength: 0)
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(.leather)
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(model.isWorking)
+                if model.isWorking {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 90)
+                } else {
+                    Button(downloadTitle, action: startDownload)
+                        .buttonStyle(.leatherProminent)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(linkCount == 0)
+                }
+            }
+        }
+        .padding(26)
+        .frame(width: 480, height: 380)
+        .leatherBackground()
+    }
+    #else
+    private var iosSheet: some View {
         NavigationStack {
             Form {
                 LeatherSection(title: "Links from AO3") {
@@ -28,30 +109,20 @@ struct AddFicSheet: View {
                     .buttonBorderShape(.capsule)
                     .tint(palette.rose)
                 } footer: {
-                    if linkCount > 1 {
-                        Text("\(linkCount) links — they download one after another.")
-                    } else {
-                        Text("Works and whole series — paste one link or a whole batch. The EPUB is AO3's own export, filed as Author/Title in your library.")
-                    }
+                    Text(footnote)
                 }
 
-                if startedHere, !model.statusLines.isEmpty {
+                if !activity.isEmpty {
                     LeatherSection("Activity") {
-                        ForEach(Array(model.statusLines.enumerated()), id: \.offset) { _, line in
+                        ForEach(Array(activity.enumerated()), id: \.offset) { _, line in
                             ActivityLine(line: line)
                         }
                     }
                 }
             }
             .leatherForm()
-            #if os(macOS)
-            .formStyle(.grouped)
-            .buttonStyle(.leather)
-            #endif
             .navigationTitle("Add fics")
-            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -60,27 +131,19 @@ struct AddFicSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     if model.isWorking {
                         ProgressView()
-                            #if os(macOS)
-                            .controlSize(.small)
-                            #endif
                     } else {
-                        Button(linkCount > 1 ? "Download \(linkCount)" : "Download", action: startDownload)
+                        Button(downloadTitle, action: startDownload)
                             .disabled(linkCount == 0)
                     }
                 }
             }
         }
-        #if os(iOS)
-        .presentationDetents([.medium, .large])
-        #else
-        .frame(width: 440, height: 340)
-        #endif
-        .interactiveDismissDisabled(model.isWorking)
     }
+    #endif
 
     private var linkField: some View {
-        let field = TextField("AO3 work or series links", text: $linkText, axis: .vertical)
-            .lineLimit(1...8)
+        let field = TextField("Paste AO3 work or series links", text: $linkText, axis: .vertical)
+            .lineLimit(3...8)
             .autocorrectionDisabled()
             .onSubmit(startDownload)
         #if os(iOS)
