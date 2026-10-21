@@ -210,7 +210,7 @@ struct MacRootView: View {
         }
         .newCollectionAlert(isPresented: $showNewCollection, model: model)
         .collectionNameAlert(
-            "Rename Collection",
+            "Rename collection",
             isPresented: Binding(get: { renamingCollection != nil }, set: { if !$0 { renamingCollection = nil } }),
             initial: renamingCollection ?? "",
             action: "Rename",
@@ -563,7 +563,7 @@ struct MacRootView: View {
                     ForEach(filteredSections, id: \.name) { section in
                         Section {
                             ForEach(section.items) { item in
-                                FicRow(item: item, showsAuthor: sort == .series).tag(item.id)
+                                FicRow(item: item, showsAuthor: sort.mixesAuthors).tag(item.id)
                             }
                             .leatherRows()
                         } header: {

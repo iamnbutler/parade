@@ -28,6 +28,8 @@ struct FicDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
+                // Actions first: a long summary would push them off screen.
+                actions
                 if let summary = details?.summary {
                     // The page's one bold object.
                     StitchedCard(label: "The summary") {
@@ -36,7 +38,6 @@ struct FicDetailView: View {
                             .textSelection(.enabled)
                     }
                 }
-                actions
                 if let details {
                     statsRow(details)
                     Hairline()

@@ -27,19 +27,22 @@ struct LibraryItem: Identifiable, Hashable {
 
 /// How the Library list is arranged.
 enum LibrarySort: String, CaseIterable, Identifiable {
-    case author, title, series, added, updated
+    case author, title, series, fandom, added, updated
     var id: String { rawValue }
     var label: String {
         switch self {
         case .author: "By Author"
         case .title: "By Title"
         case .series: "By Series"
+        case .fandom: "By Fandom"
         case .added: "Date Added"
         case .updated: "Last Updated"
         }
     }
     /// Sorts shown as sections (author / series headers) rather than flat.
-    var isGrouped: Bool { self == .author || self == .series }
+    var isGrouped: Bool { self == .author || self == .series || self == .fandom }
+    /// Grouped sorts whose sections mix authors, so rows name theirs.
+    var mixesAuthors: Bool { self == .series || self == .fandom }
 }
 
 /// A browsable kind of AO3 metadata — each value becomes a drill-in list.
@@ -567,7 +570,7 @@ final class AppModel: ObservableObject {
     /// orderings that don't read EPUB metadata.
     private func invalidateDerived(detailsOnly: Bool = false) {
         if detailsOnly {
-            for sort in [LibrarySort.updated, .series] {
+            for sort in [LibrarySort.updated, .series, .fandom] {
                 flatCache[sort] = nil
                 sectionCache[sort] = nil
             }
@@ -585,7 +588,7 @@ final class AppModel: ObservableObject {
         if let cached = flatCache[sort] { return cached }
         let sorted: [LibraryItem]
         switch sort {
-        case .author, .series:
+        case .author, .series, .fandom:
             sorted = sections(sort).flatMap(\.items)
         case .title:
             // Precompute keys: a localized compare inside sort() is O(n log n)
@@ -616,6 +619,22 @@ final class AppModel: ObservableObject {
             let inSeries = Set(series.flatMap { $0.items.map(\.id) })
             let standalone = flatItems(.title).filter { !inSeries.contains($0.id) }
             result = series + (standalone.isEmpty ? [] : [(name: Self.standaloneSection, items: standalone)])
+        case .fandom:
+            // Each fic once, under its first-listed (primary) fandom, so the
+            // list never shows the same row twice.
+            var byFandom: [String: [LibraryItem]] = [:]
+            var unknown: [LibraryItem] = []
+            for item in flatItems(.title) {
+                if let fandom = detailsIndex[item.id]?.fandoms.first {
+                    byFandom[fandom, default: []].append(item)
+                } else {
+                    unknown.append(item)
+                }
+            }
+            result = byFandom
+                .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
+                .map { (name: $0.key, items: $0.value) }
+                + (unknown.isEmpty ? [] : [(name: "Fandom unknown", items: unknown)])
         default:
             result = [(name: "", items: flatItems(sort))]
         }

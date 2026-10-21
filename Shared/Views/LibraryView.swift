@@ -89,7 +89,7 @@ struct LibraryView: View {
                             ForEach(section.items) { item in
                                 NavigationLink(value: route(item)) {
                                     // Series sections hold many authors.
-                                    FicRow(item: item, showsAuthor: sort == .series)
+                                    FicRow(item: item, showsAuthor: sort.mixesAuthors)
                                 }
                             }
                             .leatherRows()

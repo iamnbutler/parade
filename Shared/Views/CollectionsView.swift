@@ -41,7 +41,7 @@ extension View {
     /// "New Collection" prompt; the new collection gets `item` added, if given.
     func newCollectionAlert(isPresented: Binding<Bool>, adding item: LibraryItem? = nil, model: AppModel) -> some View {
         collectionNameAlert(
-            "New Collection", isPresented: isPresented,
+            "New collection", isPresented: isPresented,
             message: item.map { "“\($0.title)” goes in the new collection." }
                 ?? "Collections are your own categories, separate from AO3's tags.",
             isValid: { model.collections.isAvailable($0) }
@@ -61,22 +61,76 @@ private struct CollectionNameAlert: ViewModifier {
     let action: String
     let isValid: (String) -> Bool
     let onSave: (String) -> Void
-    @State private var name = ""
 
     func body(content: Content) -> some View {
-        content
-            .alert(title, isPresented: $isPresented) {
-                TextField("Collection name", text: $name)
-                Button("Cancel", role: .cancel) {}
-                // Blank and taken names (any capitalization) can't be saved.
-                Button(action) { onSave(name) }
+        // A sheet drawn in the theme, not a system alert.
+        content.sheet(isPresented: $isPresented) {
+            CollectionNameSheet(
+                title: title, initial: initial, message: message, action: action,
+                isValid: isValid, onSave: onSave)
+        }
+    }
+}
+
+private struct CollectionNameSheet: View {
+    let title: String
+    let initial: String
+    let message: String?
+    let action: String
+    let isValid: (String) -> Bool
+    let onSave: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(title).textRole(.heading)
+            if let message {
+                Text(message)
+                    .textRole(.subtitle)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            TextField("Collection name", text: $name)
+                .textFieldStyle(.plain)
+                .font(TextRole.body.font)
+                .focused($focused)
+                .onSubmit(save)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .debossed(cornerRadius: 10)
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(.leather)
+                    .keyboardShortcut(.cancelAction)
+                Button(action, action: save)
+                    .buttonStyle(.leatherProminent)
+                    .keyboardShortcut(.defaultAction)
+                    // Blank and taken names (any capitalization) can't be saved.
                     .disabled(!isValid(name))
-            } message: {
-                if let message { Text(message) }
             }
-            .onChange(of: isPresented) { _, presented in
-                if presented { name = initial }
-            }
+            .padding(.top, 4)
+        }
+        .padding(26)
+        #if os(macOS)
+        .frame(width: 420)
+        #else
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .presentationDetents([.height(280)])
+        #endif
+        .leatherBackground()
+        .themedWindow()
+        .onAppear {
+            name = initial
+            focused = true
+        }
+    }
+
+    private func save() {
+        guard isValid(name) else { return }
+        onSave(name)
+        dismiss()
     }
 }
 
@@ -142,7 +196,7 @@ struct CollectionsView: View {
         }
         .newCollectionAlert(isPresented: $showNewCollection, model: model)
         .collectionNameAlert(
-            "Rename Collection",
+            "Rename collection",
             isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }),
             initial: renaming ?? "",
             action: "Rename",
@@ -219,7 +273,7 @@ struct CollectionFicsView: View {
             }
         }
         .collectionNameAlert(
-            "Rename Collection", isPresented: $showRename, initial: collection, action: "Rename",
+            "Rename collection", isPresented: $showRename, initial: collection, action: "Rename",
             isValid: { model.collections.isAvailable($0, renaming: collection) }
         ) { name in
             let clean = name.trimmingCharacters(in: .whitespaces)

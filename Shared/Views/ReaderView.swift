@@ -128,7 +128,7 @@ enum ReaderPaper: String, CaseIterable, Identifiable {
 }
 
 /// Reading layout: the reading type at the chosen size.
-private struct ReadingType {
+struct ReadingType {
     let scale: CGFloat
 
     /// Line length: about 65–75 characters of Newsreader at body size.
@@ -138,6 +138,9 @@ private struct ReadingType {
     var heading: Font { .display(26 * scale, relativeTo: .title2) }
     var title: Font { .display(32 * scale, relativeTo: .title) }
     var label: Font { .display(19 * scale, relativeTo: .subheadline, italic: true) }
+    var numeral: Font { .display(26 * scale, relativeTo: .title2) }
+    var chapterTitle: Font { .display(30 * scale, relativeTo: .title2, italic: true) }
+    var headingLeading: CGFloat { 4 * scale }
     /// Book-like leading: about 1.75 for body text.
     var lineSpacing: CGFloat { 13 * scale }
     var paragraphSpacing: CGFloat { 22 * scale }
@@ -158,24 +161,43 @@ private struct ReaderPage: View {
     @State private var topLine: Int?
     @State private var restored = false
 
-    /// One row of the page.
+    /// One row of the page: a block, or a labelled note (AO3's "Summary",
+    /// "Notes", "End Notes" with the quoted paragraphs that follow).
     private struct Line: Identifiable {
         let id: Int
-        let block: EPUBBook.Block
+        let content: Content
         let section: Int
         let indexInSection: Int
+
+        enum Content {
+            case block(EPUBBook.Block)
+            case note(label: String, blocks: [EPUBBook.Block])
+        }
     }
 
     private var lines: [Line] {
         var out: [Line] = []
         for (s, section) in book.sections.enumerated() {
-            for (b, block) in section.blocks.enumerated() {
-                // A "Notes" label whose notes didn't come through (AO3 often
-                // just links to the end of the work) would stand alone.
-                if BlockView.isLabel(block), !(section.blocks.indices.contains(b + 1) && section.blocks[b + 1].quoteDepth > 0) {
+            let blocks = section.blocks
+            var b = 0
+            while b < blocks.count {
+                let block = blocks[b]
+                if BlockView.isLabel(block) {
+                    var end = b + 1
+                    while end < blocks.count, blocks[end].quoteDepth > 0 { end += 1 }
+                    // A label whose notes didn't come through (AO3 often just
+                    // links to the end of the work) is dropped.
+                    if end > b + 1 {
+                        out.append(Line(id: out.count, content: .note(label: block.text, blocks: Array(blocks[(b + 1)..<end])),
+                                        section: s, indexInSection: b))
+                    }
+                    b = end
                     continue
                 }
-                out.append(Line(id: out.count, block: block, section: s, indexInSection: b))
+                if !BlockView.isFurniture(block) {
+                    out.append(Line(id: out.count, content: .block(block), section: s, indexInSection: b))
+                }
+                b += 1
             }
         }
         return out
@@ -188,8 +210,13 @@ private struct ReaderPage: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(lines) { line in
-                        BlockView(block: line.block, type: type)
-                            .padding(.top, line.section > 0 && line.indexInSection == 0 ? 64 * scale : 0)
+                        Group {
+                            switch line.content {
+                            case .block(let block): BlockView(block: block, type: type)
+                            case .note(let label, let blocks): NoteView(label: label, blocks: blocks, type: type)
+                            }
+                        }
+                        .padding(.top, line.section > 0 && line.indexInSection == 0 ? 64 * scale : 0)
                             .id(line.id)
                     }
                     Fleuron()
@@ -229,6 +256,50 @@ private struct ReaderPage: View {
     }
 }
 
+/// A summary in the stitched card; notes on a paper clipping.
+private struct NoteView: View {
+    let label: String
+    let blocks: [EPUBBook.Block]
+    let type: ReadingType
+    @Environment(\.palette) private var palette
+
+    private var isSummary: Bool { label.lowercased().contains("summary") }
+
+    var body: some View {
+        Group {
+            if isSummary {
+                StitchedCard(label: "The summary") { paragraphs }
+            } else {
+                PaperClipping(tilt: -0.5) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(label.prefix(1).uppercased() + label.dropFirst().lowercased())
+                            .font(type.label)
+                            .foregroundStyle(Palette.paper.gold)
+                        paragraphs
+                    }
+                }
+                .padding(.horizontal, 6)
+            }
+        }
+        .padding(.vertical, 18 * type.scale)
+    }
+
+    private var paragraphs: some View {
+        VStack(alignment: .leading, spacing: type.paragraphSpacing * 0.6) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                if case .rule = block.kind {
+                    Fleuron()
+                } else {
+                    Text(BlockView(block: block, type: type).styled(block.runs))
+                        .font(isSummary ? type.body : type.quote)
+                        .lineSpacing(type.lineSpacing * 0.8)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}
+
 private struct BlockView: View {
     let block: EPUBBook.Block
     let type: ReadingType
@@ -240,13 +311,30 @@ private struct BlockView: View {
             Fleuron()
                 .padding(.vertical, 22)
         case .heading(let level):
-            Text(styled(block.runs))
-                .font(level <= 1 ? type.title : type.heading)
-                .foregroundStyle(palette.ink)
-                .lineSpacing(2)
+            if let chapter = Self.chapter(block.text) {
+                // "01  The Markings": a gold numeral and the title in gold
+                // italic, like a group heading in the book.
+                HStack(alignment: .firstTextBaseline, spacing: 14 * type.scale) {
+                    Text(String(format: "%02d", chapter.number))
+                        .font(type.numeral)
+                        .foregroundStyle(palette.gold)
+                    Text(chapter.title ?? Self.spelledChapter(chapter.number))
+                        .font(type.chapterTitle)
+                        .foregroundStyle(palette.gold)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 .padding(.top, 8)
-                .padding(.bottom, level <= 2 ? 26 : 14)
-                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 30 * type.scale)
+                .accessibilityElement(children: .combine)
+            } else {
+                Text(styled(block.runs))
+                    .font(level <= 1 ? type.title : type.heading)
+                    .foregroundStyle(palette.ink)
+                    .lineSpacing(type.headingLeading)
+                    .padding(.top, 8)
+                    .padding(.bottom, level <= 2 ? 22 : 14)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         case .paragraph where Self.isLabel(block):
             // AO3's "Summary", "Notes", "End Notes": book furniture.
             Text(block.text)
@@ -282,6 +370,30 @@ private struct BlockView: View {
         "summary", "notes", "end notes", "chapter summary", "chapter notes", "chapter end notes",
     ]
 
+    /// AO3 wrapper headings that only name the file ("Preface", "Afterword").
+    static func isFurniture(_ block: EPUBBook.Block) -> Bool {
+        guard case .heading = block.kind else { return false }
+        return ["preface", "afterword"].contains(block.text.lowercased())
+    }
+
+    /// "Chapter 3: The Fire Within" → (3, "The Fire Within"); "Chapter 17" → (17, nil).
+    static func chapter(_ text: String) -> (number: Int, title: String?)? {
+        let pattern = #"^\s*Chapter\s+(\d+)\s*(?:[:.\-–—]\s*(.+))?$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let numRange = Range(m.range(at: 1), in: text), let number = Int(text[numRange])
+        else { return nil }
+        let title = Range(m.range(at: 2), in: text).map { String(text[$0]).trimmingCharacters(in: .whitespaces) }
+        return (number, title?.isEmpty == false ? title : nil)
+    }
+
+    /// "Chapter one", for chapters without a title of their own.
+    static func spelledChapter(_ n: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .spellOut
+        return "Chapter " + (f.string(from: NSNumber(value: n)) ?? String(n))
+    }
+
     /// A lone label line AO3 puts before a quoted summary or notes block.
     static func isLabel(_ block: EPUBBook.Block) -> Bool {
         block.quoteDepth == 0 && labels.contains(block.text.lowercased().trimmingCharacters(in: .punctuationCharacters))
@@ -289,7 +401,7 @@ private struct BlockView: View {
 
     /// Runs as one attributed string: italic and bold through presentation
     /// intents, so they pick the reading face's own italic and semibold.
-    private func styled(_ runs: [EPUBBook.Run]) -> AttributedString {
+    func styled(_ runs: [EPUBBook.Run]) -> AttributedString {
         var out = AttributedString()
         for run in runs {
             var piece = AttributedString(run.text)
