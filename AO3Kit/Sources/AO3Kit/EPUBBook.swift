@@ -38,6 +38,10 @@ public struct EPUBBook: Sendable, Equatable {
             case image(source: String, alt: String)
             /// Rows of cells, each cell's runs (a chat log, a letter's header).
             case table(rows: [[[Run]]])
+            /// A text-message thread — AO3 work skins mark one up as a `<dl>`:
+            /// the contact as a heading, timestamps, then `<dt>` sender and
+            /// `<dd>` messages.
+            case chat(Chat)
         }
 
         public enum Alignment: Sendable, Equatable {
@@ -57,6 +61,59 @@ public struct EPUBBook: Sendable, Equatable {
             self.runs = runs
             self.quoteDepth = quoteDepth
             self.alignment = alignment
+        }
+    }
+
+    public struct Chat: Sendable, Equatable {
+        /// Who the thread is with ("Unknown Number"), if it names them.
+        public var title: String?
+        public var items: [Item] = []
+
+        public enum Item: Sendable, Equatable {
+            /// A timestamp or other note between messages.
+            case note(String)
+            case message(sender: String, runs: [Run])
+            case image(sender: String, source: String, alt: String)
+        }
+
+        public init(title: String? = nil, items: [Item] = []) {
+            self.title = title
+            self.items = items
+        }
+
+        /// Everyone who sends a message, most active first.
+        public var senders: [String] {
+            var counts: [String: Int] = [:]
+            var order: [String] = []
+            for case .message(let sender, _) in items {
+                if counts[sender] == nil { order.append(sender) }
+                counts[sender, default: 0] += 1
+            }
+            return order.enumerated().sorted {
+                (counts[$0.element]!, -$0.offset) > (counts[$1.element]!, -$1.offset)
+            }.map(\.element)
+        }
+
+        /// The phone's owner — the busiest sender who isn't the contact.
+        /// Their messages sit on the right.
+        public var me: String? {
+            senders.first { !isContact($0) } ?? senders.first
+        }
+
+        /// Whether a sender is who the thread is with. Loose: the header
+        /// often decorates the name ("Shane ☀️" for "Shane").
+        public func isContact(_ sender: String) -> Bool {
+            guard let title else { return false }
+            let a = Self.letters(title), b = Self.letters(sender)
+            return !a.isEmpty && !b.isEmpty && (a.hasPrefix(b) || b.hasPrefix(a))
+        }
+
+        private static func letters(_ s: String) -> String {
+            // Not CharacterSet.alphanumerics: it counts an emoji's variation
+            // selector (U+FE0F) as a "letter".
+            String(s.lowercased().unicodeScalars
+                .filter { $0.properties.isAlphabetic || $0.properties.numericType != nil }
+                .map(Character.init))
         }
     }
 
@@ -120,7 +177,16 @@ public enum EPUBBookParser {
             guard let xhtml = read(path) else { continue }
             let blocks = blocks(fromXHTML: xhtml, classes: classes, base: (path as NSString).deletingLastPathComponent)
             guard !blocks.isEmpty else { continue }
-            for case .image(let source, _) in blocks.map(\.kind) where book.images[source] == nil {
+            var sources: [String] = []
+            for block in blocks {
+                switch block.kind {
+                case .image(let source, _): sources.append(source)
+                case .chat(let chat):
+                    for case .image(_, let source, _) in chat.items { sources.append(source) }
+                default: break
+                }
+            }
+            for source in sources where book.images[source] == nil {
                 guard let entry = archive[source] else { continue }
                 var data = Data()
                 if (try? archive.extract(entry, skipCRC32: true) { data.append($0) }) != nil {
@@ -362,6 +428,13 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
     private var skipDepth = 0
     private var elementStack: [(name: String, skipped: Bool)] = []
 
+    /// Inside a `<dl>` thread: the chat so far, the current sender, and
+    /// whether the text being read is a `<dt>` (a sender's name).
+    private var chat: EPUBBook.Chat?
+    private var chatDepth = 0
+    private var sender = ""
+    private var inSenderName = false
+
     /// Inside a table: its rows so far, and the cell being filled. Nested
     /// tables flatten into the outer one.
     private var tableRows: [[[EPUBBook.Run]]]?
@@ -391,6 +464,7 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         if let inline = attributes["style"] { css.merge(EPUBBookParser.declarations(inline)) }
         let skip = skipDepth > 0 || Self.skippedElements.contains(tag)
             || !Set(classNames).isDisjoint(with: Self.skippedClasses) || css.hidden
+            || (tag == "kbd" && classNames.contains("typebar"))  // a texting skin's empty input bar
         elementStack.append((tag, skip))
         if skip {
             skipDepth += 1
@@ -427,6 +501,14 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
             }
         case "img":
             image(attributes)
+        case "dl":
+            chatDepth += 1
+            if chat == nil {
+                chat = EPUBBook.Chat()
+                sender = ""
+            }
+        case "dt":
+            if chat != nil { inSenderName = true }
         default:
             break
         }
@@ -474,6 +556,16 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
                 tableRows![tableRows!.count - 1].append(finished)
             }
             cell = nil
+        case "dt":
+            inSenderName = false
+        case "dl":
+            chatDepth -= 1
+            if chatDepth == 0, let finished = chat {
+                chat = nil
+                if !finished.items.isEmpty {
+                    blocks.append(.init(kind: .chat(finished), runs: [], quoteDepth: quoteDepth))
+                }
+            }
         case "table":
             tableDepth -= 1
             if tableDepth == 0, let rows = tableRows {
@@ -511,6 +603,10 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
             source = EPUBBookParser.resolve(src.removingPercentEncoding ?? src, base: base)
         }
         flush()
+        if chat != nil {
+            chat?.items.append(.image(sender: sender, source: source, alt: alt))
+            return
+        }
         let block = EPUBBook.Block(kind: .image(source: source, alt: alt), runs: [], quoteDepth: quoteDepth,
                                    alignment: alignment)
         if tableRows != nil {
@@ -524,7 +620,7 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
     /// Symbols only: a lone "…" is a beat of silence and "ooo" is a word.
     static func isTypedBreak(_ text: String) -> Bool {
         let marks = text.filter { !$0.isWhitespace }
-        return marks.count >= 3 && marks.allSatisfy { "~*-=_•·°#+❦❧✦✧♦◆○●◇†‡§|/\\".contains($0) }
+        return marks.count >= 3 && marks.allSatisfy { "~*-=_•·°#+❦❧✦✧♦◆○●◇†‡§|/\\—–×".contains($0) }
             && Set(marks).count <= 3
     }
 
@@ -574,6 +670,18 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         cleaned.removeAll { $0.text.isEmpty }
         let text = cleaned.map(\.text).joined()
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if chat != nil {
+            if inSenderName {
+                sender = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else if headingLevel != nil, chat?.title == nil, chat?.items.isEmpty == true {
+                chat?.title = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else if headingLevel != nil || sender.isEmpty || Self.isTypedBreak(text) {
+                chat?.items.append(.note(text.trimmingCharacters(in: .whitespacesAndNewlines)))
+            } else {
+                chat?.items.append(.message(sender: sender, runs: cleaned))
+            }
+            return
+        }
         if cell != nil {
             if var existing = cell, !existing.isEmpty {
                 existing.append(.init(text: "\n"))

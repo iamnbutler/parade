@@ -165,6 +165,10 @@ struct ReadingType {
     var byline: Font { .display(21 * scale, relativeTo: .title3, italic: true) }
     var aside: Font { .reading(15 * scale, relativeTo: .callout, italic: true) }
     var table: Font { .reading(16 * scale, relativeTo: .callout) }
+    var chat: Font { .reading(16 * scale, relativeTo: .callout) }
+    var chatTitle: Font { .display(21 * scale, relativeTo: .title3) }
+    var chatName: Font { .display(14 * scale, relativeTo: .caption, italic: true) }
+    var chatNote: Font { .reading(13 * scale, relativeTo: .caption, italic: true) }
     var numeral: Font { .display(26 * scale, relativeTo: .title2) }
     var chapterTitle: Font { .display(30 * scale, relativeTo: .title2, italic: true) }
     var headingLeading: CGFloat { 4 * scale }
@@ -337,13 +341,15 @@ private struct NoteView: View {
                 case .rule:
                     Fleuron()
                 case .paragraph, .heading:
-                    Text(BlockView(block: block, type: type).styled(block.runs))
+                    // Links in the note's own ink: the clipping is paper.
+                    Text(BlockView(block: block, type: type).styled(block.runs,
+                        link: (isSummary || palette.silk ? palette : .paper).rose))
                         .font(isSummary ? type.body : type.quote)
                         .lineSpacing(type.lineSpacing * 0.8)
                         .multilineTextAlignment(block.alignment.text)
                         .frame(maxWidth: .infinity, alignment: block.alignment.frame)
                         .fixedSize(horizontal: false, vertical: true)
-                case .image, .table:
+                case .image, .table, .chat:
                     BlockView(block: block, type: type)
                 }
             }
@@ -484,6 +490,86 @@ private struct ReaderTable: View {
     }
 }
 
+/// A texting scene as a phone thread: the contact up top, timestamps
+/// centered, the phone owner's messages on the right in rose, everyone
+/// else's on the left.
+private struct ChatThread: View {
+    let chat: EPUBBook.Chat
+    let type: ReadingType
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        let me = chat.me
+        VStack(spacing: 8 * type.scale) {
+            if let title = chat.title {
+                Text(title)
+                    .font(type.chatTitle)
+                    .foregroundStyle(palette.ink)
+                    .multilineTextAlignment(.center)
+                Hairline()
+                    .padding(.bottom, 4 * type.scale)
+            }
+            ForEach(Array(chat.items.enumerated()), id: \.offset) { i, item in
+                switch item {
+                case .note(let text):
+                    Text(text)
+                        .font(type.chatNote)
+                        .foregroundStyle(palette.inkFaint)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4 * type.scale)
+                case .message(let sender, let runs):
+                    let mine = sender == me
+                    VStack(alignment: mine ? .trailing : .leading, spacing: 3) {
+                        if ChatLayout.showsName(chat, at: i, me: me) {
+                            Text(sender)
+                                .font(type.chatName)
+                                .foregroundStyle(palette.inkFaint)
+                                .padding(.horizontal, 4)
+                        }
+                        Text(BlockView(block: .init(kind: .paragraph, runs: runs, quoteDepth: 0), type: type).styled(runs))
+                            .font(type.chat)
+                            .foregroundStyle(palette.ink)
+                            .lineSpacing(2 * type.scale)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 12 * type.scale)
+                            .padding(.vertical, 7 * type.scale)
+                            .background(ChatLayout.bubble(mine: mine, palette),
+                                        in: RoundedRectangle(cornerRadius: 14 * type.scale, style: .continuous))
+                    }
+                    .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
+                    .padding(mine ? .leading : .trailing, 56 * type.scale)
+                case .image(let sender, let source, let alt):
+                    ReaderImage(source: source, alt: alt, type: type)
+                        .frame(maxWidth: 240 * type.scale, maxHeight: 320 * type.scale)
+                        .frame(maxWidth: .infinity, alignment: sender == me ? .trailing : .leading)
+                }
+            }
+        }
+        .padding(18 * type.scale)
+        .frame(maxWidth: 520 * type.scale)
+        .debossed(cornerRadius: 22 * type.scale)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12 * type.scale)
+    }
+}
+
+/// What both renderers of a chat agree on.
+private enum ChatLayout {
+    /// A name over someone else's message when the speaker changes — unless
+    /// the thread is with just them, and its title already says so.
+    static func showsName(_ chat: EPUBBook.Chat, at index: Int, me: String?) -> Bool {
+        guard case .message(let sender, _) = chat.items[index], sender != me else { return false }
+        let previous = chat.items[..<index].reversed().first { if case .message = $0 { return true } else { return false } }
+        if case .message(let last, _) = previous, last == sender { return false }
+        return !chat.isContact(sender) || chat.senders.count > 2
+    }
+
+    static func bubble(mine: Bool, _ palette: Palette) -> Color {
+        mine ? palette.rose.opacity(0.42) : palette.raised2
+    }
+}
+
 #if os(macOS)
 private typealias PlatformImage = NSImage
 extension Image {
@@ -545,6 +631,9 @@ private struct BlockView: View {
                 .padding(.bottom, type.paragraphSpacing * 0.5)
         case .table(let rows):
             ReaderTable(rows: rows, type: type)
+                .padding(.bottom, type.paragraphSpacing)
+        case .chat(let chat):
+            ChatThread(chat: chat, type: type)
                 .padding(.bottom, type.paragraphSpacing)
         case .paragraph:
             let quoted = block.quoteDepth > 0
@@ -860,10 +949,13 @@ private struct PagedText {
         }
         /// An image from the EPUB, scaled to fit the page; one that isn't in
         /// the book (AO3 left it as a link) shows its alt text.
-        func appendImage(_ source: String, alt: String, alignment: EPUBBook.Block.Alignment) {
-            let style = para(spacing: 26, before: 8, line: 0, align: alignment == .right ? .right : .center)
+        func appendImage(_ source: String, alt: String, alignment: EPUBBook.Block.Alignment,
+                         widthFraction: CGFloat = 1, align textAlign: NSTextAlignment? = nil, indent: CGFloat = 0) {
+            let style = para(spacing: 26, before: 8, indent: indent, tail: indent, line: 0,
+                             align: textAlign ?? (alignment == .right ? .right : .center))
             if let data = book.images[source], let image = PlatformImage(data: data), image.size.width > 0 {
-                let k = min(1, pageSize.width / image.size.width, pageSize.height * 0.8 / image.size.height)
+                let k = min(1, pageSize.width * widthFraction / image.size.width,
+                            pageSize.height * 0.8 * widthFraction / image.size.height)
                 let attachment = NSTextAttachment()
                 attachment.image = image
                 attachment.bounds = CGRect(x: 0, y: 0, width: image.size.width * k, height: image.size.height * k)
@@ -912,6 +1004,56 @@ private struct PagedText {
             p.maximumLineHeight = height * scale
             out.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: p, .font: font(Typeface.readingName(italic: false, heavy: false), 4)]))
         }
+        /// A texting scene on the phone panel, each message on its bubble
+        /// (both drawn by PageCanvas behind the text).
+        func appendChat(_ chat: EPUBBook.Chat) {
+            let me = chat.me
+            let pad: CGFloat = 26 * scale
+            let far = pageSize.width * 0.28
+            let start = out.length
+            spacer(16)
+            out.addAttribute(.readerPanelStart, value: true, range: NSRange(location: start, length: 1))
+            if let title = chat.title {
+                let style = para(spacing: 14, indent: pad, tail: pad, line: 2, align: .center)
+                out.append(NSAttributedString(string: title, attributes: [
+                    .font: font(Typeface.displayName(italic: false, heavy: false), 21), .foregroundColor: ink, .paragraphStyle: style]))
+                newline(style)
+            }
+            for (i, item) in chat.items.enumerated() {
+                switch item {
+                case .note(let text):
+                    let style = para(spacing: 10, before: 2, indent: pad, tail: pad, line: 2, align: .center)
+                    out.append(NSAttributedString(string: text, attributes: [
+                        .font: font(Typeface.readingName(italic: true, heavy: false), 13),
+                        .foregroundColor: PlatformColor(palette.inkFaint), .paragraphStyle: style]))
+                    newline(style)
+                case .message(let sender, let runs):
+                    let mine = sender == me
+                    if ChatLayout.showsName(chat, at: i, me: me) {
+                        let style = para(spacing: 4, indent: pad + 4, tail: far, line: 0)
+                        out.append(NSAttributedString(string: sender, attributes: [
+                            .font: font(Typeface.displayName(italic: true, heavy: false), 14),
+                            .foregroundColor: PlatformColor(palette.inkFaint), .paragraphStyle: style]))
+                        newline(style)
+                    }
+                    let inset = 12 * scale
+                    let style = para(spacing: 16, indent: mine ? far : pad + inset, tail: mine ? pad + inset : far,
+                                     line: 3, align: mine ? .right : .left)
+                    let begin = out.length
+                    appendRuns(runs, size: 16, italicBase: false, color: ink, style: style)
+                    out.addAttribute(.readerBubble, value: mine ? BubbleKind.mine : BubbleKind.theirs,
+                                     range: NSRange(location: begin, length: out.length - begin))
+                    newline(style)
+                case .image(let sender, let source, let alt):
+                    appendImage(source, alt: alt, alignment: .natural, widthFraction: 0.5,
+                                align: sender == me ? .right : .left, indent: pad)
+                }
+            }
+            spacer(20)
+            out.addAttribute(.readerPanelEnd, value: true, range: NSRange(location: out.length - 1, length: 1))
+            out.addAttribute(.readerPanel, value: PanelKind.phone, range: NSRange(location: start, length: out.length - start))
+            spacer(30)
+        }
         func newline(_ style: NSParagraphStyle) {
             out.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: style, .font: font(Typeface.readingName(italic: false, heavy: false), body)]))
         }
@@ -958,6 +1100,8 @@ private struct PagedText {
                     appendImage(source, alt: alt, alignment: block.alignment)
                 case .table(let rows):
                     appendTable(rows, indent: 18 * CGFloat(block.quoteDepth), color: ink)
+                case .chat(let chat):
+                    appendChat(chat)
                 }
             case .note(let label, let blocks):
                 // The summary in a stitched card, notes on a paper clipping:
@@ -982,6 +1126,8 @@ private struct PagedText {
                         appendImage(source, alt: alt, alignment: block.alignment)
                     case .table(let rows):
                         appendTable(rows, indent: pad, color: noteInk)
+                    case .chat:
+                        break  // a thread inside an author's note: rare, and panels don't nest
                     default:
                         let style = para(spacing: j == paragraphs.count - 1 ? 0 : 12, indent: pad, tail: pad, line: 10,
                                          align: align(block.alignment))
@@ -1053,7 +1199,7 @@ private func paginate(_ text: NSAttributedString, size: CGSize, pad: CGFloat) ->
 }
 
 private enum PanelKind: String {
-    case card, clipping
+    case card, clipping, phone
 
     /// A page starting at `offset` opens partway through a panel.
     static func continues(_ text: NSAttributedString, at offset: Int) -> Bool {
@@ -1076,6 +1222,12 @@ extension NSAttributedString.Key {
     /// The panel's first and last characters (its padding spacers).
     fileprivate static let readerPanelStart = NSAttributedString.Key("parade.readerPanelStart")
     fileprivate static let readerPanelEnd = NSAttributedString.Key("parade.readerPanelEnd")
+    /// A chat message's characters, drawn on a bubble (a `BubbleKind`).
+    fileprivate static let readerBubble = NSAttributedString.Key("parade.readerBubble")
+}
+
+private enum BubbleKind {
+    case mine, theirs
 }
 
 /// Draws one page of text with its own small TextKit stack, and the summary
@@ -1162,6 +1314,7 @@ private final class PageCanvas: PlatformView {
                 cg.translateBy(x: -panel.midX, y: -panel.midY)
             }
             drawPanel(kind, in: panel, cg)
+            if kind == .phone { drawBubbles(in: chars, cg) }
             manager.drawGlyphs(forGlyphRange: glyphs, at: .zero)
             cg.restoreGState()
             cursor = NSMaxRange(glyphs)
@@ -1176,6 +1329,30 @@ private final class PageCanvas: PlatformView {
     #else
     private static let down: CGFloat = 1
     #endif
+
+    /// One rounded bubble behind each message paragraph.
+    private func drawBubbles(in range: NSRange, _ cg: CGContext) {
+        storage.enumerateAttribute(.readerBubble, in: range) { value, run, _ in
+            guard let bubble = value as? BubbleKind else { return }
+            let glyphs = manager.glyphRange(forCharacterRange: run, actualCharacterRange: nil)
+            guard glyphs.length > 0 else { return }
+            // Line by line: a wrapped paragraph's bounding box spans the
+            // whole column, the bubble should hug the longest line.
+            var rect = CGRect.null
+            manager.enumerateLineFragments(forGlyphRange: glyphs) { _, _, _, lineGlyphs, _ in
+                let part = NSIntersectionRange(lineGlyphs, glyphs)
+                guard part.length > 0 else { return }
+                rect = rect.union(self.manager.boundingRect(forGlyphRange: part, in: self.container))
+            }
+            guard !rect.isNull, rect.width > 0 else { return }
+            rect = rect.insetBy(dx: -12, dy: -6)
+            cg.saveGState()
+            cg.addPath(CGPath(roundedRect: rect, cornerWidth: 13, cornerHeight: 13, transform: nil))
+            cg.setFillColor(PlatformColor(ChatLayout.bubble(mine: bubble == .mine, palette)).cgColor)
+            cg.fillPath()
+            cg.restoreGState()
+        }
+    }
 
     private func drawPanel(_ kind: PanelKind, in rect: CGRect, _ cg: CGContext) {
         func cgColor(_ color: Color) -> CGColor { PlatformColor(color).cgColor }
@@ -1208,6 +1385,16 @@ private final class PageCanvas: PlatformView {
         }
 
         switch kind {
+        case .phone:
+            // Pressed into the page, like the debossed fields elsewhere.
+            fill(CGPath(roundedRect: rect, cornerWidth: 22, cornerHeight: 22, transform: nil),
+                 palette.leatherDeep, palette.leatherDeep, shadow: (0, 0, 0))
+            cg.saveGState()
+            cg.addPath(CGPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerWidth: 22, cornerHeight: 22, transform: nil))
+            cg.setStrokeColor(cgColor(palette.rule))
+            cg.setLineWidth(1)
+            cg.strokePath()
+            cg.restoreGState()
         case .card:
             fill(CGPath(roundedRect: rect, cornerWidth: 14, cornerHeight: 14, transform: nil),
                  palette.raised2, palette.raised, shadow: (15, 10, 0.28))

@@ -152,6 +152,45 @@ final class EPUBBookTests: XCTestCase {
         ])
     }
 
+    func testTextingSkinBecomesChat() {
+        // AO3 texting work skins (Calibre keeps the markup): a <dl> thread.
+        let xhtml = """
+        <html><body><p>Before.</p>
+        <dl class="calibre14">
+          <h1 class="contact">Unknown Number</h1>
+          <h4 class="time"><b>Today</b>, 12:21 PM</h4>
+          <div><dt>Shane</dt><dd>Is this Ilya Rozanov?</dd></div>
+          <div><dt>Unknown Number</dt><dd>no</dd></div>
+          <div><dt>Shane</dt><dd>Oh, but the dog collar had this number.</dd>
+            <dd><img src="img1.jpg" class="calibre11"/></dd></div>
+          <kbd class="typebar"></kbd>
+        </dl>
+        <div class="byline" style="text-align:center"><p>—×—</p></div>
+        </body></html>
+        """
+        let blocks = EPUBBookParser.blocks(fromXHTML: xhtml)
+        XCTAssertEqual(blocks.count, 3)
+        guard case .chat(let chat) = blocks[1].kind else { return XCTFail("no chat") }
+        XCTAssertEqual(chat.title, "Unknown Number")
+        XCTAssertEqual(chat.items, [
+            .note("Today, 12:21 PM"),
+            .message(sender: "Shane", runs: [.init(text: "Is this Ilya Rozanov?")]),
+            .message(sender: "Unknown Number", runs: [.init(text: "no")]),
+            .message(sender: "Shane", runs: [.init(text: "Oh, but the dog collar had this number.")]),
+            .image(sender: "Shane", source: "img1.jpg", alt: ""),
+        ])
+        XCTAssertEqual(chat.me, "Shane")
+        XCTAssertEqual(blocks[2].kind, .rule)
+
+        // A decorated contact header still names the other side.
+        let other = EPUBBook.Chat(title: "Shane ☀️", items: [
+            .message(sender: "Shane", runs: [.init(text: "a")]),
+            .message(sender: "Shane", runs: [.init(text: "b")]),
+            .message(sender: "Ilya", runs: [.init(text: "c")]),
+        ])
+        XCTAssertEqual(other.me, "Ilya")
+    }
+
     func testResolveRelativeHrefs() {
         XCTAssertEqual(EPUBBookParser.resolve("ch1.xhtml", base: ""), "ch1.xhtml")
         XCTAssertEqual(EPUBBookParser.resolve("../Text/ch1.xhtml", base: "OEBPS/Styles"), "OEBPS/Text/ch1.xhtml")
