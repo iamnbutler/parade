@@ -10,6 +10,7 @@ struct ReaderView: View {
     @EnvironmentObject private var model: AppModel
     @State private var book: EPUBBook?
     @State private var failure: String?
+    @State private var waitingForCloud = false
     /// Where this fic was left off, read once when it opens.
     @State private var start: ReadingPosition?
     @AppStorage("reader.textSize.v1") private var textSize = ReaderTextSize.standard.rawValue
@@ -44,11 +45,14 @@ struct ReaderView: View {
                 }
             } else if let failure {
                 EmptyPage(title: "This fic won't open", message: failure)
+            } else if waitingForCloud {
+                LibraryLoadingView(text: "Downloading from iCloud…")
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .environment(\.readerImages, book?.images ?? [:])
         .leatherBackground()
         .palette(paper.palette)
         .toolbar {
@@ -87,11 +91,21 @@ struct ReaderView: View {
     }
 
     private func load() async {
-        guard item.isDownloaded else {
-            failure = "It's still downloading from iCloud. Try again in a moment."
-            return
-        }
         let url = item.url
+        // Still in iCloud: ask for it and wait, rather than give up.
+        if !FileManager.default.fileExists(atPath: url.path) {
+            waitingForCloud = true
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            for _ in 0..<240 where !FileManager.default.fileExists(atPath: url.path) {
+                try? await Task.sleep(for: .milliseconds(500))
+                if Task.isCancelled { return }
+            }
+            waitingForCloud = false
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                failure = "It hasn't finished downloading from iCloud. Check the connection and open it again."
+                return
+            }
+        }
         start = model.readingPosition(for: item)
         do {
             // Unzipping and parsing a long fic takes a moment; keep it off
@@ -150,6 +164,7 @@ struct ReadingType {
     var label: Font { .display(19 * scale, relativeTo: .subheadline, italic: true) }
     var byline: Font { .display(21 * scale, relativeTo: .title3, italic: true) }
     var aside: Font { .reading(15 * scale, relativeTo: .callout, italic: true) }
+    var table: Font { .reading(16 * scale, relativeTo: .callout) }
     var numeral: Font { .display(26 * scale, relativeTo: .title2) }
     var chapterTitle: Font { .display(30 * scale, relativeTo: .title2, italic: true) }
     var headingLeading: CGFloat { 4 * scale }
@@ -318,13 +333,18 @@ private struct NoteView: View {
     private var paragraphs: some View {
         VStack(alignment: .leading, spacing: type.paragraphSpacing * 0.6) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                if case .rule = block.kind {
+                switch block.kind {
+                case .rule:
                     Fleuron()
-                } else {
+                case .paragraph, .heading:
                     Text(BlockView(block: block, type: type).styled(block.runs))
                         .font(isSummary ? type.body : type.quote)
                         .lineSpacing(type.lineSpacing * 0.8)
+                        .multilineTextAlignment(block.alignment.text)
+                        .frame(maxWidth: .infinity, alignment: block.alignment.frame)
                         .fixedSize(horizontal: false, vertical: true)
+                case .image, .table:
+                    BlockView(block: block, type: type)
                 }
             }
         }
@@ -361,6 +381,120 @@ private struct AsideView: View {
             .padding(.bottom, type.paragraphSpacing * 0.6)
     }
 }
+
+extension EPUBBook.Block.Alignment {
+    var text: TextAlignment {
+        switch self {
+        case .natural: .leading
+        case .center: .center
+        case .right: .trailing
+        }
+    }
+
+    var frame: Alignment {
+        switch self {
+        case .natural: .leading
+        case .center: .center
+        case .right: .trailing
+        }
+    }
+}
+
+/// The book's images, by archive path, for the views that show them.
+private struct ReaderImagesKey: EnvironmentKey {
+    static let defaultValue: [String: Data] = [:]
+}
+
+extension EnvironmentValues {
+    fileprivate var readerImages: [String: Data] {
+        get { self[ReaderImagesKey.self] }
+        set { self[ReaderImagesKey.self] = newValue }
+    }
+}
+
+/// An image from the fic: from the EPUB itself, or (for ones AO3 left as
+/// links) from the web. A missing image shows its alt text.
+private struct ReaderImage: View {
+    let source: String
+    let alt: String
+    let type: ReadingType
+    @Environment(\.readerImages) private var images
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Group {
+            if let data = images[source], let image = PlatformImage(data: data) {
+                picture(Image(platformImage: image))
+            } else if source.hasPrefix("http"), let url = URL(string: source) {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        picture(image)
+                    } else if phase.error != nil {
+                        missing
+                    } else {
+                        ProgressView().frame(height: 80)
+                    }
+                }
+            } else {
+                missing
+            }
+        }
+        .accessibilityLabel(alt.isEmpty ? "Image" : alt)
+    }
+
+    private func picture(_ image: Image) -> some View {
+        image
+            .resizable()
+            .scaledToFit()
+            .frame(maxHeight: 560 * type.scale)
+            .clipShape(RoundedRectangle(cornerRadius: 3))
+            .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+    }
+
+    private var missing: some View {
+        Label(alt.isEmpty ? "Image" : alt, systemImage: "photo")
+            .font(type.aside)
+            .foregroundStyle(palette.inkFaint)
+    }
+}
+
+/// A table from the fic — a chat log, mostly — as a quiet grid.
+private struct ReaderTable: View {
+    let rows: [[[EPUBBook.Run]]]
+    let type: ReadingType
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Grid(alignment: .topLeading, horizontalSpacing: 16 * type.scale, verticalSpacing: 10 * type.scale) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                GridRow {
+                    ForEach(Array(row.enumerated()), id: \.offset) { i, cell in
+                        Text(BlockView(block: .init(kind: .paragraph, runs: cell, quoteDepth: 0), type: type).styled(cell))
+                            .font(type.table)
+                            .foregroundStyle(i == 0 && row.count > 1 ? palette.inkSoft : palette.ink)
+                            .lineSpacing(type.lineSpacing * 0.5)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 12 * type.scale)
+        .overlay(alignment: .top) { Hairline(gold: true) }
+        .overlay(alignment: .bottom) { Hairline(gold: true) }
+    }
+}
+
+#if os(macOS)
+private typealias PlatformImage = NSImage
+extension Image {
+    fileprivate init(platformImage: NSImage) { self.init(nsImage: platformImage) }
+}
+#else
+private typealias PlatformImage = UIImage
+extension Image {
+    fileprivate init(platformImage: UIImage) { self.init(uiImage: platformImage) }
+}
+#endif
 
 private struct BlockView: View {
     let block: EPUBBook.Block
@@ -404,12 +538,22 @@ private struct BlockView: View {
                 .foregroundStyle(palette.gold)
                 .padding(.top, 10)
                 .padding(.bottom, 8)
+        case .image(let source, let alt):
+            ReaderImage(source: source, alt: alt, type: type)
+                .frame(maxWidth: .infinity, alignment: block.alignment == .right ? .trailing : .center)
+                .padding(.vertical, 12 * type.scale)
+                .padding(.bottom, type.paragraphSpacing * 0.5)
+        case .table(let rows):
+            ReaderTable(rows: rows, type: type)
+                .padding(.bottom, type.paragraphSpacing)
         case .paragraph:
             let quoted = block.quoteDepth > 0
             Text(styled(block.runs))
                 .font(quoted ? type.quote : type.body)
                 .foregroundStyle(quoted ? palette.inkSoft : palette.ink)
                 .lineSpacing(quoted ? type.lineSpacing * 0.8 : type.lineSpacing)
+                .multilineTextAlignment(block.alignment.text)
+                .frame(maxWidth: .infinity, alignment: block.alignment.frame)
                 .fixedSize(horizontal: false, vertical: true)
                 // Spacing inside the quote's rule, so consecutive quoted
                 // paragraphs share one unbroken line.
@@ -488,6 +632,12 @@ private struct BlockView: View {
             if run.bold { intent.insert(.stronglyEmphasized) }
             if !intent.isEmpty { piece.inlinePresentationIntent = intent }
             if run.underline { piece.underlineStyle = .single }
+            if run.strikethrough { piece.strikethroughStyle = .single }
+            if run.baseline != .normal {
+                let size = 18 * type.scale
+                piece.font = .reading(size * 0.68, relativeTo: .caption, italic: run.italic, heavy: run.bold)
+                piece.baselineOffset = run.baseline == .superscript ? size * 0.36 : -size * 0.12
+            }
             if let link = run.link {
                 piece.link = link
                 piece.foregroundColor = linkColor ?? palette.rose
@@ -645,7 +795,7 @@ private struct PagedText {
     let sectionTitles: [String]
 
     @MainActor
-    static func build(_ book: EPUBBook, scale: CGFloat, palette: Palette) -> PagedText {
+    static func build(_ book: EPUBBook, scale: CGFloat, palette: Palette, pageSize: CGSize) -> PagedText {
         let lines = ReaderLines.build(book)
         let ink = PlatformColor(palette.ink)
         let soft = PlatformColor(palette.inkSoft)
@@ -690,7 +840,69 @@ private struct PagedText {
                     .font: font(name, size), .foregroundColor: run.link != nil ? (link ?? rose) : color, .paragraphStyle: style,
                 ]
                 if run.underline { attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue }
-                out.append(NSAttributedString(string: run.text, attributes: attrs))
+                if run.strikethrough { attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+                if run.baseline != .normal {
+                    attrs[.font] = font(name, size * 0.68)
+                    attrs[.baselineOffset] = (run.baseline == .superscript ? size * 0.36 : -size * 0.12) * scale
+                }
+                // A <br> is a line break inside the paragraph (U+2028), not a
+                // new paragraph with its spacing.
+                out.append(NSAttributedString(string: run.text.replacingOccurrences(of: "\n", with: "\u{2028}"),
+                                              attributes: attrs))
+            }
+        }
+        func align(_ a: EPUBBook.Block.Alignment) -> NSTextAlignment {
+            switch a {
+            case .natural: .natural
+            case .center: .center
+            case .right: .right
+            }
+        }
+        /// An image from the EPUB, scaled to fit the page; one that isn't in
+        /// the book (AO3 left it as a link) shows its alt text.
+        func appendImage(_ source: String, alt: String, alignment: EPUBBook.Block.Alignment) {
+            let style = para(spacing: 26, before: 8, line: 0, align: alignment == .right ? .right : .center)
+            if let data = book.images[source], let image = PlatformImage(data: data), image.size.width > 0 {
+                let k = min(1, pageSize.width / image.size.width, pageSize.height * 0.8 / image.size.height)
+                let attachment = NSTextAttachment()
+                attachment.image = image
+                attachment.bounds = CGRect(x: 0, y: 0, width: image.size.width * k, height: image.size.height * k)
+                let piece = NSMutableAttributedString(attachment: attachment)
+                piece.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: piece.length))
+                out.append(piece)
+            } else {
+                out.append(NSAttributedString(string: alt.isEmpty ? "Image" : alt, attributes: [
+                    .font: font(Typeface.readingName(italic: true, heavy: false), 15),
+                    .foregroundColor: PlatformColor(palette.inkFaint), .paragraphStyle: style]))
+            }
+            newline(style)
+        }
+        /// A table, row by row. Two-cell rows (a chat log: who, then what)
+        /// hang the second cell at a shared column; wider rows run on.
+        func appendTable(_ rows: [[[EPUBBook.Run]]], indent: CGFloat, color: PlatformColor) {
+            let size: CGFloat = 16
+            let cellFont = font(Typeface.readingName(italic: false, heavy: false), size)
+            let widest = rows.filter { $0.count == 2 }
+                .map { ($0[0].map(\.text).joined() as NSString).size(withAttributes: [.font: cellFont]).width }
+                .max() ?? 0
+            let column = indent + min(max(widest + 16 * scale, 60 * scale), pageSize.width * 0.35)
+            for (r, row) in rows.enumerated() {
+                let p = NSMutableParagraphStyle()
+                p.lineSpacing = 6 * scale
+                p.paragraphSpacing = (r == rows.count - 1 ? 24 : 8) * scale
+                p.paragraphSpacingBefore = r == 0 ? 6 * scale : 0
+                p.firstLineHeadIndent = indent
+                p.headIndent = row.count == 2 ? column : indent
+                p.tabStops = [NSTextTab(textAlignment: .natural, location: column)]
+                for (c, cell) in row.enumerated() {
+                    if c > 0 {
+                        out.append(NSAttributedString(string: row.count == 2 ? "\t" : "   ·   ", attributes: [
+                            .font: cellFont, .foregroundColor: PlatformColor(palette.inkFaint), .paragraphStyle: p]))
+                    }
+                    appendRuns(cell, size: size, italicBase: false,
+                               color: c == 0 && row.count > 1 ? soft : color, style: p)
+                }
+                newline(p)
             }
         }
         /// Empty room inside a panel, above or below its text.
@@ -738,9 +950,14 @@ private struct PagedText {
                     }
                 case .paragraph:
                     let quoted = block.quoteDepth > 0
-                    let style = para(spacing: quoted ? 16 : 22, indent: quoted ? 18 * CGFloat(block.quoteDepth) : 0, line: quoted ? 10 : 13)
+                    let style = para(spacing: quoted ? 16 : 22, indent: quoted ? 18 * CGFloat(block.quoteDepth) : 0,
+                                     line: quoted ? 10 : 13, align: align(block.alignment))
                     appendRuns(block.runs, size: quoted ? quote : body, italicBase: quoted, color: quoted ? soft : ink, style: style)
                     newline(style)
+                case .image(let source, let alt):
+                    appendImage(source, alt: alt, alignment: block.alignment)
+                case .table(let rows):
+                    appendTable(rows, indent: 18 * CGFloat(block.quoteDepth), color: ink)
                 }
             case .note(let label, let blocks):
                 // The summary in a stitched card, notes on a paper clipping:
@@ -760,10 +977,18 @@ private struct PagedText {
                 newline(labelStyle)
                 let paragraphs = blocks.filter { if case .rule = $0.kind { return false } else { return true } }
                 for (j, block) in paragraphs.enumerated() {
-                    let style = para(spacing: j == paragraphs.count - 1 ? 0 : 12, indent: pad, tail: pad, line: 10)
-                    appendRuns(block.runs, size: isSummary ? body : quote, italicBase: !isSummary, color: noteInk,
-                               link: PlatformColor(colors.rose), style: style)
-                    newline(style)
+                    switch block.kind {
+                    case .image(let source, let alt):
+                        appendImage(source, alt: alt, alignment: block.alignment)
+                    case .table(let rows):
+                        appendTable(rows, indent: pad, color: noteInk)
+                    default:
+                        let style = para(spacing: j == paragraphs.count - 1 ? 0 : 12, indent: pad, tail: pad, line: 10,
+                                         align: align(block.alignment))
+                        appendRuns(block.runs, size: isSummary ? body : quote, italicBase: !isSummary, color: noteInk,
+                                   link: PlatformColor(colors.rose), style: style)
+                        newline(style)
+                    }
                 }
                 spacer(20)
                 out.addAttribute(.readerPanelEnd, value: true, range: NSRange(location: out.length - 1, length: 1))
@@ -1154,7 +1379,7 @@ private struct PagedReader: View {
     }
 
     private func layOut(_ size: CGSize) async {
-        let built = PagedText.build(book, scale: scale, palette: palette)
+        let built = PagedText.build(book, scale: scale, palette: palette, pageSize: size)
         nonisolated(unsafe) let text = built.text
         let pad = Self.panelPad * scale
         let ranges = await Task.detached(priority: .userInitiated) { paginate(text, size: size, pad: pad) }.value

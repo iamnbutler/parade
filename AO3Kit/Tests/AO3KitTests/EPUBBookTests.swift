@@ -82,6 +82,76 @@ final class EPUBBookTests: XCTestCase {
         XCTAssertFalse(BlockBuilder.isTypedBreak("xox"))
     }
 
+    func testAlignmentFromAttributeClassAndCenterTag() {
+        let css = ".calibre8 { text-align: center; margin: 0 } p.calibre9 { text-align: right }"
+        let xhtml = """
+        <html><body>
+          <p align="center">Dear diary,</p>
+          <p class="calibre8">centred by class</p>
+          <p class="calibre9">signed, me</p>
+          <center><p>old-school</p></center>
+          <p style="text-align: center">inline</p>
+          <p>plain</p>
+        </body></html>
+        """
+        let blocks = EPUBBookParser.blocks(fromXHTML: xhtml, classes: EPUBBookParser.stylesheet(css), base: "")
+        XCTAssertEqual(blocks.map(\.alignment), [.center, .center, .right, .center, .center, .natural])
+    }
+
+    func testStrikethroughAndScriptsFromTagsAndClasses() {
+        let css = ".calibre12 { text-decoration: line-through } .calibre13 { vertical-align: super; font-size: 0.75em }"
+        let xhtml = """
+        <html><body><p>I <s>hate</s> <del>loathe</del> <span class="calibre12">adore</span> you,
+        x<sup>2</sup> H<sub>2</sub>O and 1<span class="calibre13">st</span></p></body></html>
+        """
+        let runs = EPUBBookParser.blocks(fromXHTML: xhtml, classes: EPUBBookParser.stylesheet(css), base: "")[0].runs
+        XCTAssertEqual(runs.filter(\.strikethrough).map(\.text), ["hate", "loathe", "adore"])
+        XCTAssertEqual(runs.filter { $0.baseline == .superscript }.map(\.text), ["2", "st"])
+        XCTAssertEqual(runs.filter { $0.baseline == .subscript }.map(\.text), ["2"])
+    }
+
+    func testClassStylesItalicBoldAndHidden() {
+        let css = ".calibre4 { font-style: italic } .calibre5 { font-weight: 700 } .calibre6 { display: none }"
+        let xhtml = """
+        <html><body><p><span class="calibre4">thought</span> and <span class="calibre5">shout</span></p>
+        <p class="calibre6">hidden</p></body></html>
+        """
+        let blocks = EPUBBookParser.blocks(fromXHTML: xhtml, classes: EPUBBookParser.stylesheet(css), base: "")
+        XCTAssertEqual(blocks.count, 1)
+        XCTAssertEqual(blocks[0].runs.first { $0.text == "thought" }?.italic, true)
+        XCTAssertEqual(blocks[0].runs.first { $0.text == "shout" }?.bold, true)
+    }
+
+    func testTablesBecomeRowsOfCells() {
+        let xhtml = """
+        <html><body><p>Before.</p>
+        <table><tr><td><b>Rumi</b></td><td>where are you</td></tr>
+        <tr><td>Jinu</td><td><p>on my way</p><p>5 min</p></td></tr></table>
+        <p>After.</p></body></html>
+        """
+        let blocks = EPUBBookParser.blocks(fromXHTML: xhtml)
+        XCTAssertEqual(blocks.count, 3)
+        guard case .table(let rows) = blocks[1].kind else { return XCTFail("no table") }
+        XCTAssertEqual(rows.map { $0.map { $0.map(\.text).joined() } },
+                       [["Rumi", "where are you"], ["Jinu", "on my way\n5 min"]])
+        XCTAssertEqual(rows[0][0].first?.bold, true)
+    }
+
+    func testImagesAreBlocksWithResolvedPaths() {
+        let xhtml = """
+        <html><body><p>Art by a friend:</p>
+        <p><img src="../images/00001.jpg" alt="Rumi, sketched"/></p>
+        <img src="https://example.com/a.png" alt=""/>
+        </body></html>
+        """
+        let blocks = EPUBBookParser.blocks(fromXHTML: xhtml, classes: [:], base: "OEBPS/Text")
+        XCTAssertEqual(blocks.map(\.kind), [
+            .paragraph,
+            .image(source: "OEBPS/images/00001.jpg", alt: "Rumi, sketched"),
+            .image(source: "https://example.com/a.png", alt: ""),
+        ])
+    }
+
     func testResolveRelativeHrefs() {
         XCTAssertEqual(EPUBBookParser.resolve("ch1.xhtml", base: ""), "ch1.xhtml")
         XCTAssertEqual(EPUBBookParser.resolve("../Text/ch1.xhtml", base: "OEBPS/Styles"), "OEBPS/Text/ch1.xhtml")

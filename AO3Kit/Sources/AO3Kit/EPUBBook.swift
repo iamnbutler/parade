@@ -2,16 +2,21 @@ import Foundation
 import ZIPFoundation
 
 /// The readable text of an EPUB: its documents in reading order, each turned
-/// into a flat run of simple blocks — paragraphs, headings, scene breaks —
-/// that a native view can lay out. Styling beyond italic, bold, underline and
-/// links is dropped; the reader supplies its own type.
+/// into a flat run of simple blocks — paragraphs, headings, scene breaks,
+/// images, tables — that a native view can lay out. Inline style keeps what
+/// fics lean on (italic, bold, underline, strikethrough, super/subscript,
+/// links) and paragraphs keep their alignment; fonts, sizes and colors are
+/// dropped — the reader supplies its own type.
 public struct EPUBBook: Sendable, Equatable {
     public var title: String?
     public var sections: [Section] = []
+    /// Image bytes by archive path, for the images the text uses.
+    public var images: [String: Data] = [:]
 
-    public init(title: String? = nil, sections: [Section] = []) {
+    public init(title: String? = nil, sections: [Section] = [], images: [String: Data] = [:]) {
         self.title = title
         self.sections = sections
+        self.images = images
     }
 
     /// One spine document: a chapter, or AO3's preface or afterword.
@@ -28,23 +33,54 @@ public struct EPUBBook: Sendable, Equatable {
             case heading(level: Int)
             /// A scene break (`<hr>`).
             case rule
+            /// An archive path (a key of `EPUBBook.images`) or a web URL, and
+            /// its alt text.
+            case image(source: String, alt: String)
+            /// Rows of cells, each cell's runs (a chat log, a letter's header).
+            case table(rows: [[[Run]]])
+        }
+
+        public enum Alignment: Sendable, Equatable {
+            case natural, center, right
         }
 
         public var kind: Kind
         public var runs: [Run]
         /// How many blockquotes deep (author's notes, summaries, letters).
         public var quoteDepth: Int
+        public var alignment: Alignment = .natural
 
         public var text: String { runs.map(\.text).joined() }
+
+        public init(kind: Kind, runs: [Run], quoteDepth: Int, alignment: Alignment = .natural) {
+            self.kind = kind
+            self.runs = runs
+            self.quoteDepth = quoteDepth
+            self.alignment = alignment
+        }
     }
 
     /// A stretch of text with one style.
     public struct Run: Sendable, Equatable {
+        public enum Baseline: Sendable, Equatable {
+            case normal, superscript, `subscript`
+        }
+
         public var text: String
         public var italic = false
         public var bold = false
         public var underline = false
+        public var strikethrough = false
+        public var baseline: Baseline = .normal
         public var link: URL?
+
+        /// Everything but the text matches.
+        func sameStyle(as other: Run) -> Bool {
+            var a = self, b = other
+            a.text = ""
+            b.text = ""
+            return a == b
+        }
     }
 }
 
@@ -70,17 +106,113 @@ public enum EPUBBookParser {
 
         let documents = spine(opf: opf)
         let tocTitles = read(resolve(tocPath(opf: opf) ?? "toc.ncx", base: base)).map(ncxTitles) ?? [:]
+        // Calibre turns presentational markup (align="center", <s>…) into
+        // classes, so class styles come from every stylesheet in the book.
+        var classes: [String: CSSStyle] = [:]
+        for entry in archive where entry.path.lowercased().hasSuffix(".css") {
+            if let css = read(entry.path) { classes.merge(stylesheet(css)) { _, new in new } }
+        }
 
         var book = EPUBBook(title: firstMatch(in: opf, pattern: #"<dc:title>([\s\S]*?)</dc:title>"#)
             .map(HTMLExtract.decodeEntities))
         for (i, href) in documents.enumerated() {
             let path = resolve(href, base: base)
             guard let xhtml = read(path) else { continue }
-            let blocks = blocks(fromXHTML: xhtml)
+            let blocks = blocks(fromXHTML: xhtml, classes: classes, base: (path as NSString).deletingLastPathComponent)
             guard !blocks.isEmpty else { continue }
+            for case .image(let source, _) in blocks.map(\.kind) where book.images[source] == nil {
+                guard let entry = archive[source] else { continue }
+                var data = Data()
+                if (try? archive.extract(entry, skipCRC32: true) { data.append($0) }) != nil {
+                    book.images[source] = data
+                }
+            }
             book.sections.append(.init(id: i, title: tocTitles[href], blocks: blocks))
         }
         return book
+    }
+
+    // MARK: - stylesheets
+
+    /// The parts of CSS a fic's formatting lives in.
+    struct CSSStyle: Equatable {
+        var italic: Bool?
+        var bold: Bool?
+        var underline: Bool?
+        var strikethrough: Bool?
+        var baseline: EPUBBook.Run.Baseline?
+        var alignment: EPUBBook.Block.Alignment?
+        var hidden = false
+
+        /// Later declarations win, as in CSS.
+        mutating func merge(_ other: CSSStyle) {
+            italic = other.italic ?? italic
+            bold = other.bold ?? bold
+            underline = other.underline ?? underline
+            strikethrough = other.strikethrough ?? strikethrough
+            baseline = other.baseline ?? baseline
+            alignment = other.alignment ?? alignment
+            hidden = hidden || other.hidden
+        }
+    }
+
+    /// Class name → style, from simple class selectors (".calibre7",
+    /// "p.calibre7"). Anything fancier is ignored.
+    static func stylesheet(_ css: String) -> [String: CSSStyle] {
+        let stripped = css.replacingOccurrences(of: #"/\*[\s\S]*?\*/"#, with: "", options: .regularExpression)
+        guard let rule = try? NSRegularExpression(pattern: #"([^{}]+)\{([^}]*)\}"#),
+              let selector = try? NSRegularExpression(pattern: #"^[a-zA-Z0-9]*\.([\w-]+)$"#)
+        else { return [:] }
+        var out: [String: CSSStyle] = [:]
+        for m in rule.matches(in: stripped, range: NSRange(stripped.startIndex..., in: stripped)) {
+            guard let sel = Range(m.range(at: 1), in: stripped), let body = Range(m.range(at: 2), in: stripped) else { continue }
+            let style = declarations(String(stripped[body]))
+            for part in stripped[sel].split(separator: ",") {
+                let name = part.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let s = selector.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)),
+                      let cls = Range(s.range(at: 1), in: name) else { continue }
+                out[String(name[cls]), default: CSSStyle()].merge(style)
+            }
+        }
+        return out
+    }
+
+    /// One declaration block, or a `style` attribute.
+    static func declarations(_ body: String) -> CSSStyle {
+        var style = CSSStyle()
+        for decl in body.split(separator: ";") {
+            let parts = decl.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            guard parts.count == 2 else { continue }
+            let (prop, value) = (parts[0], parts[1])
+            switch prop {
+            case "font-style":
+                style.italic = value.hasPrefix("italic") || value.hasPrefix("oblique")
+            case "font-weight":
+                style.bold = value.hasPrefix("bold") || (Int(value).map { $0 >= 600 } ?? false)
+            case "text-decoration", "text-decoration-line":
+                if value.contains("line-through") { style.strikethrough = true }
+                if value.contains("underline") { style.underline = true }
+                if value.hasPrefix("none") { style.underline = false; style.strikethrough = false }
+            case "vertical-align":
+                if value.hasPrefix("super") { style.baseline = .superscript }
+                else if value.hasPrefix("sub") { style.baseline = .subscript }
+            case "text-align":
+                style.alignment = alignment(value)
+            case "display":
+                if value.hasPrefix("none") { style.hidden = true }
+            default:
+                break
+            }
+        }
+        return style
+    }
+
+    static func alignment(_ value: String) -> EPUBBook.Block.Alignment {
+        switch value.trimmingCharacters(in: .whitespaces).lowercased() {
+        case "center", "middle": .center
+        case "right", "end": .right
+        default: .natural
+        }
     }
 
     // MARK: - package document
@@ -138,7 +270,13 @@ public enum EPUBBookParser {
     /// Pure: one XHTML document to blocks. Falls back to a tag-stripping
     /// pass if the document isn't well-formed XML.
     public static func blocks(fromXHTML xhtml: String) -> [EPUBBook.Block] {
-        let builder = BlockBuilder()
+        blocks(fromXHTML: xhtml, classes: [:], base: "")
+    }
+
+    /// `classes` are the book's class styles; `base` is the document's folder
+    /// in the archive, for resolving image paths.
+    static func blocks(fromXHTML xhtml: String, classes: [String: CSSStyle], base: String) -> [EPUBBook.Block] {
+        let builder = BlockBuilder(classes: classes, base: base)
         let parser = XMLParser(data: Data(xmlSafe(xhtml).utf8))
         parser.delegate = builder
         parser.shouldResolveExternalEntities = false
@@ -210,14 +348,30 @@ public enum EPUBBookParser {
 final class BlockBuilder: NSObject, XMLParserDelegate {
     private(set) var blocks: [EPUBBook.Block] = []
 
+    private let classes: [String: EPUBBookParser.CSSStyle]
+    private let base: String
+
     private var runs: [EPUBBook.Run] = []
     private var style = EPUBBook.Run(text: "")
     private var styleStack: [EPUBBook.Run] = []
+    private var alignment: EPUBBook.Block.Alignment = .natural
+    private var alignmentStack: [EPUBBook.Block.Alignment] = []
     private var quoteDepth = 0
     private var headingLevel: Int?
     /// Depth inside an element we skip entirely (head, AO3's tag list…).
     private var skipDepth = 0
     private var elementStack: [(name: String, skipped: Bool)] = []
+
+    /// Inside a table: its rows so far, and the cell being filled. Nested
+    /// tables flatten into the outer one.
+    private var tableRows: [[[EPUBBook.Run]]]?
+    private var tableDepth = 0
+    private var cell: [EPUBBook.Run]?
+
+    init(classes: [String: EPUBBookParser.CSSStyle] = [:], base: String = "") {
+        self.classes = classes
+        self.base = base
+    }
 
     private static let blockElements: Set<String> = [
         "p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "li", "ul", "ol",
@@ -231,8 +385,12 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
     func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?,
                 qualifiedName: String?, attributes: [String: String] = [:]) {
         let tag = name.lowercased()
-        let classes = Set((attributes["class"] ?? "").split(separator: " ").map(String.init))
-        let skip = skipDepth > 0 || Self.skippedElements.contains(tag) || !classes.isDisjoint(with: Self.skippedClasses)
+        let classNames = (attributes["class"] ?? "").split(separator: " ").map(String.init)
+        var css = EPUBBookParser.CSSStyle()
+        for name in classNames { if let c = classes[name] { css.merge(c) } }
+        if let inline = attributes["style"] { css.merge(EPUBBookParser.declarations(inline)) }
+        let skip = skipDepth > 0 || Self.skippedElements.contains(tag)
+            || !Set(classNames).isDisjoint(with: Self.skippedClasses) || css.hidden
         elementStack.append((tag, skip))
         if skip {
             skipDepth += 1
@@ -240,6 +398,11 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         }
 
         if Self.blockElements.contains(tag) { flush() }
+        alignmentStack.append(alignment)
+        if tag == "center" { alignment = .center }
+        if let align = attributes["align"] { alignment = EPUBBookParser.alignment(align) }
+        if let align = css.alignment { alignment = align }
+
         switch tag {
         case "h1", "h2", "h3", "h4", "h5", "h6":
             headingLevel = Int(tag.dropFirst())
@@ -252,8 +415,18 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
             append(Self.lineBreak)
         case "li":
             append("• ")
+        case "table":
+            tableDepth += 1
+            if tableRows == nil { tableRows = [] }
+        case "tr":
+            if tableRows != nil { tableRows?.append([]) }
+        case "td", "th":
+            if tableRows != nil {
+                if tableRows?.isEmpty == true { tableRows?.append([]) }
+                cell = []
+            }
         case "img":
-            if let alt = attributes["alt"], !alt.isEmpty { append(alt) }
+            image(attributes)
         default:
             break
         }
@@ -261,14 +434,25 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         styleStack.append(style)
         switch tag {
         case "em", "i", "cite", "var", "dfn": style.italic = true
-        case "strong", "b": style.bold = true
+        case "strong", "b", "th": style.bold = true
         case "u", "ins": style.underline = true
+        case "s", "strike", "del": style.strikethrough = true
+        case "sup": style.baseline = .superscript
+        case "sub": style.baseline = .subscript
         case "a":
             if let href = attributes["href"], let url = URL(string: href), url.scheme?.hasPrefix("http") == true {
                 style.link = url
             }
         default: break
         }
+        // Headings are set in the reader's own heading style.
+        if headingLevel == nil {
+            if let v = css.italic { style.italic = v }
+            if let v = css.bold { style.bold = v }
+        }
+        if let v = css.underline { style.underline = v }
+        if let v = css.strikethrough { style.strikethrough = v }
+        if let v = css.baseline { style.baseline = v }
     }
 
     func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
@@ -278,10 +462,27 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
             return
         }
         style = styleStack.popLast() ?? EPUBBook.Run(text: "")
+        // The paragraph ends with the alignment it was written in.
         if Self.blockElements.contains(tag) { flush() }
+        alignment = alignmentStack.popLast() ?? .natural
         switch tag {
         case "h1", "h2", "h3", "h4", "h5", "h6": headingLevel = nil
         case "blockquote": quoteDepth = max(0, quoteDepth - 1)
+        case "td", "th":
+            if let finished = cell, tableRows != nil {
+                if tableRows!.isEmpty { tableRows!.append([]) }
+                tableRows![tableRows!.count - 1].append(finished)
+            }
+            cell = nil
+        case "table":
+            tableDepth -= 1
+            if tableDepth == 0, let rows = tableRows {
+                tableRows = nil
+                let kept = rows.filter { !$0.isEmpty }
+                if !kept.isEmpty {
+                    blocks.append(.init(kind: .table(rows: kept), runs: [], quoteDepth: quoteDepth))
+                }
+            }
         default: break
         }
     }
@@ -291,6 +492,33 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         // Source line breaks and indentation are just spaces; only <br>
         // breaks a line.
         append(string.replacingOccurrences(of: #"[\t\r\n]"#, with: " ", options: .regularExpression))
+    }
+
+    /// An image is a block of its own; one only on the web keeps its URL.
+    private func image(_ attributes: [String: String]) {
+        let alt = (attributes["alt"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let src = attributes["src"].map(HTMLExtract.decodeEntities), !src.isEmpty else {
+            if !alt.isEmpty { append(alt) }
+            return
+        }
+        let source: String
+        if src.hasPrefix("http://") || src.hasPrefix("https://") {
+            source = src
+        } else if src.hasPrefix("data:") {
+            if !alt.isEmpty { append(alt) }
+            return
+        } else {
+            source = EPUBBookParser.resolve(src.removingPercentEncoding ?? src, base: base)
+        }
+        flush()
+        let block = EPUBBook.Block(kind: .image(source: source, alt: alt), runs: [], quoteDepth: quoteDepth,
+                                   alignment: alignment)
+        if tableRows != nil {
+            // An image in a table cell keeps its alt text there.
+            if !alt.isEmpty { append(alt) }
+        } else {
+            blocks.append(block)
+        }
     }
 
     /// Symbols only: a lone "…" is a beat of silence and "ooo" is a word.
@@ -310,8 +538,7 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
     private func append(_ text: String) {
         var run = style
         run.text = text
-        if var last = runs.last, last.italic == run.italic, last.bold == run.bold,
-           last.underline == run.underline, last.link == run.link {
+        if var last = runs.last, last.sameStyle(as: run) {
             last.text += text
             runs[runs.count - 1] = last
         } else {
@@ -320,7 +547,8 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
     }
 
     /// Ends the current paragraph: collapse source whitespace (keeping <br>
-    /// line breaks), trim the ends, drop it if nothing's left.
+    /// line breaks), trim the ends, drop it if nothing's left. Inside a table
+    /// cell the text joins the cell instead.
     private func flush() {
         defer { runs = [] }
         var cleaned: [EPUBBook.Run] = []
@@ -346,6 +574,20 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         cleaned.removeAll { $0.text.isEmpty }
         let text = cleaned.map(\.text).joined()
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if cell != nil {
+            if var existing = cell, !existing.isEmpty {
+                existing.append(.init(text: "\n"))
+                cell = existing + cleaned
+            } else {
+                cell = cleaned
+            }
+            return
+        }
+        if tableRows != nil {
+            // Text loose in a table, outside any cell: its own row.
+            tableRows?.append([cleaned])
+            return
+        }
         // A line of nothing but dashes, tildes, asterisks… is a scene break
         // typed by hand ("~~~~~", "* * *", "-----"), whatever its markup.
         if headingLevel == nil, Self.isTypedBreak(text) {
@@ -353,6 +595,6 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
             return
         }
         let kind: EPUBBook.Block.Kind = headingLevel.map { .heading(level: $0) } ?? .paragraph
-        blocks.append(.init(kind: kind, runs: cleaned, quoteDepth: quoteDepth))
+        blocks.append(.init(kind: kind, runs: cleaned, quoteDepth: quoteDepth, alignment: alignment))
     }
 }
