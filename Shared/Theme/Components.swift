@@ -47,12 +47,14 @@ struct SectionHeading: View {
     }
 }
 
-/// Swipe-action colors: muted to sit on leather, dark enough for white labels.
+/// Swipe-action colors. The system draws the capsule and its white label;
+/// these keep it in the palette — aged gold, bronze, plum, oxblood — and
+/// dark enough for the label.
 enum SwipeTint {
-    static let favorite = Color(hex: 0x94753F)
-    static let update = Color(hex: 0x5E6E78)
-    static let remove = Color(hex: 0x8A5A5C)
-    static let delete = Color(hex: 0xA2454A)
+    static let favorite = Color(hex: 0x8C6C34)
+    static let update = Color(hex: 0x6E5636)
+    static let remove = Color(hex: 0x5E4450)
+    static let delete = Color(hex: 0x7A2E36)
 }
 
 /// An empty screen, spoken in the interface's voice: an optional drawing,

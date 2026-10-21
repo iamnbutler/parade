@@ -31,6 +31,9 @@ struct LeatherBackground: View {
                     colors: [Color(hex: 0xA01E32, opacity: 0.18), .clear],
                     center: UnitPoint(x: 0.9, y: 0), startRadiusFraction: 0, endRadiusFraction: 0.55)
             }
+            // The app icon's pebbled leather, tiled (scripts/textures/leather_tile.py).
+            Image(decorative: "LeatherTile")
+                .resizable(resizingMode: .tile)
             Image(decorative: Grain.tile, scale: 2)
                 .resizable(resizingMode: .tile)
                 .opacity(palette.grain)
