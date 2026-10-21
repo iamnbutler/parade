@@ -46,7 +46,15 @@ struct ReaderView: View {
             } else if let failure {
                 EmptyPage(title: "This fic won't open", message: failure)
             } else if waitingForCloud {
-                LibraryLoadingView(text: "Downloading from iCloud…")
+                VStack(spacing: 14) {
+                    ReaderDrawing()
+                        .frame(maxWidth: 240, maxHeight: 160)
+                        .padding(.bottom, 8)
+                    ProgressView()
+                    Text("Downloading from iCloud…")
+                        .textRole(.dek)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -170,6 +178,9 @@ struct ReadingType {
     var chatName: Font { .display(14 * scale, relativeTo: .caption, italic: true) }
     var chatNote: Font { .reading(13 * scale, relativeTo: .caption, italic: true) }
     var numeral: Font { .display(26 * scale, relativeTo: .title2) }
+    var callout: Font { .reading(17 * scale, relativeTo: .body) }
+    var listNumeral: Font { .display(21 * scale, relativeTo: .title3) }
+    var listGutter: CGFloat { 34 * scale }
     var chapterTitle: Font { .display(30 * scale, relativeTo: .title2, italic: true) }
     var headingLeading: CGFloat { 4 * scale }
     /// Book-like leading: about 1.75 for body text.
@@ -199,6 +210,9 @@ private enum ReaderLines {
             case byline(EPUBBook.Block)
             /// Front matter around the summary ("Inspired by …"), set quietly.
             case aside(EPUBBook.Block)
+            /// Blockquotes in the chapter text (a letter, a poem, a sign),
+            /// together in one pressed-in box.
+            case callout([EPUBBook.Block])
         }
     }
 
@@ -223,10 +237,20 @@ private enum ReaderLines {
                     b = end
                     continue
                 }
+                if !front, block.quoteDepth > 0 {
+                    var end = b + 1
+                    while end < blocks.count, blocks[end].quoteDepth > 0, !BlockView.isLabel(blocks[end]) { end += 1 }
+                    let quoted = blocks[b..<end].filter { !BlockView.isFurniture($0) }
+                    if !quoted.isEmpty {
+                        out.append(Line(id: out.count, content: .callout(Array(quoted)), section: s, indexInSection: b))
+                    }
+                    b = end
+                    continue
+                }
                 if BlockView.isByline(block) {
                     out.append(Line(id: out.count, content: .byline(block), section: s, indexInSection: b))
                 } else if front, block.kind == .paragraph, block.quoteDepth == 0 {
-                    out.append(Line(id: out.count, content: .aside(BlockView.unbulleted(block)), section: s, indexInSection: b))
+                    out.append(Line(id: out.count, content: .aside(block), section: s, indexInSection: b))
                 } else if !BlockView.isFurniture(block) {
                     out.append(Line(id: out.count, content: .block(block), section: s, indexInSection: b))
                 }
@@ -264,12 +288,16 @@ private struct ReaderPage: View {
                             case .note(let label, let blocks): NoteView(label: label, blocks: blocks, type: type)
                             case .byline(let block): BylineView(block: block, type: type)
                             case .aside(let block): AsideView(block: block, type: type)
+                            case .callout(let blocks): CalloutView(blocks: blocks, type: type)
                             }
                         }
                         .padding(.top, line.section > 0 && line.indexInSection == 0 ? 64 * scale : 0)
                             .id(line.id)
                     }
-                    Fleuron()
+                    // The end of the work.
+                    ReaderDrawing()
+                        .frame(maxWidth: 200)
+                        .frame(maxWidth: .infinity)
                         .padding(.vertical, 48)
                 }
                 .scrollTargetLayout()
@@ -354,6 +382,89 @@ private struct NoteView: View {
                 }
             }
         }
+    }
+}
+
+/// The open book, in the page's ink: drawn for leather, it would vanish
+/// on Paper untinted.
+private struct ReaderDrawing: View {
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Drawing(name: "OpenBook")
+            .colorMultiply(palette.ink)
+    }
+}
+
+/// Blockquotes in the chapter text, pressed into the page.
+private struct CalloutView: View {
+    let blocks: [EPUBBook.Block]
+    let type: ReadingType
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: type.paragraphSpacing * 0.6) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                switch block.kind {
+                case .paragraph where block.listDepth > 0:
+                    ListItemView(block: block, type: type)
+                        .padding(.leading, CGFloat(block.quoteDepth - 1) * type.quoteIndent)
+                case .paragraph, .heading:
+                    Text(BlockView(block: block, type: type).styled(block.runs))
+                        .font(type.callout)
+                        .foregroundStyle(palette.ink)
+                        .lineSpacing(type.lineSpacing * 0.8)
+                        .multilineTextAlignment(block.alignment.text)
+                        .frame(maxWidth: .infinity, alignment: block.alignment.frame)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.leading, CGFloat(block.quoteDepth - 1) * type.quoteIndent)
+                case .rule:
+                    Fleuron()
+                case .image, .table, .chat:
+                    BlockView(block: block, type: type)
+                }
+            }
+        }
+        .padding(.horizontal, 22 * type.scale)
+        .padding(.vertical, 18 * type.scale)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .debossed(cornerRadius: 12)
+        .padding(.vertical, 8 * type.scale)
+        .padding(.bottom, type.paragraphSpacing * 0.6)
+    }
+}
+
+/// A list item: a gold numeral (over a hairline, like a numbered row) or
+/// bullet hanging in the gutter; the item's later paragraphs keep its indent.
+private struct ListItemView: View {
+    let block: EPUBBook.Block
+    let type: ReadingType
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        let numbered: Bool = if case .number = block.marker { true } else { false }
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Group {
+                switch block.marker {
+                case .number(let n): Text(String(n)).font(type.listNumeral)
+                case .bullet: Text("•").font(type.body)
+                case nil: Text("")
+                }
+            }
+            .foregroundStyle(palette.gold)
+            .frame(width: type.listGutter, alignment: .leading)
+            Text(BlockView(block: block, type: type).styled(block.runs))
+                .font(block.quoteDepth > 0 ? type.callout : type.body)
+                .foregroundStyle(palette.ink)
+                .lineSpacing(type.lineSpacing * 0.8)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.top, numbered ? 10 * type.scale : 0)
+        .overlay(alignment: .top) {
+            if numbered { Hairline(gold: true) }
+        }
+        .padding(.leading, CGFloat(block.listDepth - 1) * type.listGutter)
     }
 }
 
@@ -635,6 +746,9 @@ private struct BlockView: View {
         case .chat(let chat):
             ChatThread(chat: chat, type: type)
                 .padding(.bottom, type.paragraphSpacing)
+        case .paragraph where block.listDepth > 0:
+            ListItemView(block: block, type: type)
+                .padding(.bottom, type.paragraphSpacing * 0.6)
         case .paragraph:
             let quoted = block.quoteDepth > 0
             Text(styled(block.runs))
@@ -694,15 +808,6 @@ private struct BlockView: View {
         block.kind == .paragraph && block.quoteDepth == 0 && block.text.count < 300
             && block.text.trimmingCharacters(in: .whitespaces).hasPrefix("by ")
             && block.runs.contains { $0.link != nil }
-    }
-
-    /// A list item without the "• " the parser gives it.
-    static func unbulleted(_ block: EPUBBook.Block) -> EPUBBook.Block {
-        var block = block
-        if let first = block.runs.first, first.text.hasPrefix("• ") {
-            block.runs[0].text = String(first.text.dropFirst(2))
-        }
-        return block
     }
 
     /// A lone label line AO3 puts before a quoted summary or notes block.
@@ -1054,6 +1159,34 @@ private struct PagedText {
             out.addAttribute(.readerPanel, value: PanelKind.phone, range: NSRange(location: start, length: out.length - start))
             spacer(30)
         }
+        /// A list item: its numeral (gold, over a hairline the page draws)
+        /// or bullet hangs in the gutter at a tab stop.
+        func appendListItem(_ block: EPUBBook.Block, indent: CGFloat, size: CGFloat, color: PlatformColor, tail: CGFloat = 0) {
+            let gutter = 34 * scale
+            let base = indent + gutter * CGFloat(block.listDepth - 1)
+            let p = NSMutableParagraphStyle()
+            p.lineSpacing = 10 * scale
+            p.paragraphSpacing = 12 * scale
+            p.headIndent = base + gutter
+            p.firstLineHeadIndent = block.marker == nil ? base + gutter : base
+            p.tailIndent = -tail
+            p.tabStops = [NSTextTab(textAlignment: .natural, location: base + gutter)]
+            let begin = out.length
+            switch block.marker {
+            case .number(let n):
+                p.paragraphSpacingBefore = 10 * scale
+                out.append(NSAttributedString(string: "\(n)\t", attributes: [
+                    .font: font(Typeface.displayName(italic: false, heavy: false), 21), .foregroundColor: gold, .paragraphStyle: p]))
+                out.addAttribute(.readerRowRule, value: true, range: NSRange(location: begin, length: 1))
+            case .bullet:
+                out.append(NSAttributedString(string: "•\t", attributes: [
+                    .font: font(Typeface.readingName(italic: false, heavy: false), size), .foregroundColor: gold, .paragraphStyle: p]))
+            case nil:
+                break
+            }
+            appendRuns(block.runs, size: size, italicBase: false, color: color, style: p)
+            newline(p)
+        }
         func newline(_ style: NSParagraphStyle) {
             out.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: style, .font: font(Typeface.readingName(italic: false, heavy: false), body)]))
         }
@@ -1090,6 +1223,8 @@ private struct PagedText {
                             .font: font(Typeface.displayName(italic: false, heavy: false), size), .foregroundColor: ink, .paragraphStyle: style]))
                         newline(style)
                     }
+                case .paragraph where block.listDepth > 0:
+                    appendListItem(block, indent: 0, size: body, color: ink)
                 case .paragraph:
                     let quoted = block.quoteDepth > 0
                     let style = para(spacing: quoted ? 16 : 22, indent: quoted ? 18 * CGFloat(block.quoteDepth) : 0,
@@ -1150,7 +1285,58 @@ private struct PagedText {
                 let style = para(spacing: 12, line: 8)
                 appendRuns(block.runs, size: 15, italicBase: true, color: soft, link: ink, style: style)
                 newline(style)
+            case .callout(let blocks):
+                let pad: CGFloat = 22 * scale
+                let start = out.length
+                spacer(16)
+                out.addAttribute(.readerPanelStart, value: true, range: NSRange(location: start, length: 1))
+                for (j, block) in blocks.enumerated() {
+                    let indent = pad + 18 * CGFloat(block.quoteDepth - 1)
+                    switch block.kind {
+                    case .paragraph where block.listDepth > 0:
+                        appendListItem(block, indent: indent, size: quote, color: ink, tail: pad)
+                    case .paragraph, .heading:
+                        let style = para(spacing: j == blocks.count - 1 ? 0 : 12, indent: indent, tail: pad, line: 10,
+                                         align: align(block.alignment))
+                        appendRuns(block.runs, size: quote, italicBase: false, color: ink, style: style)
+                        newline(style)
+                    case .rule:
+                        let style = para(spacing: 12, align: .center)
+                        out.append(NSAttributedString(string: "❦", attributes: [
+                            .font: PlatformFont(name: "ZapfDingbatsITC", size: 18 * scale) ?? font("Newsreader-Regular", 18),
+                            .foregroundColor: gold, .paragraphStyle: style]))
+                        newline(style)
+                    case .image(let source, let alt):
+                        appendImage(source, alt: alt, alignment: block.alignment, widthFraction: 0.85)
+                    case .table(let rows):
+                        appendTable(rows, indent: indent, color: ink)
+                    case .chat:
+                        break  // panels don't nest
+                    }
+                }
+                spacer(8)
+                out.addAttribute(.readerPanelEnd, value: true, range: NSRange(location: out.length - 1, length: 1))
+                out.addAttribute(.readerPanel, value: PanelKind.callout, range: NSRange(location: start, length: out.length - start))
+                spacer(24)
             }
+        }
+        // The end of the work: the open book, below the last line.
+        let drawing = ImageRenderer(content: ReaderDrawing().frame(width: 200 * scale, height: 140 * scale).palette(palette))
+        drawing.scale = 3
+        #if os(macOS)
+        let rendered = drawing.nsImage
+        #else
+        let rendered = drawing.uiImage
+        #endif
+        if let image = rendered {
+            let attachment = NSTextAttachment()
+            attachment.image = image
+            attachment.bounds = CGRect(x: 0, y: 0, width: 200 * scale, height: 140 * scale)
+            let piece = NSMutableAttributedString(attachment: attachment)
+            let style = para(spacing: 0, before: 40, line: 0, align: .center)
+            out.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: style]))
+            piece.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: piece.length))
+            out.append(piece)
         }
         return PagedText(text: out, lineStarts: starts, lines: lines, sectionTitles: titles)
     }
@@ -1183,7 +1369,19 @@ private func paginate(_ text: NSAttributedString, size: CGSize, pad: CGFloat) ->
         var glyphs = manager.glyphRange(for: container)
         if glyphs.length == 0 { break }
         var chars = manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
-        if PanelKind.breaks(text, before: NSMaxRange(chars)) {
+        // A panel whose top padding is all that fits moves to the next
+        // page whole, rather than leave an empty box at the bottom.
+        var panel = NSRange()
+        if NSMaxRange(chars) < text.length,
+           text.attribute(.readerPanel, at: NSMaxRange(chars) - 1, longestEffectiveRange: &panel,
+                          in: NSRange(location: 0, length: text.length)) != nil,
+           panel.location == NSMaxRange(chars) - 1, panel.location > chars.location {
+            let top = manager.lineFragmentRect(forGlyphAt: manager.glyphIndexForCharacter(at: panel.location),
+                                               effectiveRange: nil).minY
+            container.size = CGSize(width: size.width, height: top)
+            glyphs = manager.glyphRange(for: container)
+            chars = manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+        } else if PanelKind.breaks(text, before: NSMaxRange(chars)) {
             container.size = CGSize(width: size.width, height: size.height - top - pad)
             let shorter = manager.glyphRange(for: container)
             if shorter.length > 0 {
@@ -1199,7 +1397,7 @@ private func paginate(_ text: NSAttributedString, size: CGSize, pad: CGFloat) ->
 }
 
 private enum PanelKind: String {
-    case card, clipping, phone
+    case card, clipping, phone, callout
 
     /// A page starting at `offset` opens partway through a panel.
     static func continues(_ text: NSAttributedString, at offset: Int) -> Bool {
@@ -1222,6 +1420,8 @@ extension NSAttributedString.Key {
     /// The panel's first and last characters (its padding spacers).
     fileprivate static let readerPanelStart = NSAttributedString.Key("parade.readerPanelStart")
     fileprivate static let readerPanelEnd = NSAttributedString.Key("parade.readerPanelEnd")
+    /// A numbered list item's numeral: the page draws a hairline above its line.
+    fileprivate static let readerRowRule = NSAttributedString.Key("parade.readerRowRule")
     /// A chat message's characters, drawn on a bubble (a `BubbleKind`).
     fileprivate static let readerBubble = NSAttributedString.Key("parade.readerBubble")
 }
@@ -1320,6 +1520,33 @@ private final class PageCanvas: PlatformView {
             cursor = NSMaxRange(glyphs)
         }
         manager.drawGlyphs(forGlyphRange: NSRange(location: cursor, length: max(0, NSMaxRange(all) - cursor)), at: .zero)
+        drawRowRules(cg)
+    }
+
+    /// A gold hairline above each numbered list item, from its numeral to
+    /// the column's edge.
+    private func drawRowRules(_ cg: CGContext) {
+        storage.enumerateAttribute(.readerRowRule, in: NSRange(location: 0, length: storage.length)) { value, chars, _ in
+            guard value != nil else { return }
+            let glyph = manager.glyphIndexForCharacter(at: chars.location)
+            var effective = NSRange()
+            let line = manager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: &effective)
+            let x = manager.location(forGlyphAt: glyph).x
+            let tail = (storage.attribute(.paragraphStyle, at: chars.location, effectiveRange: nil) as? NSParagraphStyle)?.tailIndent ?? 0
+            // The line fragment's top is above the item's spacing-before.
+            cg.saveGState()
+            cg.setFillColor(PlatformColor(palette.goldFaint).cgColor)
+            cg.fill(CGRect(x: x, y: line.minY, width: bounds.width + min(0, tail) - x, height: 1 / pixelScale))
+            cg.restoreGState()
+        }
+    }
+
+    private var pixelScale: CGFloat {
+        #if os(macOS)
+        window?.backingScaleFactor ?? 2
+        #else
+        traitCollection.displayScale
+        #endif
     }
 
     /// Both pages draw y-down, but CoreGraphics shadow offsets ignore the
@@ -1391,6 +1618,16 @@ private final class PageCanvas: PlatformView {
                  palette.leatherDeep, palette.leatherDeep, shadow: (0, 0, 0))
             cg.saveGState()
             cg.addPath(CGPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerWidth: 22, cornerHeight: 22, transform: nil))
+            cg.setStrokeColor(cgColor(palette.rule))
+            cg.setLineWidth(1)
+            cg.strokePath()
+            cg.restoreGState()
+        case .callout:
+            // Pressed in, like the debossed boxes in scroll mode.
+            fill(CGPath(roundedRect: rect, cornerWidth: 12, cornerHeight: 12, transform: nil),
+                 Color.black.opacity(0.2), Color.black.opacity(0.2), shadow: (0, 0, 0))
+            cg.saveGState()
+            cg.addPath(CGPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerWidth: 12, cornerHeight: 12, transform: nil))
             cg.setStrokeColor(cgColor(palette.rule))
             cg.setLineWidth(1)
             cg.strokePath()

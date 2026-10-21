@@ -98,6 +98,24 @@ final class EPUBBookTests: XCTestCase {
         XCTAssertEqual(blocks.map(\.alignment), [.center, .center, .right, .center, .center, .natural])
     }
 
+    func testListItemsCarryMarkersNotText() {
+        let xhtml = """
+        <html><body>
+          <ol start="3"><li>Three</li><li><p>Four</p><p>more of four</p></li>
+            <li value="9">Nine<ul><li>nested</li></ul></li></ol>
+          <ul><li>dot</li></ul>
+          <p>after</p>
+          <table><tr><td><ol><li>in a cell</li></ol></td></tr></table>
+        </body></html>
+        """
+        let blocks = EPUBBookParser.blocks(fromXHTML: xhtml)
+        XCTAssertEqual(blocks.map(\.text).prefix(7), ["Three", "Four", "more of four", "Nine", "nested", "dot", "after"])
+        XCTAssertEqual(blocks.map(\.marker).prefix(7), [.number(3), .number(4), nil, .number(9), .bullet, .bullet, nil])
+        XCTAssertEqual(blocks.map(\.listDepth).prefix(7), [1, 1, 1, 1, 2, 1, 0])
+        guard case .table(let rows) = blocks.last?.kind else { return XCTFail("no table") }
+        XCTAssertEqual(rows[0][0].map(\.text).joined(), "1. in a cell")
+    }
+
     func testStrikethroughAndScriptsFromTagsAndClasses() {
         let css = ".calibre12 { text-decoration: line-through } .calibre13 { vertical-align: super; font-size: 0.75em }"
         let xhtml = """

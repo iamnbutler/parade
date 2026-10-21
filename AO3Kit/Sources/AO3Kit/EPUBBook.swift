@@ -48,19 +48,32 @@ public struct EPUBBook: Sendable, Equatable {
             case natural, center, right
         }
 
+        /// What a list item's first paragraph is marked with.
+        public enum Marker: Sendable, Equatable {
+            case bullet
+            case number(Int)
+        }
+
         public var kind: Kind
         public var runs: [Run]
         /// How many blockquotes deep (author's notes, summaries, letters).
         public var quoteDepth: Int
         public var alignment: Alignment = .natural
+        /// Set on the first paragraph of a list item.
+        public var marker: Marker?
+        /// How many lists deep; a list item's later paragraphs keep its indent.
+        public var listDepth = 0
 
         public var text: String { runs.map(\.text).joined() }
 
-        public init(kind: Kind, runs: [Run], quoteDepth: Int, alignment: Alignment = .natural) {
+        public init(kind: Kind, runs: [Run], quoteDepth: Int, alignment: Alignment = .natural,
+                    marker: Marker? = nil, listDepth: Int = 0) {
             self.kind = kind
             self.runs = runs
             self.quoteDepth = quoteDepth
             self.alignment = alignment
+            self.marker = marker
+            self.listDepth = listDepth
         }
     }
 
@@ -441,6 +454,11 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
     private var tableDepth = 0
     private var cell: [EPUBBook.Run]?
 
+    /// Open lists, innermost last: whether each is numbered, and its next
+    /// number. A list item's marker waits for its first paragraph.
+    private var lists: [(ordered: Bool, next: Int)] = []
+    private var pendingMarker: EPUBBook.Block.Marker?
+
     init(classes: [String: EPUBBookParser.CSSStyle] = [:], base: String = "") {
         self.classes = classes
         self.base = base
@@ -487,8 +505,18 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
             blocks.append(.init(kind: .rule, runs: [], quoteDepth: quoteDepth))
         case "br":
             append(Self.lineBreak)
+        case "ul", "ol":
+            lists.append((tag == "ol", attributes["start"].flatMap { Int($0) } ?? 1))
         case "li":
-            append("• ")
+            if let value = attributes["value"].flatMap({ Int($0) }), !lists.isEmpty {
+                lists[lists.count - 1].next = value
+            }
+            if let list = lists.last, list.ordered {
+                pendingMarker = .number(list.next)
+                lists[lists.count - 1].next += 1
+            } else {
+                pendingMarker = .bullet
+            }
         case "table":
             tableDepth += 1
             if tableRows == nil { tableRows = [] }
@@ -550,6 +578,8 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         switch tag {
         case "h1", "h2", "h3", "h4", "h5", "h6": headingLevel = nil
         case "blockquote": quoteDepth = max(0, quoteDepth - 1)
+        case "ul", "ol": _ = lists.popLast()
+        case "li": pendingMarker = nil
         case "td", "th":
             if let finished = cell, tableRows != nil {
                 if tableRows!.isEmpty { tableRows!.append([]) }
@@ -670,6 +700,12 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         cleaned.removeAll { $0.text.isEmpty }
         let text = cleaned.map(\.text).joined()
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let marker = pendingMarker
+        pendingMarker = nil
+        if chat == nil, cell != nil || tableRows != nil, let marker {
+            // No room for a list's gutter in a table: the marker goes in the text.
+            cleaned.insert(.init(text: Self.label(marker) + " "), at: 0)
+        }
         if chat != nil {
             if inSenderName {
                 sender = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -703,6 +739,14 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
             return
         }
         let kind: EPUBBook.Block.Kind = headingLevel.map { .heading(level: $0) } ?? .paragraph
-        blocks.append(.init(kind: kind, runs: cleaned, quoteDepth: quoteDepth, alignment: alignment))
+        blocks.append(.init(kind: kind, runs: cleaned, quoteDepth: quoteDepth, alignment: alignment,
+                            marker: marker, listDepth: lists.count))
+    }
+
+    static func label(_ marker: EPUBBook.Block.Marker) -> String {
+        switch marker {
+        case .bullet: return "•"
+        case .number(let n): return "\(n)."
+        }
     }
 }
