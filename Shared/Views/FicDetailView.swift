@@ -11,7 +11,6 @@ struct FicDetailView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.palette) private var palette
     @Environment(\.readFic) private var readFic
-    @State private var reading = false
     @State private var loaded: WorkDetails?
     /// The fic `loaded` belongs to (the Mac reuses this view across fics).
     @State private var loadedID: String?
@@ -64,30 +63,12 @@ struct FicDetailView: View {
             loadedID = item.id
         }
         .newCollectionAlert(isPresented: $showNewCollection, adding: item, model: model)
-        #if os(iOS)
-        .fullScreenCover(isPresented: $reading) {
-            NavigationStack {
-                ReaderView(item: item)
-                    .navigationTitle(item.title)
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { reading = false }
-                        }
-                    }
-            }
-            .themedWindow()
-            .palette(palette)
-        }
-        #endif
     }
 
+    /// The root presents the reader (the window on the Mac, a full-screen
+    /// cover on iOS), so it outlives this page being rebuilt.
     private func read() {
-        if let readFic {
-            readFic(item)
-        } else {
-            reading = true
-        }
+        readFic?(item)
     }
 
     private var header: some View {

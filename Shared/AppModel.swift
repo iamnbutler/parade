@@ -441,8 +441,12 @@ final class AppModel: ObservableObject {
             favorites = scan.favorites
             collections = scan.collections
         }
-        library = scan.groups
-        invalidateDerived()
+        // An unchanged library isn't republished: every publish redraws the
+        // lists and pager, and the iOS refresh runs every 15 seconds.
+        if !Self.sameGroups(library, scan.groups) {
+            library = scan.groups
+            invalidateDerived()
+        }
         hasLoadedOnce = true
         requestDownloads(scan.placeholders)
     }
@@ -513,6 +517,12 @@ final class AppModel: ObservableObject {
         }
         scan.groups = Self.sortedGroups(byAuthor)
         return scan
+    }
+
+    private nonisolated static func sameGroups(
+        _ a: [(author: String, items: [LibraryItem])], _ b: [(author: String, items: [LibraryItem])]
+    ) -> Bool {
+        a.count == b.count && zip(a, b).allSatisfy { $0.author == $1.author && $0.items == $1.items }
     }
 
     private nonisolated static func sortedGroups(

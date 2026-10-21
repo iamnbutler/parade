@@ -2,6 +2,12 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
+    #if os(iOS)
+    /// The fic open to read. Presented here, at the root, not from the fic's
+    /// page: the pager rebuilds its pages as the library refreshes, and a
+    /// cover hung off one of them was dismissed along with it.
+    @State private var reading: LibraryItem?
+    #endif
 
     var body: some View {
         themedRoot
@@ -50,6 +56,20 @@ struct ContentView: View {
                 .tabItem { Label("Collections", systemImage: "rectangle.stack.fill") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+        }
+        .environment(\.readFic) { reading = $0 }
+        .fullScreenCover(item: $reading) { item in
+            NavigationStack {
+                ReaderView(item: item)
+                    .navigationTitle(item.title)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { reading = nil }
+                        }
+                    }
+            }
+            .themedWindow()
         }
         #endif
     }
