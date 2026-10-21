@@ -80,6 +80,9 @@ struct MacRootView: View {
     @AppStorage("librarySort.v1") private var sortRaw = LibrarySort.author.rawValue
     @AppStorage("browseKind.v1") private var kindRaw = TagKind.fandoms.rawValue
     @State private var section: SidebarSection? = .library
+    /// Where the window's leather backdrop sits, so the sidebar can show the
+    /// matching slice of it.
+    @State private var backdropFrame: CGRect = .zero
     @State private var selectedID: String?
     @State private var searchText = ""
     @State private var showAddSheet = false
@@ -146,8 +149,13 @@ struct MacRootView: View {
         // One sheet of leather behind the list and the fic, so the light and
         // vignette run across the window instead of restarting per column.
         .background {
-            LeatherBackground()
-                .environment(\.palette, windowPalette)
+            GeometryReader { geo in
+                LeatherBackground()
+                    .environment(\.palette, windowPalette)
+                    .onAppear { backdropFrame = geo.frame(in: .global) }
+                    .onChange(of: geo.frame(in: .global)) { _, frame in backdropFrame = frame }
+            }
+            .ignoresSafeArea()
         }
         .sheet(isPresented: $showAddSheet) {
             AddFicSheet()
@@ -286,7 +294,14 @@ struct MacRootView: View {
             .padding(.bottom, 14)
         }
         .scrollIndicators(.never)
-        .background { LeatherBackground().environment(\.palette, sidebarPalette) }
+        // The same sheet of leather, seen through the floating sidebar with a
+        // little shade — one gradient across the window, not a second one.
+        .background {
+            BackdropSlice(backdrop: backdropFrame)
+                .environment(\.palette, windowPalette)
+                .overlay(Color.black.opacity(0.2))
+                .ignoresSafeArea()
+        }
         // Favorites turns the whole window Noir, contents included.
         .palette(windowPalette)
     }
@@ -297,11 +312,6 @@ struct MacRootView: View {
         section == .favorites ? .noir : .leather
     }
 
-    private var sidebarPalette: Palette {
-        var p = windowPalette
-        p.leather = p.leatherDeep
-        return p
-    }
 
     private func sidebarRow(_ s: SidebarSection, count: Int? = nil) -> some View {
         SidebarRow(title: s.title, count: count, selected: section == s) { section = s }

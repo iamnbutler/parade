@@ -40,6 +40,23 @@ struct LeatherBackground: View {
     }
 }
 
+/// The part of a larger `LeatherBackground` (at `backdrop`, in global
+/// coordinates) that lies under this view — so a floating panel continues
+/// the window's gradient instead of starting its own.
+struct BackdropSlice: View {
+    let backdrop: CGRect
+
+    var body: some View {
+        GeometryReader { geo in
+            let here = geo.frame(in: .global)
+            LeatherBackground()
+                .frame(width: max(backdrop.width, here.width), height: max(backdrop.height, here.height))
+                .offset(x: backdrop.minX - here.minX, y: backdrop.minY - here.minY)
+        }
+        .clipped()
+    }
+}
+
 private struct LeatherPage: ViewModifier {
     @Environment(\.leatherBackdrop) private var backdrop
 
