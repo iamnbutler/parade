@@ -140,14 +140,14 @@ struct MacRootView: View {
         } detail: {
             detailColumn
                 // Favorites is Noir end to end, the open fic included.
-                .palette(section == .favorites ? .noir : .leather)
+                .palette(windowPalette)
                 .environment(\.leatherBackdrop, true)
         }
         // One sheet of leather behind the list and the fic, so the light and
         // vignette run across the window instead of restarting per column.
         .background {
             LeatherBackground()
-                .environment(\.palette, section == .favorites ? .noir : .leather)
+                .environment(\.palette, windowPalette)
         }
         .sheet(isPresented: $showAddSheet) {
             AddFicSheet()
@@ -287,11 +287,18 @@ struct MacRootView: View {
         }
         .scrollIndicators(.never)
         .background { LeatherBackground().environment(\.palette, sidebarPalette) }
+        // Favorites turns the whole window Noir, contents included.
+        .palette(windowPalette)
     }
 
     /// The sidebar sits a shade deeper than the page.
+    /// Noir in Favorites, Leather everywhere else.
+    private var windowPalette: Palette {
+        section == .favorites ? .noir : .leather
+    }
+
     private var sidebarPalette: Palette {
-        var p = Palette.leather
+        var p = windowPalette
         p.leather = p.leatherDeep
         return p
     }
