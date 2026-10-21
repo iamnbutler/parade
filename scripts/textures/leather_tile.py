@@ -16,7 +16,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT = os.path.join(ROOT, "Shared", "Assets.xcassets", "LeatherTile.imageset")
 SIZE = 512
 CELLS = 26          # pebbles across the tile: about 10 pt each on screen
-DARK, LIGHT = 0.16, 0.07   # strongest crease / highlight alpha; the view fades it further
+DARK, LIGHT = 0.08, 0.04   # strongest crease / highlight alpha; the view fades it further
 
 rng = np.random.default_rng(23)
 
