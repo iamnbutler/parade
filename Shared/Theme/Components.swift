@@ -25,6 +25,9 @@ private struct LeatherRows: ViewModifier {
         content
             .listRowBackground(Color.clear)
             .listRowSeparatorTint(palette.rule)
+            #if os(macOS)
+            .listRowInsets(EdgeInsets(top: 7, leading: 20, bottom: 7, trailing: 20))
+            #endif
     }
 }
 
@@ -71,7 +74,7 @@ struct EmptyPage<Actions: View>: View {
                 .textRole(.heading)
                 .multilineTextAlignment(.center)
             Text(message)
-                .textRole(.dek)
+                .textRole(.subtitle)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 340)
             actions
@@ -117,24 +120,58 @@ struct NoResultsPage: View {
 /// A list page's own title, set in the book's display type, with a count
 /// line beneath ("11 fics, 1 favorite"). On the Mac it replaces the
 /// toolbar's system-font title; put it as the first row of the list.
-struct PageHeader: View {
-    let title: String
+struct PageHeader<Title: View>: View {
     var subtitle: String?
+    @ViewBuilder var title: Title
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .textRole(.pageTitle)
-                .lineLimit(2)
+        VStack(alignment: .leading, spacing: 4) {
+            title
             if let subtitle {
-                Text(subtitle).textRole(.meta)
+                Text(subtitle).textRole(.subtitle)
             }
         }
         .padding(.top, 4)
-        .padding(.bottom, 8)
+        .padding(.bottom, 10)
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
+        #if os(macOS)
+        .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
+        #endif
         .accessibilityAddTraits(.isHeader)
+    }
+}
+
+extension PageHeader where Title == AnyView {
+    init(title: String, subtitle: String? = nil) {
+        self.init(subtitle: subtitle) {
+            AnyView(Text(title).textRole(.pageTitle).lineLimit(2))
+        }
+    }
+}
+
+/// A page title that's also a menu: "Fandoms ⌄" switches what Browse lists.
+struct TitleMenu<Items: View>: View {
+    let title: String
+    @ViewBuilder var items: Items
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Menu {
+            items
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(title).textRole(.pageTitle)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(palette.inkSoft)
+            }
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
     }
 }
 

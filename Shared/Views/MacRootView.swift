@@ -125,19 +125,6 @@ struct MacRootView: View {
                             .help("Back")
                         }
                     }
-                    if section == .browse {
-                        ToolbarItem {
-                            Picker("Browse by", selection: Binding(
-                                get: { kindRaw },
-                                set: { kindRaw = $0; browseTag = nil; browseHistory = [] }
-                            )) {
-                                ForEach(TagKind.allCases) { k in
-                                    Text(k.label).tag(k.rawValue)
-                                }
-                            }
-                            .help("Browse by fandom, series, relationship, character, or tag")
-                        }
-                    }
                     if section != .settings {
                         ToolbarItem(placement: .primaryAction) {
                             Button {
@@ -396,8 +383,15 @@ struct MacRootView: View {
     @ViewBuilder
     private var browseList: some View {
         if model.tagGroups(kind).isEmpty {
-            BrowseEmptyView(kind: kind)
-                .navigationTitle(kind.label)
+            VStack(alignment: .leading, spacing: 0) {
+                PageHeader { browseKindMenu }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                BrowseEmptyView(kind: kind)
+            }
+            .leatherBackground()
+            .navigationTitle(kind.label)
+            .pageTitleInContent()
         } else {
             Group {
                 if let name = browseTag {
@@ -414,14 +408,18 @@ struct MacRootView: View {
                 } else {
                     // Selecting a row opens that tag.
                     List(selection: Binding<String?>(get: { nil }, set: { browseTag = $0 })) {
-                        PageHeader(title: kind.label, subtitle: "Browse your library")
+                        PageHeader(subtitle: filteredGroups.count == 1
+                                   ? "1 \(kind.singular)"
+                                   : "\(filteredGroups.count) \(kind.label.lowercased())") {
+                            browseKindMenu
+                        }
                         ForEach(filteredGroups, id: \.name) { group in
                             HStack(alignment: .firstTextBaseline) {
                                 Text(group.name).textRole(.rowTitle).lineLimit(1)
                                 Spacer()
                                 Numeral(value: group.items.count)
                             }
-                            .padding(.vertical, 3)
+                            .padding(.vertical, 4)
                             .tag(group.name)
                         }
                         .leatherRows()
@@ -434,6 +432,22 @@ struct MacRootView: View {
             .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
             .pageTitleInContent()
         }
+    }
+
+    /// "Fandoms ⌄": what Browse lists, chosen from the page title.
+    private var browseKindMenu: some View {
+        TitleMenu(title: kind.label) {
+            Picker("Browse by", selection: Binding(
+                get: { kindRaw },
+                set: { kindRaw = $0; browseTag = nil; browseHistory = [] }
+            )) {
+                ForEach(TagKind.allCases) { k in
+                    Text(k.label).tag(k.rawValue)
+                }
+            }
+            .pickerStyle(.inline)
+        }
+        .help("Browse by fandom, series, relationship, character, or tag")
     }
 
     // MARK: - library

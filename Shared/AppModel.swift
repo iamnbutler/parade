@@ -56,6 +56,17 @@ enum TagKind: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    /// One of them, lowercased: "fandom", "series".
+    var singular: String {
+        switch self {
+        case .fandoms: "fandom"
+        case .series: "series"
+        case .relationships: "relationship"
+        case .characters: "character"
+        case .tags: "tag"
+        }
+    }
+
     func values(in d: WorkDetails) -> [String] {
         switch self {
         case .fandoms: d.fandoms

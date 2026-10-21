@@ -65,6 +65,8 @@ enum TextRole {
     case body
     /// Italic soft subtitle under a title.
     case dek
+    /// The line under a page or empty-state title: "12 fics, by date added".
+    case subtitle
     /// Soft secondary text under a row title.
     case summary
     /// Small italic secondary line: dates, stats, hints.
@@ -72,18 +74,28 @@ enum TextRole {
     /// Plain small text: chips, buttons.
     case small
 
+    /// Mac text sits closer to the eye than a phone's; list type runs smaller.
+    static var mac: Bool {
+        #if os(macOS)
+        true
+        #else
+        false
+        #endif
+    }
+
     var font: Font {
         switch self {
         case .pageTitle: .display(34, relativeTo: .largeTitle)
         case .title: .display(30, relativeTo: .title)
         case .heading: .display(23, relativeTo: .title3)
-        case .rowTitle: .display(20, relativeTo: .body)
+        case .rowTitle: .display(Self.mac ? 17 : 20, relativeTo: .body)
         case .kicker: .display(18, relativeTo: .subheadline, italic: true)
         case .runningHead: .reading(14, relativeTo: .footnote, italic: true)
         case .body: .reading(17, relativeTo: .body)
         case .dek: .reading(17, relativeTo: .body, italic: true)
+        case .subtitle: .reading(Self.mac ? 15 : 16, relativeTo: .subheadline, italic: true)
         case .summary: .reading(15, relativeTo: .subheadline)
-        case .meta: .reading(14, relativeTo: .footnote, italic: true)
+        case .meta: .reading(Self.mac ? 13 : 14, relativeTo: .footnote, italic: true)
         case .small: .reading(14, relativeTo: .footnote)
         }
     }
@@ -92,8 +104,8 @@ enum TextRole {
         switch self {
         case .pageTitle, .title, .heading, .rowTitle, .body: p.ink
         case .kicker: p.gold
-        case .dek, .summary: p.inkSoft
-        case .runningHead, .meta: p.inkFaint
+        case .dek, .summary, .subtitle, .meta: p.inkSoft
+        case .runningHead: p.inkFaint
         case .small: p.inkSoft
         }
     }
@@ -104,6 +116,7 @@ enum TextRole {
         switch self {
         case .pageTitle, .title, .heading, .rowTitle: -2
         case .body, .dek: 7
+        case .subtitle: 3
         case .summary: 4
         case .kicker, .runningHead, .meta, .small: 1
         }
@@ -129,29 +142,17 @@ extension View {
     }
 }
 
-/// A count in faint oldstyle numerals, e.g. beside a sidebar section.
-/// SwiftUI has no font-feature API, so this goes through Core Text.
+/// A count beside a row or sidebar link, in soft ink. Lining figures in the
+/// reading face: Cormorant's oldstyle figures are too small to read at this size.
 struct Numeral: View {
     let value: Int
-    var size: CGFloat = 15
+    var size: CGFloat = 14
     @Environment(\.palette) private var palette
-    @ScaledMetric(relativeTo: .footnote) private var scale: CGFloat = 1
 
     var body: some View {
         Text(value, format: .number)
-            .font(Self.oldstyle(size * scale))
-            .foregroundStyle(palette.inkFaint)
-    }
-
-    static func oldstyle(_ size: CGFloat, italic: Bool = false) -> Font {
-        let feature: [CFString: Any] = [
-            kCTFontOpenTypeFeatureTag: "onum",
-            kCTFontOpenTypeFeatureValue: 1,
-        ]
-        let descriptor = CTFontDescriptorCreateWithAttributes([
-            kCTFontNameAttribute: Typeface.displayName(italic: italic, heavy: false),
-            kCTFontFeatureSettingsAttribute: [feature],
-        ] as CFDictionary)
-        return Font(CTFontCreateWithFontDescriptor(descriptor, size, nil))
+            .font(.reading(size, relativeTo: .footnote))
+            .monospacedDigit()
+            .foregroundStyle(palette.inkSoft)
     }
 }
