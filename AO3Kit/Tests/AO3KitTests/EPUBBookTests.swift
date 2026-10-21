@@ -74,6 +74,14 @@ final class EPUBBookTests: XCTestCase {
         XCTAssertEqual(EPUBBookParser.ncxTitles(ncx), ["Text/preface.xhtml": "Preface", "Text/ch1.xhtml": "Chapter 1 & More"])
     }
 
+    func testTypedSceneBreaksBecomeRules() {
+        let xhtml = "<html><body><p>Before.</p><p>~~~~~~~~~~</p><p>* * *</p><p>-----</p><p>Ooo, after.</p><p>...</p></body></html>"
+        XCTAssertEqual(EPUBBookParser.blocks(fromXHTML: xhtml).map(\.kind),
+                       [.paragraph, .rule, .rule, .rule, .paragraph, .paragraph])
+        XCTAssertFalse(BlockBuilder.isTypedBreak("Oh."))
+        XCTAssertFalse(BlockBuilder.isTypedBreak("xox"))
+    }
+
     func testResolveRelativeHrefs() {
         XCTAssertEqual(EPUBBookParser.resolve("ch1.xhtml", base: ""), "ch1.xhtml")
         XCTAssertEqual(EPUBBookParser.resolve("../Text/ch1.xhtml", base: "OEBPS/Styles"), "OEBPS/Text/ch1.xhtml")

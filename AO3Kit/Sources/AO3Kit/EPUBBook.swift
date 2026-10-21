@@ -207,7 +207,7 @@ public enum EPUBBookParser {
 
 /// Walks XHTML and emits blocks. Block elements end a paragraph; inline
 /// elements set the style of the text inside them.
-private final class BlockBuilder: NSObject, XMLParserDelegate {
+final class BlockBuilder: NSObject, XMLParserDelegate {
     private(set) var blocks: [EPUBBook.Block] = []
 
     private var runs: [EPUBBook.Run] = []
@@ -293,6 +293,13 @@ private final class BlockBuilder: NSObject, XMLParserDelegate {
         append(string.replacingOccurrences(of: #"[\t\r\n]"#, with: " ", options: .regularExpression))
     }
 
+    /// Symbols only: a lone "…" is a beat of silence and "ooo" is a word.
+    static func isTypedBreak(_ text: String) -> Bool {
+        let marks = text.filter { !$0.isWhitespace }
+        return marks.count >= 3 && marks.allSatisfy { "~*-=_•·°#+❦❧✦✧♦◆○●◇†‡§|/\\".contains($0) }
+            && Set(marks).count <= 3
+    }
+
     /// Stands in for <br> until the paragraph is cleaned up.
     private static let lineBreak = "\u{2028}"
 
@@ -339,6 +346,12 @@ private final class BlockBuilder: NSObject, XMLParserDelegate {
         cleaned.removeAll { $0.text.isEmpty }
         let text = cleaned.map(\.text).joined()
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        // A line of nothing but dashes, tildes, asterisks… is a scene break
+        // typed by hand ("~~~~~", "* * *", "-----"), whatever its markup.
+        if headingLevel == nil, Self.isTypedBreak(text) {
+            blocks.append(.init(kind: .rule, runs: [], quoteDepth: quoteDepth))
+            return
+        }
         let kind: EPUBBook.Block.Kind = headingLevel.map { .heading(level: $0) } ?? .paragraph
         blocks.append(.init(kind: kind, runs: cleaned, quoteDepth: quoteDepth))
     }

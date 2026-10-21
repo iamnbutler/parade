@@ -108,6 +108,13 @@ enum FicList: Hashable {
     }
 }
 
+/// A place in a fic: the block a reader had at the top of the screen,
+/// counted within its section so a fic that gains a chapter keeps its place.
+struct ReadingPosition: Codable, Equatable {
+    var section: Int
+    var block: Int
+}
+
 /// Navigation value for opening one fic from a list.
 struct FicRoute: Hashable {
     let item: LibraryItem
@@ -898,6 +905,34 @@ final class AppModel: ObservableObject {
         localEditStamp += 1
         let text = favorites.sorted().joined(separator: "\n") + "\n"
         try? text.write(to: favoritesFile, atomically: true, encoding: .utf8)
+    }
+
+    // MARK: - reading positions
+
+    /// Where each fic was left off. Backed by Reading.json in the library
+    /// folder, so a fic opened on the phone picks up where the Mac stopped.
+    /// Read fresh on every open and merged on every save, so two devices
+    /// only ever overwrite each other's entry for the same fic.
+    private var readingFile: URL { destinationRoot.appendingPathComponent("Reading.json") }
+
+    private func readingPositions() -> [String: ReadingPosition] {
+        guard let data = try? Data(contentsOf: readingFile) else { return [:] }
+        return (try? JSONDecoder().decode([String: ReadingPosition].self, from: data)) ?? [:]
+    }
+
+    func readingPosition(for item: LibraryItem) -> ReadingPosition? {
+        readingPositions()[item.id]
+    }
+
+    func saveReadingPosition(_ position: ReadingPosition, for item: LibraryItem) {
+        var all = readingPositions()
+        guard all[item.id] != position else { return }
+        all[item.id] = position
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        if let data = try? encoder.encode(all) {
+            try? data.write(to: readingFile, options: .atomic)
+        }
     }
 
     // MARK: - collections (user-made, separate from AO3 tags)

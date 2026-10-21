@@ -136,6 +136,19 @@ struct TagFicsView: View {
     }
 }
 
+/// Opens a fic to read. The Mac sets it to show the reader in the main
+/// window; unset, the fic page presents it itself.
+private struct ReadFicKey: EnvironmentKey {
+    static let defaultValue: ((LibraryItem) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var readFic: ((LibraryItem) -> Void)? {
+        get { self[ReadFicKey.self] }
+        set { self[ReadFicKey.self] = newValue }
+    }
+}
+
 /// How a tapped tag (or series) opens. Unset, it pushes onto the current
 /// NavigationStack (iOS); the Mac sets it to show the tag in the content
 /// column instead, leaving the fic in the detail pane.

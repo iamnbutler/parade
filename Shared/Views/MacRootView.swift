@@ -1,6 +1,28 @@
 #if os(macOS)
 import SwiftUI
 
+private extension View {
+    /// Double-clicking a fic in a list opens it to read — the list's primary
+    /// action, so a single click still just selects.
+    func readOnDoubleClick(_ model: AppModel) -> some View {
+        modifier(ReadOnDoubleClick(model: model))
+    }
+}
+
+private struct ReadOnDoubleClick: ViewModifier {
+    let model: AppModel
+    @Environment(\.readFic) private var readFic
+
+    func body(content: Content) -> some View {
+        content.contextMenu(forSelectionType: String.self) { _ in
+            // Rows keep their own context menus.
+        } primaryAction: { ids in
+            guard ids.count == 1, let id = ids.first, let item = model.item(withID: id), item.isDownloaded else { return }
+            readFic?(item)
+        }
+    }
+}
+
 /// A part name in the sidebar: gold italic, like "Body and health".
 private struct SidebarPart: View {
     let title: String
@@ -80,6 +102,8 @@ struct MacRootView: View {
     @AppStorage("librarySort.v1") private var sortRaw = LibrarySort.author.rawValue
     @AppStorage("browseKind.v1") private var kindRaw = TagKind.fandoms.rawValue
     @State private var section: SidebarSection? = .library
+    /// The fic open to read, filling the window.
+    @State private var reading: LibraryItem?
     /// Where the window's leather backdrop sits, so the sidebar can show the
     /// matching slice of it.
     @State private var backdropFrame: CGRect = .zero
@@ -98,6 +122,30 @@ struct MacRootView: View {
     private var kind: TagKind { TagKind(rawValue: kindRaw) ?? .fandoms }
 
     var body: some View {
+        if let reading {
+            // Reading takes the whole window; Back (or Esc) returns to the
+            // library as it was.
+            ReaderView(item: reading)
+                .navigationTitle(reading.title)
+                .pageTitleInContent()
+                .toolbar {
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            self.reading = nil
+                        } label: {
+                            Label("Library", systemImage: "chevron.backward")
+                        }
+                        .help("Back to the library")
+                        .keyboardShortcut(.cancelAction)
+                    }
+                }
+        } else {
+            library
+                .environment(\.readFic) { reading = $0 }
+        }
+    }
+
+    private var library: some View {
         NavigationSplitView {
             sidebar
                 .navigationSplitViewColumnWidth(min: 170, ideal: 210)
@@ -360,6 +408,7 @@ struct MacRootView: View {
                 .leatherRows()
             }
             .leatherList()
+            .readOnDoubleClick(model)
             .palette(.noir)
             .noSearchResults(for: searchText, when: items.isEmpty)
             .searchable(text: $searchText, prompt: "Filter favorites…")
@@ -388,6 +437,7 @@ struct MacRootView: View {
                 .leatherRows()
             }
             .leatherList()
+            .readOnDoubleClick(model)
             .noSearchResults(for: searchText, when: !items.contains { model.item($0, matches: searchText) })
             .searchable(text: $searchText, prompt: "Filter collection…")
             .navigationTitle(name)
@@ -428,6 +478,7 @@ struct MacRootView: View {
                         .leatherRows()
                     }
                     .leatherList()
+                    .readOnDoubleClick(model)
                     .navigationTitle(name)
                     .noSearchResults(for: searchText, when: model.items(for: .tag(TagSelection(kind: kind, name: name), query: searchText)).isEmpty)
                 } else {
@@ -527,6 +578,7 @@ struct MacRootView: View {
                 }
             }
             .leatherList()
+            .readOnDoubleClick(model)
             .noSearchResults(
                 for: searchText,
                 when: sort.isGrouped ? filteredSections.isEmpty : libraryFlat.isEmpty)
@@ -536,10 +588,11 @@ struct MacRootView: View {
         }
     }
 
-    /// "11 fics, sorted by author".
+    /// "11 fics, by author".
     private var librarySubtitle: String {
         let count = model.library.reduce(0) { $0 + $1.items.count }
-        return "\(ficCount(count)), by \(sort.label.lowercased())"
+        let order = sort.label.lowercased()
+        return "\(ficCount(count)), \(order.hasPrefix("by ") ? order : "by " + order)"
     }
 
     private var libraryFlat: [LibraryItem] {

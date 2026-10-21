@@ -10,11 +10,8 @@ struct FicDetailView: View {
     var runningHead: String?
     @EnvironmentObject private var model: AppModel
     @Environment(\.palette) private var palette
-    #if os(macOS)
-    @Environment(\.openWindow) private var openWindow
-    #else
+    @Environment(\.readFic) private var readFic
     @State private var reading = false
-    #endif
     @State private var loaded: WorkDetails?
     /// The fic `loaded` belongs to (the Mac reuses this view across fics).
     @State private var loadedID: String?
@@ -85,11 +82,11 @@ struct FicDetailView: View {
     }
 
     private func read() {
-        #if os(macOS)
-        openWindow(id: "reader", value: item.id)
-        #else
-        reading = true
-        #endif
+        if let readFic {
+            readFic(item)
+        } else {
+            reading = true
+        }
     }
 
     private var header: some View {

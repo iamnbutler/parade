@@ -14,7 +14,7 @@ struct LeatherBackground: View {
                 colors: [Color(hex: 0xFFE1CD, opacity: 0.045), .clear],
                 center: UnitPoint(x: 0.3, y: 0), startRadiusFraction: 0, endRadiusFraction: 0.6)
             EllipticalGradient(
-                colors: [.black.opacity(0.35), .clear],
+                colors: [.black.opacity(palette.vignette), .clear],
                 center: UnitPoint(x: 0.5, y: 1.2), startRadiusFraction: 0, endRadiusFraction: 0.7)
             if palette.silk {
                 // Noir: two soft diagonal bands of sheen and an oxblood glow.

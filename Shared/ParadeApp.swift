@@ -35,16 +35,6 @@ struct ParadeApp: App {
                     .keyboardShortcut("r")
             }
         }
-        // A fic opened to read, in a window of its own.
-        WindowGroup("Reader", id: "reader", for: String.self) { $id in
-            ReaderWindow(id: id)
-                .environmentObject(model)
-                .defaultAppStorage(AppModel.settingsStore)
-                .themedWindow()
-        }
-        .defaultSize(width: 760, height: 900)
-        // Just the page: no title bar over the text.
-        .windowStyle(.hiddenTitleBar)
         MenuBarExtra("Parade", systemImage: "books.vertical.fill") {
             MenuBarView()
                 .environmentObject(model)

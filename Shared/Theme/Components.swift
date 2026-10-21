@@ -52,6 +52,10 @@ struct SectionHeading: View {
         }
         .textCase(nil)
         .padding(.top, 6)
+        #if os(macOS)
+        // Line up with the rows' 20 pt inset.
+        .padding(.horizontal, 20)
+        #endif
     }
 }
 

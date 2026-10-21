@@ -25,6 +25,9 @@ struct Palette: Equatable {
     /// Noir: silk sheen and an oxblood glow on the background.
     var silk = false
     var grain: Double = 1
+    /// How dark the page's bottom vignette gets. Cream paper wants far less
+    /// than leather, or it reads as grime.
+    var vignette: Double = 0.35
 
     static let leather = Palette(
         leather: Color(hex: 0x241B1E),
@@ -76,7 +79,9 @@ struct Palette: Equatable {
         gold: Color(hex: 0x8B5A2B),
         goldFaint: Color(hex: 0x8B5A2B, opacity: 0.35),
         rule: Color(hex: 0x2E211F, opacity: 0.14),
-        alert: Color(hex: 0xA2453C))
+        alert: Color(hex: 0xA2453C),
+        grain: 0.6,
+        vignette: 0.08)
 }
 
 private struct PaletteKey: EnvironmentKey {
