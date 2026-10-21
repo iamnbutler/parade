@@ -5,9 +5,7 @@ struct ContentView: View {
 
     var body: some View {
         themedRoot
-            .palette(.leather)
-            .font(TextRole.body.font)
-            .preferredColorScheme(.dark)
+            .themedWindow()
     }
 
     @ViewBuilder

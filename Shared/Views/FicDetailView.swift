@@ -10,6 +10,11 @@ struct FicDetailView: View {
     var runningHead: String?
     @EnvironmentObject private var model: AppModel
     @Environment(\.palette) private var palette
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #else
+    @State private var reading = false
+    #endif
     @State private var loaded: WorkDetails?
     /// The fic `loaded` belongs to (the Mac reuses this view across fics).
     @State private var loadedID: String?
@@ -61,6 +66,30 @@ struct FicDetailView: View {
             loadedID = item.id
         }
         .newCollectionAlert(isPresented: $showNewCollection, adding: item, model: model)
+        #if os(iOS)
+        .fullScreenCover(isPresented: $reading) {
+            NavigationStack {
+                ReaderView(item: item)
+                    .navigationTitle(item.title)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { reading = false }
+                        }
+                    }
+            }
+            .themedWindow()
+            .palette(palette)
+        }
+        #endif
+    }
+
+    private func read() {
+        #if os(macOS)
+        openWindow(id: "reader", value: item.id)
+        #else
+        reading = true
+        #endif
     }
 
     private var header: some View {
@@ -95,6 +124,12 @@ struct FicDetailView: View {
     private var actions: some View {
         // Wraps rather than squeezing labels on a narrow phone.
         FlowLayout(spacing: 8) {
+            Button(action: read) {
+                Label("Read", systemImage: "book")
+            }
+            .buttonStyle(.leatherProminent)
+            .disabled(!item.isDownloaded)
+            .help("Read this fic in Parade")
             // Always available; prominent when a check found an update.
             updateButton
                 .buttonStyle(LeatherButtonStyle(prominent: model.hasUpdate(item)))

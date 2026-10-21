@@ -4,6 +4,14 @@ import SwiftUI
 // headings, empty and loading states in the book's voice.
 
 extension View {
+    /// The theme's defaults for a whole window: Leather, the reading face,
+    /// dark appearance.
+    func themedWindow() -> some View {
+        palette(.leather)
+            .font(TextRole.body.font)
+            .preferredColorScheme(.dark)
+    }
+
     /// A List on leather: plain rows on the page, hairline rules, no
     /// system grays.
     func leatherList() -> some View {
