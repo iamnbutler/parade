@@ -30,12 +30,6 @@ public struct AO3Client: Sendable {
         }
     }
 
-    /// One page of a search or tag listing.
-    public func works(_ query: AO3WorkQuery) async throws -> WorkResults {
-        let (html, _) = try await fetchHTML(query.url)
-        return BlurbExtract.results(in: html, page: query.page)
-    }
-
     public func fetchWork(id: Int) async throws -> WorkInfo {
         let url = AO3Link.work(id: id).pageURL
         let (html, response) = try await fetchHTML(url)

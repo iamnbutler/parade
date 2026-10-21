@@ -73,16 +73,15 @@ private struct SidebarRow: View {
 /// with the system sidebar toggle, collapsing, and resizable columns.
 struct MacRootView: View {
     enum SidebarSection: Hashable {
-        case library, browse, ao3, favorites, settings
+        case library, browse, favorites, settings
         case collection(String)
 
-        static let main: [SidebarSection] = [.library, .browse, .ao3, .favorites, .settings]
+        static let main: [SidebarSection] = [.library, .browse, .favorites, .settings]
 
         var title: String {
             switch self {
             case .library: "Library"
             case .browse: "Browse"
-            case .ao3: "Find on AO3"
             case .favorites: "Favorites"
             case .settings: "Settings"
             case .collection(let name): name
@@ -92,7 +91,6 @@ struct MacRootView: View {
             switch self {
             case .library: "books.vertical"
             case .browse: "tag"
-            case .ao3: "globe"
             case .favorites: "star"
             case .settings: "gearshape"
             case .collection: "rectangle.stack"
@@ -119,10 +117,6 @@ struct MacRootView: View {
     @State private var browseTag: String?
     /// Where Back returns to after following tags from fic details.
     @State private var browseHistory: [(kind: String, tag: String?)] = []
-    /// AO3 search: kept while you move around the app, so coming back
-    /// doesn't fetch again.
-    @StateObject private var ao3 = AO3Browser()
-    @State private var ao3Selection: Int?
 
     private var sort: LibrarySort { LibrarySort(rawValue: sortRaw) ?? .author }
     private var kind: TagKind { TagKind(rawValue: kindRaw) ?? .fandoms }
@@ -265,17 +259,6 @@ struct MacRootView: View {
     private var detailColumn: some View {
         if section == .settings {
             Color.clear.leatherBackground()
-        } else if section == .ao3 {
-            if let id = ao3Selection, let work = ao3.works.first(where: { $0.id == id }) {
-                BlurbDetailView(work: work, browser: ao3)
-                    .frame(minWidth: 260)
-            } else {
-                EmptyPage(
-                    drawing: "OpenBook",
-                    title: "Choose a work",
-                    message: "Its summary and tags open here, with Download.")
-                .leatherBackground()
-            }
         } else if let item = selectedItem {
             FicDetailView(item: item)
                 // A tapped tag or series opens in the content column;
@@ -316,7 +299,7 @@ struct MacRootView: View {
         case .collection(let name): items = model.items(inCollection: name)
         case .browse:
             items = browseTag.map { model.items(for: .tag(TagSelection(kind: kind, name: $0), query: "")) } ?? []
-        case .settings, .ao3: items = []
+        case .settings: items = []
         default: return Set(model.flatItems(.title).map(\.id))
         }
         return Set(items.map(\.id))
@@ -334,7 +317,6 @@ struct MacRootView: View {
                     .padding(.bottom, 14)
                 sidebarRow(.library, count: model.library.reduce(0) { $0 + $1.items.count })
                 sidebarRow(.browse)
-                sidebarRow(.ao3)
                 sidebarRow(.favorites, count: model.favoriteItems.count)
                 SidebarPart(title: "Collections")
                 ForEach(model.collections.names, id: \.self) { name in
@@ -398,9 +380,6 @@ struct MacRootView: View {
             SettingsView()
         case .browse:
             browseList
-        case .ao3:
-            AO3SearchPage(browser: ao3, selection: $ao3Selection)
-                .navigationTitle("Find on AO3")
         case .favorites:
             favoritesList
         case .collection(let name):
