@@ -64,7 +64,7 @@ struct EmptyPage<Actions: View>: View {
         VStack(spacing: 14) {
             if let drawing {
                 Drawing(name: drawing)
-                    .frame(maxWidth: 240, maxHeight: 200)
+                    .frame(maxWidth: 320, maxHeight: 220)
                     .padding(.bottom, 8)
             }
             Text(title)

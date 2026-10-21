@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="320" height="220">
+<g fill="none" stroke="#efe3d3" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+  <!-- pages -->
+  <path d="M160 72 C132 58 92 56 54 66 L48 158 C86 148 128 150 160 166"/>
+  <path d="M160 72 C188 58 228 56 266 66 L272 158 C234 148 192 150 160 166"/>
+  <path d="M160 72 V166" stroke-width="0.8"/>
+  <!-- page block edges -->
+  <path d="M48 158 L45 164 C84 155 128 157 160 173 C192 157 236 155 275 164 L272 158" stroke-width="0.9"/>
+  <path d="M46 161 C85 152 128 154 160 170 C192 154 235 152 274 161" stroke-width="0.6"/>
+  <!-- lines of text -->
+  <g stroke-width="0.7">
+    <path d="M70 84 C94 78 120 78 146 84"/>
+    <path d="M69 96 C93 90 120 90 146 96"/>
+    <path d="M68 108 C92 102 120 102 146 108"/>
+    <path d="M67 120 C91 114 120 114 146 120"/>
+    <path d="M66 132 C86 127 104 127 118 129"/>
+    <path d="M214 82 C228 80 240 81 250 84"/>
+    <path d="M212 94 C226 92 240 93 251 96"/>
+    <path d="M211 106 C226 104 240 105 252 108"/>
+    <path d="M210 118 C226 116 240 117 253 120"/>
+    <path d="M210 130 C220 128 228 128 236 130"/>
+    <path d="M172 92 C180 88 190 88 196 90 M170 104 C180 100 190 100 196 102 M170 116 C180 112 190 112 195 114" stroke-opacity="0.55"/>
+  </g>
+  <!-- curl of a turning page -->
+  <path d="M160 72 C178 66 196 70 206 80 C200 104 198 128 202 150 C190 146 174 152 160 166" stroke-width="0.8"/>
+  <path d="M160 72 C176 64 194 67 206 80 C200 104 198 128 202 150 C190 146 174 152 160 166 Z" fill="#efe3d3" fill-opacity="0.05" stroke="none"/>
+  <!-- ribbon marker (rose) -->
+  <path d="M157 166 C156 178 160 186 156 198" stroke="#d8a39b"/>
+  <path d="M163 166 C162 178 166 186 162 198" stroke="#d8a39b"/>
+  <path d="M156 198 L159 194 L162 198" stroke="#d8a39b" stroke-width="1"/>
+  <!-- sparkle -->
+  <path d="M244 44 v10 M239 49 h10" stroke="#c8a46a" stroke-width="0.9"/>
+  <circle cx="80" cy="46" r="0.9" fill="#c8a46a" stroke="none"/>
+</g>
+</svg>

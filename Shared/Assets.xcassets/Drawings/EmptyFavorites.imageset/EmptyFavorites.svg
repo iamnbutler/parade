@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="320" height="220">
+<g fill="none" stroke="#efe3d3" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+  <!-- the letters beneath, just their edges showing -->
+  <path d="M84 178 C130 181 190 183 238 181 L240 176" stroke-width="1.1"/>
+  <path d="M244 82 C246 112 246 146 243 172" stroke-width="1.1"/>
+  <path d="M88 183 C140 186 190 187 232 185" stroke-width="0.7"/>
+  <!-- top letter with its flap -->
+  <rect x="78" y="78" width="164" height="96" rx="3"/>
+  <rect x="78" y="78" width="164" height="96" rx="3" fill="#efe3d3" fill-opacity="0.05" stroke="none"/>
+  <path d="M80 80 C110 104 132 120 160 124 C188 120 210 104 240 80" stroke-width="0.9"/>
+  <!-- address lines -->
+  <path d="M176 146 h44 M184 156 h36" stroke-width="0.7"/>
+  <!-- the ribbon, crossing and tied: the rose mark -->
+  <path d="M120 70 C122 104 118 146 122 184" stroke="#d8a39b"/>
+  <path d="M127 70 C129 104 125 146 129 184" stroke="#d8a39b" stroke-width="0.8"/>
+  <!-- bow -->
+  <path d="M124 128 C108 108 92 110 96 122 C99 132 114 132 124 128 Z" stroke="#d8a39b" fill="#d8a39b" fill-opacity="0.13"/>
+  <path d="M124 128 C140 108 156 110 152 122 C149 132 134 132 124 128 Z" stroke="#d8a39b" fill="#d8a39b" fill-opacity="0.13"/>
+  <path d="M122 131 C116 142 110 150 100 158 M126 131 C132 144 136 152 146 160" stroke="#d8a39b"/>
+  <circle cx="124" cy="129" r="3.2" stroke="#d8a39b" fill="#d8a39b" fill-opacity="0.2"/>
+  <!-- a gold wax seal on the flap -->
+  <circle cx="160" cy="124" r="7" stroke="#c8a46a" stroke-width="1"/>
+  <path d="M157 124 c1 -3 5 -3 6 0 c-1 3 -5 3 -6 0 z" stroke="#c8a46a" stroke-width="0.7"/>
+</g>
+</svg>

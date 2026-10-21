@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="320" height="220">
+<g fill="none" stroke="#efe3d3" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+  <!-- bottom book -->
+  <path d="M74 176 H232 q6 0 6 -6 V158 q0 -6 -6 -6 H74 q-5 0 -5 12 q0 12 5 12 z"/>
+  <path d="M232 156 v16 M226 155 c3 2 3 16 0 18" stroke-width="0.6"/>
+  <path d="M74 152 q-5 0 -5 12 q0 12 5 12" fill="#efe3d3" fill-opacity="0.05"/>
+  <path d="M90 158 h8 M90 170 h8" stroke-width="0.7"/>
+  <!-- middle book, shifted -->
+  <path d="M90 152 H246 q5 0 5 -5 V133 q0 -5 -5 -5 H90 q-5 0 -5 12 q0 12 5 12 z"/>
+  <path d="M240 131 v18 M244 131 v18" stroke-width="0.6"/>
+  <path d="M104 134 h10 M104 146 h10" stroke-width="0.7"/>
+  <!-- top book, smaller and turned -->
+  <g transform="rotate(-3 160 116)">
+    <path d="M100 128 H222 q5 0 5 -5 V110 q0 -5 -5 -5 H100 q-5 0 -5 11.5 q0 11.5 5 11.5 z"/>
+    <path d="M216 108 v17 M220 108 v17" stroke-width="0.6"/>
+    <path d="M100 105 q-5 0 -5 11.5 q0 11.5 5 11.5" fill="#efe3d3" fill-opacity="0.05"/>
+    <path d="M114 110 h40 M114 116 h28" stroke-width="0.7"/>
+  </g>
+  <!-- a ribbon tied round all three: the rose mark -->
+  <path d="M176 101 C177 126 176 152 178 177" stroke="#d8a39b"/>
+  <path d="M182 101 C183 126 182 152 184 177" stroke="#d8a39b" stroke-width="0.8"/>
+  <path d="M179 100 C164 84 150 86 154 96 C157 104 170 104 179 100 Z" stroke="#d8a39b" fill="#d8a39b" fill-opacity="0.13"/>
+  <path d="M179 100 C194 84 208 86 204 96 C201 104 188 104 179 100 Z" stroke="#d8a39b" fill="#d8a39b" fill-opacity="0.13"/>
+  <circle cx="179" cy="100" r="3" stroke="#d8a39b" fill="#d8a39b" fill-opacity="0.2"/>
+  <!-- the surface -->
+  <path d="M52 178 H268" stroke-width="0.7"/>
+  <path d="M250 60 v9 M245.5 64.5 h9" stroke="#c8a46a" stroke-width="0.9"/>
+</g>
+</svg>
