@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject private var themeStore = ThemeStore.shared
     #if os(iOS)
     /// The fic open to read. Presented here, at the root, not from the fic's
     /// page: the pager rebuilds its pages as the library refreshes, and a
@@ -30,6 +31,9 @@ struct ContentView: View {
 
     private var appRoot: some View {
         root
+            // Settings › Type: every text role reads this, so a change shows
+            // everywhere at once.
+            .environment(\.typeTheme, themeStore.theme)
             .overlay(alignment: .bottom) {
                 if let toast = model.toast {
                     ToastView(text: toast)

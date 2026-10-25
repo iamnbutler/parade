@@ -999,7 +999,7 @@ private struct PagedText {
         let rose = PlatformColor(palette.rose)
 
         func font(_ name: String, _ size: CGFloat) -> PlatformFont {
-            PlatformFont(name: name, size: size * scale) ?? .systemFont(ofSize: size * scale)
+            Typeface.platformFont(name, size: size * scale)
         }
         let body = 18.0, quote = 17.0
         func para(spacing: CGFloat = 22, before: CGFloat = 0, indent: CGFloat = 0, tail: CGFloat = 0, line: CGFloat = 13,

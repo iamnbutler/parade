@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject private var themeStore = ThemeStore.shared
     #if os(macOS)
     @State private var showImportPicker = false
     #endif
@@ -12,6 +13,7 @@ struct SettingsView: View {
                 #if os(macOS)
                 PageHeader(title: "Settings")
                 #endif
+                typeSection
                 folderSection
                 updatesSection
                 linkSection
@@ -93,6 +95,55 @@ struct SettingsView: View {
             #else
             Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
             #endif
+        }
+    }
+
+    private var typeSection: some View {
+        LeatherSection(title: "Type") {
+            facePicker("Headings", selection: $themeStore.theme.display)
+            facePicker("Text", selection: $themeStore.theme.reading)
+            themeSlider("Text size", value: $themeStore.theme.textScale, in: 0.85...1.3, step: 0.05, percent: true)
+            themeSlider("Headings size", value: $themeStore.theme.headingScale, in: 0.8...1.3, step: 0.05, percent: true)
+            themeSlider("Line spacing", value: $themeStore.theme.lineSpacing, in: 0.5...1.8, step: 0.1, percent: true)
+            themeSlider("Row spacing", value: $themeStore.theme.rowPadding, in: 0...12, step: 1, percent: false)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Preview").textRole(.kicker)
+                Text("The Long Way Round").textRole(.title)
+                Text("by quillheart · 22,108 words · updated Oct 17").textRole(.meta)
+                Text("The road out of the Shire was longer than any of them had guessed, and wetter, and full of second breakfasts.")
+                    .textRole(.body)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.vertical, 6)
+            Button("Reset to Leather & Ink") { themeStore.theme = .standard }
+                .disabled(themeStore.theme == .standard)
+        } footer: {
+            Text("Changes show everywhere as you make them, the reader included. Stored on this device.")
+        }
+    }
+
+    private func facePicker(_ label: String, selection: Binding<Face>) -> some View {
+        Picker(label, selection: selection) {
+            Section("Serif") {
+                ForEach(Face.allCases.filter(\.isSerif)) { Text($0.label).tag($0) }
+            }
+            Section("Sans serif") {
+                ForEach(Face.allCases.filter { !$0.isSerif }) { Text($0.label).tag($0) }
+            }
+        }
+    }
+
+    private func themeSlider(_ label: String, value: Binding<CGFloat>, in range: ClosedRange<CGFloat>,
+                             step: CGFloat, percent: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(label)
+                Spacer()
+                Text(percent ? "\(Int((value.wrappedValue * 100).rounded()))%" : "\(Int(value.wrappedValue)) pt")
+                    .textRole(.meta)
+                    .monospacedDigit()
+            }
+            Slider(value: value, in: range, step: step)
         }
     }
 

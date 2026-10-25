@@ -9,7 +9,7 @@ enum Chrome {
         let ink = UIColor(Palette.leather.ink)
 
         func font(_ name: String, _ size: CGFloat, _ style: UIFont.TextStyle) -> UIFont {
-            let base = UIFont(name: name, size: size) ?? .systemFont(ofSize: size)
+            let base = Typeface.platformFont(name, size: size)
             return UIFontMetrics(forTextStyle: style).scaledFont(for: base)
         }
         let title = font(Typeface.displayName(italic: false, heavy: true), 20, .headline)
