@@ -152,6 +152,7 @@ struct MacRootView: View {
         } content: {
             contentColumn
                 .environment(\.leatherBackdrop, true)
+                .environment(\.backdropFrame, backdropFrame)
                 // Every state of the column, empty and loading included,
                 // titles itself in the page, not the toolbar.
                 .pageTitleInContent()

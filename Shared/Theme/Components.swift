@@ -56,6 +56,7 @@ struct SectionHeading: View {
         // Line up with the rows' 20 pt inset.
         .padding(.horizontal, 20)
         #endif
+        .washBehind()
     }
 }
 
