@@ -115,7 +115,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 6)
-            Button("Reset to Leather & Ink") { themeStore.theme = .standard }
+            Button("Reset to Default") { themeStore.theme = .standard }
                 .disabled(themeStore.theme == .standard)
         } footer: {
             Text("Changes show everywhere as you make them, the reader included. Stored on this device.")
