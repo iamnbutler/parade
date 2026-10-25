@@ -49,6 +49,7 @@ struct LibraryView: View {
                     }
                 }
                 .ficDestinations()
+                .navigationDestination(for: ToReadRoute.self) { _ in ToReadView() }
         }
         .sheet(isPresented: $showAddSheet) {
             AddFicSheet()
@@ -83,7 +84,20 @@ struct LibraryView: View {
             }
         } else {
             List {
-                if searchText.isEmpty { ContinueReadingRow() }
+                if searchText.isEmpty {
+                    ContinueReadingRow()
+                    if !model.toRead.isEmpty {
+                        NavigationLink(value: ToReadRoute()) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Label("To Read", systemImage: "bookmark")
+                                    .textRole(.rowTitle)
+                                Spacer()
+                                Numeral(value: model.toRead.count)
+                            }
+                        }
+                        .leatherRows()
+                    }
+                }
                 if sort.isGrouped {
                     ForEach(sections, id: \.name) { section in
                         Section {
@@ -167,6 +181,49 @@ struct FavoritesView: View {
         // Favorites is the after-hours room: black leather, garnet, gold.
         .palette(.noir)
         .onAppear { model.refreshLibrary() }
+    }
+}
+/// Opens To Read from the library.
+struct ToReadRoute: Hashable {}
+
+/// Fics saved to read later, newest first.
+struct ToReadView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var searchText = ""
+    @State private var showAddSheet = false
+
+    private var items: [LibraryItem] { model.items(for: .toRead(query: searchText)) }
+
+    var body: some View {
+        Group {
+            if model.toRead.isEmpty {
+                EmptyPage(
+                    drawing: "EmptyShelf",
+                    title: "Nothing to read yet",
+                    message: "Fics saved for later wait here, in a folder of their own. Add one to the library when it's a keeper.")
+                .leatherBackground()
+            } else {
+                List {
+                    ForEach(items) { item in
+                        NavigationLink(value: FicRoute(item: item, list: .toRead(query: searchText))) {
+                            FicRow(item: item, showsAuthor: true, date: .added)
+                        }
+                    }
+                    .leatherRows()
+                }
+                .leatherList()
+                .noSearchResults(for: searchText, when: items.isEmpty)
+                .ficSearch(text: $searchText, prompt: "Filter to read…")
+            }
+        }
+        .navigationTitle("To Read")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showAddSheet = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("Add to To Read")
+            }
+        }
+        .sheet(isPresented: $showAddSheet) { AddFicSheet(toRead: true) }
     }
 }
 #endif

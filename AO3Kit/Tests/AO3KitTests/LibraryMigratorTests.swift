@@ -114,6 +114,15 @@ final class LibraryMigratorTests: XCTestCase {
         XCTAssertTrue(exists("Writer/Fic.epub"))
     }
 
+    func testNormalizeLayoutLeavesToReadAlone() throws {
+        let dir = root.appendingPathComponent("To Read")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: dir.appendingPathComponent("Stray.epub"))
+        LibraryMigrator.normalizeLayout(root: root)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("Stray.epub").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("ao3/To Read").path))
+    }
+
     func testNormalizeLayoutFilesRootAuthorDirs() throws {
         // A hand-dropped author folder at the library root.
         try write("x", at: "Writer/Fic.epub", under: root)

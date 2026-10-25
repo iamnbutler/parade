@@ -73,7 +73,7 @@ struct FicDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let head = runningHead ?? details?.fandoms.first {
+            if let head = runningHead ?? (model.isToRead(item) ? "To Read" : details?.fandoms.first) {
                 Text(head).textRole(.runningHead).lineLimit(1)
             }
             Text(details?.title ?? item.title)
@@ -109,6 +109,16 @@ struct FicDetailView: View {
             .buttonStyle(.leatherProminent)
             .disabled(!item.isDownloaded)
             .help("Read this fic in Parade")
+            if model.isToRead(item) {
+                Button {
+                    Task { await model.addToLibrary(item) }
+                } label: {
+                    Label("Add to Library", systemImage: "books.vertical")
+                }
+                .buttonStyle(.leather)
+                .disabled(!item.isDownloaded)
+                .help("Move this fic from To Read into your library")
+            }
             // Always available; prominent when a check found an update.
             updateButton
                 .buttonStyle(LeatherButtonStyle(prominent: model.hasUpdate(item)))

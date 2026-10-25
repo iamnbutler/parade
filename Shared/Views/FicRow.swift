@@ -87,6 +87,15 @@ struct FicRow: View {
                 : "Removes the file from your library folder. Copies already in Apple Books stay.")
         }
         .contextMenu {
+            if model.isToRead(item) {
+                Button {
+                    Task { await model.addToLibrary(item) }
+                } label: {
+                    Label("Add to Library", systemImage: "books.vertical")
+                }
+                .disabled(!item.isDownloaded)
+                Divider()
+            }
             Button {
                 model.toggleFavorite(item)
             } label: {

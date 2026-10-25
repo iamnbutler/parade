@@ -99,6 +99,7 @@ enum FicList: Hashable {
     case favorites(query: String)
     case tag(TagSelection, query: String)
     case collection(String, query: String)
+    case toRead(query: String)
 
     /// The list's name, as a running head says it: "Library, 3 of 26".
     var title: String {
@@ -107,6 +108,7 @@ enum FicList: Hashable {
         case .favorites: "Favorites"
         case .tag(let tag, _): tag.name
         case .collection(let name, _): name
+        case .toRead: "To Read"
         }
     }
 }
@@ -364,6 +366,7 @@ final class AppModel: ObservableObject {
         var favorites: Set<String> = []
         var collections = FicCollections()
         var placeholders: [URL] = []
+        var toRead: [LibraryItem] = []
         var error: String?
     }
 
@@ -456,6 +459,10 @@ final class AppModel: ObservableObject {
             library = scan.groups
             invalidateDerived()
         }
+        if toRead != scan.toRead {
+            toRead = scan.toRead
+            idCache = nil
+        }
         hasLoadedOnce = true
         requestDownloads(scan.placeholders)
     }
@@ -498,7 +505,8 @@ final class AppModel: ObservableObject {
         var lastEmit = Date()
         for providerDir in providerDirs {
             guard (try? providerDir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
-                  providerDir.lastPathComponent != Organizer.backupsFolder else { continue }
+                  providerDir.lastPathComponent != Organizer.backupsFolder,
+                  providerDir.lastPathComponent != Organizer.toReadFolder else { continue }
             let provider = providerDir.lastPathComponent
             let authorDirs = (try? fm.contentsOfDirectory(
                 at: providerDir, includingPropertiesForKeys: [.isDirectoryKey],
@@ -525,6 +533,13 @@ final class AppModel: ObservableObject {
             }
         }
         scan.groups = Self.sortedGroups(byAuthor)
+        // To Read is a small library of its own, laid out the same way.
+        let toReadRoot = root.appendingPathComponent(Organizer.toReadFolder, isDirectory: true)
+        if fm.fileExists(atPath: toReadRoot.path) {
+            let inner = scanLibrary(root: toReadRoot)
+            scan.toRead = inner.groups.flatMap(\.items).sorted { $0.added > $1.added }
+            scan.placeholders += inner.placeholders
+        }
         return scan
     }
 
@@ -667,9 +682,50 @@ final class AppModel: ObservableObject {
     /// Looks a fic up by id (favorites, collections, selection).
     func item(withID id: String) -> LibraryItem? {
         if idCache == nil {
-            idCache = Dictionary(library.flatMap(\.items).map { ($0.id, $0) }) { first, _ in first }
+            // The library's copy wins over a To Read one of the same fic.
+            idCache = Dictionary((library.flatMap(\.items) + toRead).map { ($0.id, $0) }) { first, _ in first }
         }
         return idCache?[id]
+    }
+
+    // MARK: - to read
+
+    /// Fics saved to read later, newest first: `<root>/To Read/…`, kept out
+    /// of the library until added to it.
+    @Published private(set) var toRead: [LibraryItem] = []
+
+    private var toReadRoot: URL {
+        destinationRoot.appendingPathComponent(Organizer.toReadFolder, isDirectory: true)
+    }
+
+    func isToRead(_ item: LibraryItem) -> Bool {
+        item.url.standardizedFileURL.path.hasPrefix(toReadRoot.standardizedFileURL.path + "/")
+    }
+
+    /// Moves a To Read fic into the library, filed as any download is; a
+    /// copy already there is backed up, as an update would be. Its id —
+    /// and so its reading place, favorite and collections — stays the same.
+    func addToLibrary(_ item: LibraryItem) async {
+        guard isToRead(item) else { return }
+        guard item.isDownloaded else {
+            showToast("\(item.title.quoted) is still downloading from iCloud")
+            return
+        }
+        do {
+            let organizer = Organizer(root: destinationRoot, provider: item.provider)
+            try organizer.place(item.url, author: item.url.deletingLastPathComponent().lastPathComponent,
+                                title: item.url.deletingPathExtension().lastPathComponent)
+            let dir = item.url.deletingLastPathComponent()
+            if let left = try? FileManager.default.contentsOfDirectory(atPath: dir.path), left.isEmpty {
+                try? FileManager.default.removeItem(at: dir)
+            }
+            toRead.removeAll { $0.id == item.id }
+            idCache = nil
+            showToast("Added \(item.title.quoted) to the library")
+        } catch {
+            showToast("Couldn't add \(item.title.quoted): \(error.localizedDescription)")
+        }
+        await refreshLibraryNow()
     }
 
     /// The fics in one list, in the order that list shows them.
@@ -684,6 +740,8 @@ final class AppModel: ObservableObject {
                 .filter { item($0, matches: query) }
         case .collection(let name, let query):
             return items(inCollection: name).filter { item($0, matches: query) }
+        case .toRead(let query):
+            return toRead.filter { item($0, matches: query) }
         }
     }
 
@@ -769,7 +827,7 @@ final class AppModel: ObservableObject {
             }.value
             detailsCache.merge(loaded) { current, _ in current }
         }
-        let items = library.flatMap(\.items).filter(\.isDownloaded)
+        let items = (library.flatMap(\.items) + toRead).filter(\.isDownloaded)
 
         // Everything the cache already knows lands in one batch. An empty
         // WorkDetails is the "known unparseable" sentinel — cached so a bad
@@ -1111,7 +1169,7 @@ final class AppModel: ObservableObject {
 
     /// Downloads every AO3 work and series link in `text` — one link, or a
     /// whole batch pasted at once — one after another.
-    func handle(_ text: String) async {
+    func handle(_ text: String, toRead: Bool = false) async {
         guard !isWorking else { return }
         let links = AO3Link.all(in: text)
         guard !links.isEmpty else {
@@ -1144,7 +1202,7 @@ final class AppModel: ObservableObject {
                         try? await Task.sleep(for: .seconds(1.5))
                     }
                     do {
-                        try await downloadWork(id: id)
+                        try await downloadWork(id: id, toRead: toRead)
                         saved += 1
                     } catch AO3Error.rateLimited(let retry) {
                         throw AO3Error.rateLimited(retryAfter: retry)
@@ -1174,15 +1232,15 @@ final class AppModel: ObservableObject {
         #endif
     }
 
-    private func downloadWork(id: Int) async throws {
+    private func downloadWork(id: Int, toRead: Bool = false) async throws {
         status("Fetching work \(id)…")
-        try await save(client.fetchWork(id: id))
+        try await save(client.fetchWork(id: id), toRead: toRead)
     }
 
-    private func save(_ work: WorkInfo) async throws {
+    private func save(_ work: WorkInfo, toRead: Bool = false) async throws {
         status("Downloading \(work.title.quoted) by \(work.authorLabel)…")
         let temp = try await client.downloadEPUB(work)
-        let dest = try Organizer(root: destinationRoot).place(temp, for: work)
+        let dest = try Organizer(root: toRead ? toReadRoot : destinationRoot).place(temp, for: work)
         status("✓ Saved \(relativePath(of: dest))")
     }
 
@@ -1291,7 +1349,7 @@ final class AppModel: ObservableObject {
             updating.remove(item.id)
         }
         do {
-            try await downloadWork(id: workID)
+            try await downloadWork(id: workID, toRead: isToRead(item))
             updatesAvailable.remove(item.id)
             saveUpdatesAvailable()
             showToast("Updated \(item.title.quoted)")

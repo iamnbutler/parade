@@ -9,6 +9,12 @@ struct AddFicSheet: View {
     /// The log is shown only once a download starts here — older lines are
     /// some other action's business.
     @State private var startedHere = false
+    /// Save into To Read rather than the library.
+    @State private var toRead: Bool
+
+    init(toRead: Bool = false) {
+        _toRead = State(initialValue: toRead)
+    }
 
     private var linkCount: Int { AO3Link.all(in: linkText).count }
 
@@ -24,9 +30,19 @@ struct AddFicSheet: View {
     }
 
     private var footnote: String {
-        linkCount > 1
-            ? "\(linkCount) links — they download one after another."
+        if linkCount > 1 { return "\(linkCount) links — they download one after another." }
+        return toRead
+            ? "Saved to To Read, a folder of its own beside the library. Add a fic to the library when you want to keep it."
             : "Works and whole series — paste one link or a whole batch. The EPUB is AO3's own export, filed as Author/Title in your library."
+    }
+
+    private var destinationPicker: some View {
+        Picker("Save to", selection: $toRead) {
+            Text("Library").tag(false)
+            Text("To Read").tag(true)
+        }
+        .pickerStyle(.segmented)
+        .disabled(model.isWorking)
     }
 
     private var activity: [String] {
@@ -45,6 +61,9 @@ struct AddFicSheet: View {
             Text("Add fics").textRole(.heading)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Links from AO3").textRole(.kicker)
+                destinationPicker
+                    .labelsHidden()
+                    .fixedSize()
                 linkField
                     .textFieldStyle(.plain)
                     .font(TextRole.body.font)
@@ -97,6 +116,7 @@ struct AddFicSheet: View {
         NavigationStack {
             Form {
                 LeatherSection(title: "Links from AO3") {
+                    destinationPicker
                     linkField
                     PasteButton(payloadType: String.self) { strings in
                         guard let text = strings.first else { return }
@@ -160,7 +180,7 @@ struct AddFicSheet: View {
         guard !text.isEmpty, !model.isWorking else { return }
         startedHere = true
         Task {
-            await model.handle(text)
+            await model.handle(text, toRead: toRead)
             // Success closes the sheet; an error keeps it open to read.
             if model.statusLines.contains(where: { $0.hasPrefix("✓") }),
                !model.statusLines.contains(where: { $0.hasPrefix("⚠️") }) {

@@ -18,17 +18,29 @@ public struct Organizer: Sendable {
     /// Library subfolder that holds superseded versions; never a provider.
     public static let backupsFolder = "Backups"
 
+    /// Library subfolder for fics saved to read later: a library of its own
+    /// (`To Read/<provider>/<Author>/<Title>.epub`), kept out of the main
+    /// one until a fic is added to it.
+    public static let toReadFolder = "To Read"
+
     /// Moves `epubFile` into place for `work`. A previous version at the same
     /// path (same fic, newer text) is moved into Backups/ first, never
     /// deleted. Returns the final location.
     @discardableResult
     public func place(_ epubFile: URL, for work: WorkInfo) throws -> URL {
+        try place(epubFile, author: work.authorLabel, title: work.title)
+    }
+
+    /// Moves `epubFile` to `<provider>/<author>/<title>.epub`, backing up a
+    /// fic already there — for a download, or a fic moving in from To Read.
+    @discardableResult
+    public func place(_ epubFile: URL, author: String, title: String) throws -> URL {
         let authorDir = root
             .appendingPathComponent(provider, isDirectory: true)
-            .appendingPathComponent(Self.sanitize(work.authorLabel), isDirectory: true)
+            .appendingPathComponent(Self.sanitize(author), isDirectory: true)
         try FileManager.default.createDirectory(at: authorDir, withIntermediateDirectories: true)
         let dest = authorDir
-            .appendingPathComponent(Self.sanitize(work.title))
+            .appendingPathComponent(Self.sanitize(title))
             .appendingPathExtension("epub")
         // An update keeps the fic's original "added" date (the file's
         // creation date), so it doesn't jump to the top of Date Added.

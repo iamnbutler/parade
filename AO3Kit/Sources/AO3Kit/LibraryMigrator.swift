@@ -82,7 +82,8 @@ public enum LibraryMigrator {
         var result = Result()
         for entry in entries {
             let isDir = (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-            guard isDir, entry.lastPathComponent != Organizer.backupsFolder else { continue }
+            guard isDir, entry.lastPathComponent != Organizer.backupsFolder,
+                  entry.lastPathComponent != Organizer.toReadFolder else { continue }
             if !directEPUBs(in: entry).isEmpty {
                 // Folder of EPUBs at the root — a legacy/hand-dropped author dir.
                 moveAuthorDir(entry, toProvider: Organizer.ao3, root: root, result: &result)

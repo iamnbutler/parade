@@ -73,14 +73,15 @@ private struct SidebarRow: View {
 /// with the system sidebar toggle, collapsing, and resizable columns.
 struct MacRootView: View {
     enum SidebarSection: Hashable {
-        case library, browse, favorites, settings
+        case library, toRead, browse, favorites, settings
         case collection(String)
 
-        static let main: [SidebarSection] = [.library, .browse, .favorites, .settings]
+        static let main: [SidebarSection] = [.library, .toRead, .browse, .favorites, .settings]
 
         var title: String {
             switch self {
             case .library: "Library"
+            case .toRead: "To Read"
             case .browse: "Browse"
             case .favorites: "Favorites"
             case .settings: "Settings"
@@ -90,6 +91,7 @@ struct MacRootView: View {
         var icon: String {
             switch self {
             case .library: "books.vertical"
+            case .toRead: "bookmark"
             case .browse: "tag"
             case .favorites: "star"
             case .settings: "gearshape"
@@ -210,7 +212,7 @@ struct MacRootView: View {
             .ignoresSafeArea()
         }
         .sheet(isPresented: $showAddSheet) {
-            AddFicSheet()
+            AddFicSheet(toRead: section == .toRead)
         }
         .newCollectionAlert(isPresented: $showNewCollection, model: model)
         .collectionNameAlert(
@@ -301,6 +303,7 @@ struct MacRootView: View {
         case .browse:
             items = browseTag.map { model.items(for: .tag(TagSelection(kind: kind, name: $0), query: "")) } ?? []
         case .settings: items = []
+        case .toRead: items = model.toRead
         default: return Set(model.flatItems(.title).map(\.id))
         }
         return Set(items.map(\.id))
@@ -317,6 +320,7 @@ struct MacRootView: View {
                     .padding(.horizontal, 12)
                     .padding(.bottom, 14)
                 sidebarRow(.library, count: model.library.reduce(0) { $0 + $1.items.count })
+                sidebarRow(.toRead, count: model.toRead.count)
                 sidebarRow(.browse)
                 sidebarRow(.favorites, count: model.favoriteItems.count)
                 SidebarPart(title: "Collections")
@@ -381,12 +385,46 @@ struct MacRootView: View {
             SettingsView()
         case .browse:
             browseList
+        case .toRead:
+            toReadList
         case .favorites:
             favoritesList
         case .collection(let name):
             collectionList(name)
         default:
             libraryList
+        }
+    }
+
+    // MARK: - to read
+
+    @ViewBuilder
+    private var toReadList: some View {
+        if model.toRead.isEmpty {
+            EmptyPage(
+                drawing: "EmptyShelf",
+                title: "Nothing to read yet",
+                message: "Fics saved for later wait here, in a folder of their own. Add one to the library when it's a keeper.")
+            {
+                Button { showAddSheet = true } label: { Label("Add a fic", systemImage: "plus") }
+            }
+            .leatherBackground()
+            .navigationTitle("To Read")
+        } else {
+            let items = model.toRead.filter { model.item($0, matches: searchText) }
+            List(selection: $selectedID) {
+                PageHeader(title: "To Read", subtitle: ficCount(model.toRead.count))
+                ForEach(items) { item in
+                    FicRow(item: item, showsAuthor: true, date: .added).tag(item.id)
+                }
+                .leatherRows()
+            }
+            .leatherList()
+            .readOnDoubleClick(model)
+            .noSearchResults(for: searchText, when: items.isEmpty)
+            .ficSearch(text: $searchText, prompt: "Filter to read…")
+            .navigationTitle("To Read")
+            .pageTitleInContent()
         }
     }
 

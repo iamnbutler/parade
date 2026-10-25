@@ -68,6 +68,18 @@ final class OrganizerTests: XCTestCase {
         XCTAssertEqual(dest.deletingLastPathComponent().lastPathComponent, "a & b")
     }
 
+    func testMovingInFromToReadBacksUpTheLibraryCopy() throws {
+        let toRead = Organizer(root: root.appendingPathComponent(Organizer.toReadFolder))
+        let saved = try toRead.place(makeTempEPUB(), for: makeWork(title: "Fic", authors: ["a"]))
+        let library = Organizer(root: root)
+        try library.place(makeTempEPUB(), for: makeWork(title: "Fic", authors: ["a"]))
+        let moved = try library.place(saved, author: "a", title: "Fic")
+        XCTAssertEqual(moved.path, root.appendingPathComponent("ao3/a/Fic.epub").path)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: saved.path))
+        let backups = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Backups/ao3/a").path)
+        XCTAssertEqual(backups.count, 1)
+    }
+
     func testSanitize() {
         XCTAssertEqual(Organizer.sanitize("A/B: C\\D"), "A-B- C-D")
         XCTAssertEqual(Organizer.sanitize("  spaced   out  "), "spaced out")
