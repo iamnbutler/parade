@@ -114,7 +114,7 @@ struct LibraryView: View {
             }
             .leatherList()
             .noSearchResults(for: searchText, when: sort.isGrouped ? sections.isEmpty : flatItems.isEmpty)
-            .searchable(text: $searchText, prompt: "Search titles, tags, summaries…")
+            .ficSearch(text: $searchText, prompt: "Search titles, tags, summaries…")
             .refreshable { model.refreshLibrary() }
         }
     }
@@ -157,7 +157,7 @@ struct FavoritesView: View {
                     }
                     .leatherList()
                     .noSearchResults(for: searchText, when: items.isEmpty)
-                    .searchable(text: $searchText, prompt: "Filter favorites…")
+                    .ficSearch(text: $searchText, prompt: "Filter favorites…")
                     .refreshable { await model.refreshLibraryNow() }
                 }
             }

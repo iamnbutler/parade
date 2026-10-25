@@ -415,7 +415,7 @@ struct MacRootView: View {
             .readOnDoubleClick(model)
             .palette(.noir)
             .noSearchResults(for: searchText, when: items.isEmpty)
-            .searchable(text: $searchText, prompt: "Filter favorites…")
+            .ficSearch(text: $searchText, prompt: "Filter favorites…")
             .navigationTitle("Favorites")
             .pageTitleInContent()
         }
@@ -443,7 +443,7 @@ struct MacRootView: View {
             .leatherList()
             .readOnDoubleClick(model)
             .noSearchResults(for: searchText, when: !items.contains { model.item($0, matches: searchText) })
-            .searchable(text: $searchText, prompt: "Filter collection…")
+            .ficSearch(text: $searchText, prompt: "Filter collection…")
             .navigationTitle(name)
             .pageTitleInContent()
         }
@@ -587,7 +587,7 @@ struct MacRootView: View {
             .noSearchResults(
                 for: searchText,
                 when: sort.isGrouped ? filteredSections.isEmpty : libraryFlat.isEmpty)
-            .searchable(text: $searchText, prompt: "Search titles, tags, summaries…")
+            .ficSearch(text: $searchText, prompt: "Search titles, tags, summaries…")
             .navigationTitle("Library")
             .pageTitleInContent()
         }

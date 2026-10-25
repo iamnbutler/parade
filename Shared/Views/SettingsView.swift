@@ -14,6 +14,7 @@ struct SettingsView: View {
                 #endif
                 folderSection
                 updatesSection
+                searchSection
                 #if os(macOS)
                 booksSection
                 #endif
@@ -91,6 +92,15 @@ struct SettingsView: View {
             #else
             Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
             #endif
+        }
+    }
+
+    private var searchSection: some View {
+        LeatherSection(title: "Search") {
+            Button("Clear Search History") { model.clearSearchHistory() }
+                .disabled(model.recentSearches.isEmpty)
+        } footer: {
+            Text("Recent searches show when you tap a search field. They stay on this device.")
         }
     }
 

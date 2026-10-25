@@ -191,6 +191,7 @@ final class AppModel: ObservableObject {
         static let imported = "importedFiles.v1"
         static let baselinedFolder = "baselinedFolder.v1"
         static let updatesAvailable = "updatesAvailable.v1"
+        static let recentSearches = "recentSearches.v1"
     }
 
     init() {
@@ -200,6 +201,7 @@ final class AppModel: ObservableObject {
         imported = defaults.dictionary(forKey: Keys.imported) as? [String: TimeInterval] ?? [:]
         #endif
         updatesAvailable = Set(defaults.stringArray(forKey: Keys.updatesAvailable) ?? [])
+        recentSearches = defaults.stringArray(forKey: Keys.recentSearches) ?? []
         destinationRoot = Self.testLibrary ?? Self.localRoot()
         updateDestinationLabel()
         refreshLibrary()
@@ -597,6 +599,7 @@ final class AppModel: ObservableObject {
             idCache = nil
         }
         tagCache = [:]
+        vocabularyCache = nil
     }
 
     /// Every item in the given order — computed once per library/details
@@ -688,7 +691,9 @@ final class AppModel: ObservableObject {
 
     /// item.id → metadata, for whatever has been parsed so far. Series
     /// grouping and search read from this; it fills in the background.
-    @Published private(set) var detailsIndex: [String: WorkDetails] = [:]
+    @Published private(set) var detailsIndex: [String: WorkDetails] = [:] {
+        didSet { vocabularyCache = nil }
+    }
     /// "path|mtime" → details. Persisted to Caches so a library is parsed
     /// once ever, not once per launch.
     private var detailsCache: [String: WorkDetails] = [:]
@@ -900,6 +905,53 @@ final class AppModel: ObservableObject {
         }
         invalidateDerived()
         refreshLibrary()
+    }
+
+    // MARK: - search history
+
+    /// Searches typed in any library filter, newest first.
+    @Published private(set) var recentSearches: [String] = []
+
+    /// Remembers a search. One that extends (or was cut down from) a recent
+    /// one replaces it, so typing "hea…heated rivalry" leaves one entry.
+    func rememberSearch(_ query: String) {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 2 else { return }
+        let lower = q.lowercased()
+        var list = recentSearches.filter { old in
+            let o = old.lowercased()
+            return !lower.hasPrefix(o) && !o.hasPrefix(lower)
+        }
+        list.insert(q, at: 0)
+        recentSearches = Array(list.prefix(12))
+        defaults.set(recentSearches, forKey: Keys.recentSearches)
+    }
+
+    func forgetSearch(_ query: String) {
+        recentSearches.removeAll { $0 == query }
+        defaults.set(recentSearches, forKey: Keys.recentSearches)
+    }
+
+    func clearSearchHistory() {
+        recentSearches = []
+        defaults.set(recentSearches, forKey: Keys.recentSearches)
+    }
+
+    private var vocabularyCache: [String]?
+
+    /// Every fandom, ship, character, tag and series in the library, most
+    /// used first — what search suggests as you type.
+    var searchVocabulary: [String] {
+        if let vocabularyCache { return vocabularyCache }
+        var counts: [String: Int] = [:]
+        for d in detailsIndex.values {
+            for value in d.fandoms + d.relationships + d.characters + d.additionalTags + [d.seriesName].compactMap({ $0 }) {
+                counts[value, default: 0] += 1
+            }
+        }
+        let words = counts.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.map(\.key)
+        vocabularyCache = words
+        return words
     }
 
     // MARK: - favorites

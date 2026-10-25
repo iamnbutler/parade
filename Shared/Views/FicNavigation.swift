@@ -129,7 +129,7 @@ struct TagFicsView: View {
         .leatherList()
         #if os(iOS)
         .noSearchResults(for: searchText, when: items.isEmpty)
-        .searchable(text: $searchText, prompt: "Filter fics…")
+        .ficSearch(text: $searchText, prompt: "Filter fics…")
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .navigationTitle(tag.name)
