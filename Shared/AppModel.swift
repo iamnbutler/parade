@@ -1084,6 +1084,10 @@ final class AppModel: ObservableObject {
         if position.samePlace(as: all[item.id]),
            let saved = all[item.id]?.date, position.date!.timeIntervalSince(saved) < 60 { return }
         all[item.id] = position
+        writeReadingPositions(all)
+    }
+
+    private func writeReadingPositions(_ all: [String: ReadingPosition]) {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -1242,6 +1246,137 @@ final class AppModel: ObservableObject {
         let temp = try await client.downloadEPUB(work)
         let dest = try Organizer(root: toRead ? toReadRoot : destinationRoot).place(temp, for: work)
         status("✓ Saved \(relativePath(of: dest))")
+    }
+
+    // MARK: - linking fics to AO3
+
+    /// Fics whose EPUB carries no AO3 link — downloaded outside Parade, or
+    /// from somewhere else — among those indexed so far.
+    var unlinkedItems: [LibraryItem] {
+        (library.flatMap(\.items) + toRead).filter { item in
+            guard let d = detailsIndex[item.id] else { return false }
+            return d.workID == nil
+        }
+    }
+
+    @Published private(set) var isLinking = false
+
+    /// AO3 works that might be this fic, likeliest first: a title-and-
+    /// creator search, then title alone if that finds nothing.
+    func ao3Candidates(for item: LibraryItem) async throws -> [WorkBlurb] {
+        let author = item.author.components(separatedBy: " & ").first ?? item.author
+        var works = try await client.works(AO3WorkQuery(source: .titleAuthor(title: item.title, author: author))).works
+        if works.isEmpty, !author.isEmpty {
+            try? await Task.sleep(for: .seconds(1.5))
+            works = try await client.works(AO3WorkQuery(source: .titleAuthor(title: item.title, author: ""))).works
+        }
+        let likely = works.filter { $0.matches(title: item.title, author: item.author) }
+        return likely + works.filter { w in !likely.contains { $0.id == w.id } }
+    }
+
+    /// Replaces a fic's EPUB with AO3's own export of `workID` — which
+    /// carries the work's link, tags, summary and series — keeping the old
+    /// file in Backups. Favorites, collections and the reading place follow
+    /// it if AO3 files it under another name.
+    @discardableResult
+    func link(_ item: LibraryItem, toWork workID: Int) async -> Bool {
+        guard !isWorking else {
+            showToast("Busy — try again when the current download finishes")
+            return false
+        }
+        isWorking = true
+        defer { isWorking = false }
+        let linked = await relink(item, toWork: workID)
+        await refreshLibraryNow()
+        buildDetailsIndex()
+        if linked { showToast("Linked \(item.title.quoted) to AO3") }
+        return linked
+    }
+
+    private func relink(_ item: LibraryItem, toWork workID: Int) async -> Bool {
+        do {
+            status("Linking \(item.title.quoted) to AO3 work \(workID)…")
+            let work = try await client.fetchWork(id: workID)
+            let temp = try await client.downloadEPUB(work)
+            let organizer = Organizer(root: isToRead(item) ? toReadRoot : destinationRoot, provider: item.provider)
+            let dest = try organizer.place(temp, for: work)
+            if dest.standardizedFileURL.path != item.url.standardizedFileURL.path,
+               FileManager.default.fileExists(atPath: item.url.path) {
+                try? organizer.backUp(item.url)
+                let dir = item.url.deletingLastPathComponent()
+                if let left = try? FileManager.default.contentsOfDirectory(atPath: dir.path), left.isEmpty {
+                    try? FileManager.default.removeItem(at: dir)
+                }
+            }
+            let newID = item.provider + "/" + dest.deletingLastPathComponent().lastPathComponent
+                + "/" + dest.deletingPathExtension().lastPathComponent
+            if newID != item.id { carryOver(from: item.id, to: newID) }
+            status("✓ Linked \(item.title.quoted) to AO3")
+            return true
+        } catch {
+            status("⚠️ \(item.title.quoted): \(error.localizedDescription)")
+            showToast("Couldn't link \(item.title.quoted): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Moves everything keyed by a fic's id to its new id.
+    private func carryOver(from old: String, to new: String) {
+        if favorites.remove(old) != nil {
+            favorites.insert(new)
+            saveFavorites()
+        }
+        let inCollections = collections.collections(containing: old)
+        if !inCollections.isEmpty {
+            for name in inCollections {
+                collections.remove(old, from: name)
+                collections.add(new, to: name)
+            }
+            saveCollections()
+        }
+        var positions = readingPositions()
+        if let p = positions.removeValue(forKey: old) {
+            positions[new] = p
+            writeReadingPositions(positions)
+            if lastReadID == old { lastReadID = new }
+        }
+        if updatesAvailable.remove(old) != nil { saveUpdatesAvailable() }
+    }
+
+    /// Links every unlinked fic whose AO3 search finds exactly one work with
+    /// its title and author — the sure ones. Others are left for the fic's
+    /// own page, to choose by hand. One request at a time, spaced.
+    func linkAllUnlinked() async {
+        guard !isWorking else { return }
+        let items = unlinkedItems
+        guard !items.isEmpty else { return }
+        isWorking = true
+        isLinking = true
+        statusLines = []
+        defer { isWorking = false; isLinking = false }
+        var linked = 0, unsure = 0
+        for (i, item) in items.enumerated() {
+            if i > 0 { try? await Task.sleep(for: .seconds(1.5)) }
+            do {
+                let sure = try await ao3Candidates(for: item).filter { $0.matches(title: item.title, author: item.author) }
+                guard sure.count == 1 else {
+                    unsure += 1
+                    status("· \(item.title.quoted): \(sure.isEmpty ? "no sure match" : "\(sure.count) possible works") — choose on its page")
+                    continue
+                }
+                try? await Task.sleep(for: .seconds(1.5))
+                if await relink(item, toWork: sure[0].id) { linked += 1 }
+            } catch AO3Error.rateLimited(let retry) {
+                status("⚠️ \(AO3Error.rateLimited(retryAfter: retry).localizedDescription) Stopped after \(linked).")
+                break
+            } catch {
+                status("⚠️ \(item.title.quoted): \(error.localizedDescription)")
+            }
+        }
+        status("Linked \(linked) of \(items.count)\(unsure > 0 ? "; \(unsure) need a choice on their page" : "")")
+        showToast("Linked \(linked) fic\(linked == 1 ? "" : "s") to AO3")
+        await refreshLibraryNow()
+        buildDetailsIndex()
     }
 
     // MARK: - fic updates (against AO3)

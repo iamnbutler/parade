@@ -37,6 +37,9 @@ struct FicDetailView: View {
                             .textSelection(.enabled)
                     }
                 }
+                if let details, details.workURL == nil {
+                    AO3LinkFinder(item: item)
+                }
                 if let details {
                     statsRow(details)
                     Hairline()
@@ -239,5 +242,79 @@ struct FicDetailView: View {
         var style = Date.FormatStyle(date: .abbreviated, time: .omitted)
         style.timeZone = TimeZone(identifier: "UTC")!
         return date.formatted(style)
+    }
+}
+
+/// For a fic whose EPUB has no AO3 link (downloaded elsewhere): finds the
+/// work on AO3 by title and author, and on a choice re-downloads AO3's own
+/// export, which brings the link, tags, summary and series with it.
+private struct AO3LinkFinder: View {
+    let item: LibraryItem
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.palette) private var palette
+    @State private var candidates: [WorkBlurb]?
+    @State private var searching = false
+    @State private var failure: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Not linked to AO3").textRole(.kicker)
+            Text("This copy came from outside Parade, so it has no AO3 link, tags or series. Find the work on AO3 and Parade will fetch AO3's own copy; this one goes to Backups.")
+                .textRole(.meta)
+                .fixedSize(horizontal: false, vertical: true)
+            if let candidates {
+                if candidates.isEmpty {
+                    Text("Nothing on AO3 by that title and author.").textRole(.dek)
+                }
+                ForEach(candidates.prefix(5)) { work in
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(work.title).textRole(.rowTitle)
+                            Text(([("by " + work.authors.joined(separator: " & "))] + work.fandoms.prefix(1)
+                                  + [work.words.map { "\($0.formatted()) words" }].compactMap { $0 })
+                                 .joined(separator: " · "))
+                                .textRole(.meta)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                        Button("This one") {
+                            Task { await model.link(item, toWork: work.id) }
+                        }
+                        .buttonStyle(LeatherButtonStyle(prominent: work.matches(title: item.title, author: item.author)))
+                        .disabled(model.isWorking)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } else if let failure {
+                Text(failure).textRole(.dek)
+            }
+            if candidates == nil {
+                Button {
+                    Task { await search() }
+                } label: {
+                    if searching {
+                        HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Searching AO3…") }
+                    } else {
+                        Label("Find on AO3", systemImage: "magnifyingglass")
+                    }
+                }
+                .buttonStyle(.leather)
+                .disabled(searching || model.isWorking)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .debossed(cornerRadius: 12)
+    }
+
+    private func search() async {
+        searching = true
+        failure = nil
+        defer { searching = false }
+        do {
+            candidates = try await model.ao3Candidates(for: item)
+        } catch {
+            failure = "Couldn't search AO3: \(error.localizedDescription)"
+        }
     }
 }

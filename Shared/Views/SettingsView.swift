@@ -14,6 +14,7 @@ struct SettingsView: View {
                 #endif
                 folderSection
                 updatesSection
+                linkSection
                 searchSection
                 #if os(macOS)
                 booksSection
@@ -92,6 +93,27 @@ struct SettingsView: View {
             #else
             Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
             #endif
+        }
+    }
+
+    private var linkSection: some View {
+        let count = model.unlinkedItems.count
+        return LeatherSection(title: "AO3 links") {
+            Button {
+                Task { await model.linkAllUnlinked() }
+            } label: {
+                if model.isLinking {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Linking…")
+                    }
+                } else {
+                    Text(count == 0 ? "Every fic is linked to AO3" : "Link \(count) Fic\(count == 1 ? "" : "s") to AO3")
+                }
+            }
+            .disabled(count == 0 || model.isWorking)
+        } footer: {
+            Text("Fics downloaded outside Parade have no AO3 link, tags or series. This finds each on AO3 by title and author — one request at a time — and swaps in AO3's own copy where there's exactly one sure match, keeping the old file in Backups. The rest can be matched by hand on their own page.")
         }
     }
 

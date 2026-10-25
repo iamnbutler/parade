@@ -45,7 +45,7 @@ enum HTMLExtract {
 
     // MARK: - helpers
 
-    private static func firstMatch(in text: String, pattern: String) -> String? {
+    static func firstMatch(in text: String, pattern: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               match.numberOfRanges > 1,
@@ -54,11 +54,11 @@ enum HTMLExtract {
         return String(text[range])
     }
 
-    private static func allMatches(in text: String, pattern: String) -> [String] {
+    static func allMatches(in text: String, pattern: String, group: Int = 1) -> [String] {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         return regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
             .compactMap { match in
-                guard match.numberOfRanges > 1, let range = Range(match.range(at: 1), in: text) else { return nil }
+                guard match.numberOfRanges > group, let range = Range(match.range(at: group), in: text) else { return nil }
                 return String(text[range])
             }
     }

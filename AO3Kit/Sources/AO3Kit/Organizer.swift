@@ -57,7 +57,7 @@ public struct Organizer: Sendable {
     }
 
     /// Moves a superseded EPUB to `Backups/<provider>/<Author>/<Title> (<stamp>).epub`.
-    private func backUp(_ file: URL) throws {
+    public func backUp(_ file: URL) throws {
         let fm = FileManager.default
         let author = file.deletingLastPathComponent().lastPathComponent
         let dir = root
