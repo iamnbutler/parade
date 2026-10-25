@@ -270,9 +270,7 @@ private struct AO3LinkFinder: View {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(work.title).textRole(.rowTitle)
-                            Text(([("by " + work.authors.joined(separator: " & "))] + work.fandoms.prefix(1)
-                                  + [work.words.map { "\($0.formatted()) words" }].compactMap { $0 })
-                                 .joined(separator: " · "))
+                            Text(byline(work))
                                 .textRole(.meta)
                                 .lineLimit(2)
                         }
@@ -305,6 +303,14 @@ private struct AO3LinkFinder: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .debossed(cornerRadius: 12)
+    }
+
+    /// "by taliiaa · Heated Rivalry (TV) · 1,429 words"
+    private func byline(_ work: WorkBlurb) -> String {
+        var parts = ["by " + work.authors.joined(separator: " & ")]
+        if let fandom = work.fandoms.first { parts.append(fandom) }
+        if let words = work.words { parts.append("\(words.formatted()) words") }
+        return parts.joined(separator: " · ")
     }
 
     private func search() async {
