@@ -106,8 +106,10 @@ extension View {
 
 private struct WashBehind: ViewModifier {
     @Environment(\.backdropFrame) private var backdrop
+    @Environment(\.palette) private var palette
 
     func body(content: Content) -> some View {
+        #if os(macOS)
         content.background {
             if let backdrop {
                 BackdropSlice(backdrop: backdrop)
@@ -124,6 +126,21 @@ private struct WashBehind: ViewModifier {
                     .allowsHitTesting(false)
             }
         }
+        #else
+        // Only local pieces here — the page's color and grain. A slice of
+        // the whole page, placed from global geometry, washed out the rows
+        // while a UIKit list scrolled, overhang or not.
+        content.background {
+            ZStack {
+                palette.leather
+                Image(decorative: Grain.tile, scale: 2)
+                    .resizable(resizingMode: .tile)
+                    .opacity(palette.grain)
+            }
+            .padding(.horizontal, -40)
+            .allowsHitTesting(false)
+        }
+        #endif
     }
 }
 
