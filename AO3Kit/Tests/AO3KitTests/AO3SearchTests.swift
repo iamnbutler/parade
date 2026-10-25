@@ -44,6 +44,14 @@ final class AO3SearchTests: XCTestCase {
         XCTAssertEqual(BlurbExtract.results(in: html, page: 1).total, 5431)
     }
 
+    func testPlainTermsDropQuerySyntax() {
+        XCTAssertEqual(AO3WorkQuery.plainTerms("Everybody Wants to Rule the World - Final Mix"),
+                       "Everybody Wants to Rule the World Final Mix")
+        XCTAssertEqual(AO3WorkQuery.plainTerms("\"Hello!\" (a/b): Self-Care"), "Hello a b Self Care")
+        XCTAssertEqual(AO3WorkQuery.plainTerms("Shenhe's Grand Tour"), "Shenhe's Grand Tour")
+        XCTAssertEqual(AO3WorkQuery.plainTerms("Rise of the Blue Phoenix《藍鳳涅槃》"), "Rise of the Blue Phoenix《藍鳳涅槃》")
+    }
+
     func testTitleAuthorQueryAndLooseMatch() {
         let url = AO3WorkQuery(source: .titleAuthor(title: "Text Me", author: "taliiaa")).url.absoluteString
         XCTAssertTrue(url.contains("work_search%5Btitle%5D=Text%20Me"), url)

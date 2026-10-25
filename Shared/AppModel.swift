@@ -1265,10 +1265,19 @@ final class AppModel: ObservableObject {
     /// creator search, then title alone if that finds nothing.
     func ao3Candidates(for item: LibraryItem) async throws -> [WorkBlurb] {
         let author = item.author.components(separatedBy: " & ").first ?? item.author
-        var works = try await client.works(AO3WorkQuery(source: .titleAuthor(title: item.title, author: author))).works
-        if works.isEmpty, !author.isEmpty {
-            try? await Task.sleep(for: .seconds(1.5))
-            works = try await client.works(AO3WorkQuery(source: .titleAuthor(title: item.title, author: ""))).works
+        let creator = ["anonymous", "unknown", "orphan_account"].contains(author.lowercased()) ? "" : author
+        let plain = AO3WorkQuery.plainTerms(item.title)
+        // Before a " - " or ": " subtitle other tools add, or AO3 drops.
+        let head = item.title.components(separatedBy: " - ").first?
+            .components(separatedBy: ": ").first.map(AO3WorkQuery.plainTerms) ?? plain
+        // Each a little looser than the last, until one finds something.
+        var tries: [(String, String)] = [(item.title, creator), (plain, creator), (plain, ""), (head, creator)]
+        tries = tries.filter { !$0.0.isEmpty }
+        var seen = Set<String>(), works: [WorkBlurb] = []
+        for (title, creator) in tries where seen.insert(title + "|" + creator).inserted {
+            if seen.count > 1 { try? await Task.sleep(for: .seconds(1.5)) }
+            works = try await client.works(AO3WorkQuery(source: .titleAuthor(title: title, author: creator))).works
+            if !works.isEmpty { break }
         }
         let likely = works.filter { $0.matches(title: item.title, author: item.author) }
         return likely + works.filter { w in !likely.contains { $0.id == w.id } }

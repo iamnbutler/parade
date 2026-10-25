@@ -76,6 +76,16 @@ public struct AO3WorkQuery: Sendable, Hashable {
         return c.url!
     }
 
+    /// `text` as plain search words. AO3's title and creator fields take
+    /// query syntax, so a title like "Rule the World - Final Mix" or one
+    /// with quotes, colons or slashes can otherwise match nothing.
+    public static func plainTerms(_ text: String) -> String {
+        let syntax = CharacterSet(charactersIn: "-:!\"/\\()[]{}^~*?+&|<>=")
+        return text.components(separatedBy: syntax)
+            .flatMap { $0.split(whereSeparator: \.isWhitespace) }
+            .joined(separator: " ")
+    }
+
     static func tagPath(_ name: String) -> String {
         let spelled = name
             .replacingOccurrences(of: "*", with: "*x*")  // before the others add asterisks

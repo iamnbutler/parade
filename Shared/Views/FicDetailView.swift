@@ -255,6 +255,7 @@ private struct AO3LinkFinder: View {
     @State private var candidates: [WorkBlurb]?
     @State private var searching = false
     @State private var failure: String?
+    @State private var pasted = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -264,7 +265,7 @@ private struct AO3LinkFinder: View {
                 .fixedSize(horizontal: false, vertical: true)
             if let candidates {
                 if candidates.isEmpty {
-                    Text("Nothing on AO3 by that title and author.").textRole(.dek)
+                    Text("AO3's search found nothing by that title and author.").textRole(.dek)
                 }
                 ForEach(candidates.prefix(5)) { work in
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -286,14 +287,32 @@ private struct AO3LinkFinder: View {
             } else if let failure {
                 Text(failure).textRole(.dek)
             }
-            if candidates == nil {
+            if candidates?.isEmpty == true || failure != nil {
+                // AO3's search misses some works (renamed, anonymous, odd
+                // titles); a link always finds it.
+                HStack(spacing: 8) {
+                    TextField("Or paste the work's AO3 link", text: $pasted)
+                        .textFieldStyle(.roundedBorder)
+                        #if os(iOS)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        #endif
+                        .autocorrectionDisabled()
+                        .onSubmit { linkPasted() }
+                    Button("Link") { linkPasted() }
+                        .buttonStyle(.leather)
+                        .disabled(pastedWorkID == nil || model.isWorking)
+                }
+            }
+            if candidates == nil || candidates?.isEmpty == true {
                 Button {
                     Task { await search() }
                 } label: {
                     if searching {
                         HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Searching AO3…") }
                     } else {
-                        Label("Find on AO3", systemImage: "magnifyingglass")
+                        Label(candidates == nil && failure == nil ? "Find on AO3" : "Search Again",
+                              systemImage: "magnifyingglass")
                     }
                 }
                 .buttonStyle(.leather)
@@ -313,9 +332,20 @@ private struct AO3LinkFinder: View {
         return parts.joined(separator: " · ")
     }
 
+    private var pastedWorkID: Int? {
+        if case .work(let id) = AO3Link(text: pasted) { return id }
+        return nil
+    }
+
+    private func linkPasted() {
+        guard let id = pastedWorkID, !model.isWorking else { return }
+        Task { await model.link(item, toWork: id) }
+    }
+
     private func search() async {
         searching = true
         failure = nil
+        candidates = nil
         defer { searching = false }
         do {
             candidates = try await model.ao3Candidates(for: item)
