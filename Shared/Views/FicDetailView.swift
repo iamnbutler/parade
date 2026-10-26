@@ -125,12 +125,6 @@ struct FicDetailView: View {
             // Always available; prominent when a check found an update.
             updateButton
                 .buttonStyle(LeatherButtonStyle(prominent: model.hasUpdate(item)))
-            if item.isDownloaded {
-                ShareLink(item: item.url) {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-                .buttonStyle(.leather)
-            }
             if let url = details?.workURL {
                 Link(destination: url) {
                     Label("AO3", systemImage: "safari")

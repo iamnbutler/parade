@@ -4,8 +4,8 @@
 
 ### Removed
 - Apple Books integration: sending fics to Books, auto-import, Import All
-  and the Apple Events permission. Fics are read in Parade's own reader; a
-  fic page's Share button still hands the EPUB to any app.
+  and the Apple Events permission, and the fic page's Books button. Fics
+  are read in Parade's own reader.
 - Type and spacing settings (faces, sizes, spacing), for now.
 
 ### Fixed

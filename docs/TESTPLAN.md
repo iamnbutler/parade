@@ -85,7 +85,6 @@ Legend: (iOS) / (Mac) = platform-specific; unmarked = both.
 - 4.2 Action buttons never squeeze or break mid-word; they wrap.
 - 4.3 Update button appears (prominent) only when flagged; otherwise
   Update lives in the Collections menu.
-- 4.4 Share opens the share sheet with the EPUB.
 - 4.5 AO3 opens the work page.
 - 4.6 Favorite toggles and stays in sync with the list star.
 - 4.7 Tapping a chip opens every fic with that tag; tapping the series
