@@ -28,11 +28,9 @@ extension View {
 
 private struct LeatherRows: ViewModifier {
     @Environment(\.palette) private var palette
-    @Environment(\.typeTheme) private var theme
 
     func body(content: Content) -> some View {
         content
-            .padding(.vertical, theme.rowPadding)
             .listRowBackground(Color.clear)
             .listRowSeparatorTint(palette.rule)
             #if os(macOS)
