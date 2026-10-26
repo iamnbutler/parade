@@ -40,6 +40,7 @@ struct BrowseView: View {
                     .noSearchResults(for: searchText, when: groups.isEmpty)
                     .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
                                 prompt: "Filter \(kind.label.lowercased())…")
+                    .barHidesOnScrollDown(unless: !searchText.isEmpty)
                     .refreshable { await model.refreshLibraryNow() }
                 }
             }
