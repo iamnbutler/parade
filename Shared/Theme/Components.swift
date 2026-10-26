@@ -51,12 +51,14 @@ struct SectionHeading: View {
             if let count { Numeral(value: count, size: 14) }
         }
         .textCase(nil)
-        .padding(.top, 6)
+        .padding(.top, 14)
+        // A row, not a section header: it scrolls with its fics instead of
+        // pinning to the top.
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
         #if os(macOS)
-        // Line up with the rows' 20 pt inset.
-        .padding(.horizontal, 20)
+        .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 0, trailing: 20))
         #endif
-        .washBehind()
     }
 }
 

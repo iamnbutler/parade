@@ -103,6 +103,7 @@ struct LibraryView: View {
                 if sort.isGrouped {
                     ForEach(sections, id: \.name) { section in
                         Section {
+                            SectionHeading(name: section.name)
                             ForEach(section.items) { item in
                                 NavigationLink(value: route(item)) {
                                     // Series sections hold many authors.
@@ -110,8 +111,6 @@ struct LibraryView: View {
                                 }
                             }
                             .leatherRows()
-                        } header: {
-                            SectionHeading(name: section.name)
                         }
                     }
                 } else {

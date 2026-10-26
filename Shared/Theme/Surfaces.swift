@@ -59,94 +59,13 @@ struct BackdropSlice: View {
 
 private struct LeatherPage: ViewModifier {
     @Environment(\.leatherBackdrop) private var backdrop
-    @State private var frame: CGRect?
 
     func body(content: Content) -> some View {
         if backdrop {
             content
         } else {
-            #if os(macOS)
-            content
-                .environment(\.backdropFrame, frame)
-                .background {
-                    LeatherBackground()
-                        .background {
-                            // Where the page sits, so pinned headers can
-                            // show the same leather (WashBehind).
-                            GeometryReader { geo in
-                                Color.clear
-                                    .onAppear { frame = geo.frame(in: .global) }
-                                    .onChange(of: geo.frame(in: .global)) { _, new in frame = new }
-                            }
-                            .ignoresSafeArea()
-                        }
-                }
-            #else
-            // iOS headers wash with local pieces (WashBehind), so the page
-            // needn't track its frame — which redrew it through every slide.
             content.background { LeatherBackground() }
-            #endif
         }
-    }
-}
-
-private struct BackdropFrameKey: EnvironmentKey {
-    static let defaultValue: CGRect? = nil
-}
-
-extension EnvironmentValues {
-    /// The page's `LeatherBackground`, in global coordinates, once laid out.
-    var backdropFrame: CGRect? {
-        get { self[BackdropFrameKey.self] }
-        set { self[BackdropFrameKey.self] = newValue }
-    }
-}
-
-extension View {
-    /// Pinned headers sit on the page's own leather, fading out below, so
-    /// rows scrolling under them disappear instead of showing through.
-    func washBehind() -> some View {
-        modifier(WashBehind())
-    }
-}
-
-private struct WashBehind: ViewModifier {
-    @Environment(\.backdropFrame) private var backdrop
-    @Environment(\.palette) private var palette
-
-    func body(content: Content) -> some View {
-        #if os(macOS)
-        content.background {
-            if let backdrop {
-                BackdropSlice(backdrop: backdrop)
-                    .mask {
-                        LinearGradient(
-                            stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.72),
-                                    .init(color: .clear, location: 1)],
-                            startPoint: .top, endPoint: .bottom)
-                    }
-                    // Out to the list's edges, and a little below for the fade.
-                    .padding(.horizontal, -40)
-                    .padding(.top, -6)
-                    .padding(.bottom, -12)
-                    .allowsHitTesting(false)
-            }
-        }
-        #else
-        // Only local pieces here — the page's color and grain. A slice of
-        // the whole page, placed from global geometry, washed out the rows
-        // while a UIKit list scrolled, overhang or not.
-        content.background {
-            ZStack {
-                palette.leather
-                Image(decorative: Grain.tile, scale: 2)
-                    .resizable(resizingMode: .tile)
-                    .opacity(palette.grain)
-            }
-            .padding(.horizontal, -40)
-            .allowsHitTesting(false)
-        }
-        #endif
     }
 }
 

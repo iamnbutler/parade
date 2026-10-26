@@ -157,7 +157,6 @@ struct MacRootView: View {
         } content: {
             contentColumn
                 .environment(\.leatherBackdrop, true)
-                .environment(\.backdropFrame, backdropFrame)
                 // Every state of the column, empty and loading included,
                 // titles itself in the page, not the toolbar.
                 .pageTitleInContent()
@@ -644,12 +643,11 @@ struct MacRootView: View {
                 if sort.isGrouped {
                     ForEach(filteredSections, id: \.name) { section in
                         Section {
+                            SectionHeading(name: section.name)
                             ForEach(section.items) { item in
                                 FicRow(item: item, showsAuthor: sort.mixesAuthors).tag(item.id)
                             }
                             .leatherRows()
-                        } header: {
-                            SectionHeading(name: section.name)
                         }
                     }
                 } else {
