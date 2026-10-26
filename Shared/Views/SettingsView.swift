@@ -86,12 +86,12 @@ struct SettingsView: View {
                     Text("Check AO3 for Updates")
                 }
             }
-            .disabled(model.isCheckingUpdates || model.isWorking)
+            .disabled(model.isCheckingUpdates)
         } footer: {
             #if os(iOS)
-            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you tap it. Fics with an update get a gold dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version in the Backups folder.")
+            Text("Asks AO3 which of your fics changed since the last check, a few hundred per request (the first check of a big library takes a while). Only runs when you tap it. Fics with an update get a gold dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version in the Backups folder.")
             #else
-            Text("Asks AO3 whether each fic changed since its download — one request per fic, politely spaced, so a big library takes a while. Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
+            Text("Asks AO3 which of your fics changed since the last check, a few hundred per request (the first check of a big library takes a while). Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
             #endif
         }
     }
@@ -100,20 +100,22 @@ struct SettingsView: View {
         let count = model.unlinkedItems.count
         return LeatherSection(title: "AO3 links") {
             Button {
-                Task { await model.linkAllUnlinked() }
+                Task { await model.linkNextUnlinked() }
             } label: {
                 if model.isLinking {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         Text("Linking…")
                     }
+                } else if count == 0 {
+                    Text("Every fic is linked to AO3")
                 } else {
-                    Text(count == 0 ? "Every fic is linked to AO3" : "Link \(count) Fic\(count == 1 ? "" : "s") to AO3")
+                    Text("Link \(min(count, AppModel.linkBatch)) of \(count) Unlinked Fic\(count == 1 ? "" : "s")")
                 }
             }
-            .disabled(count == 0 || model.isWorking)
+            .disabled(count == 0)
         } footer: {
-            Text("Fics downloaded outside Parade have no AO3 link, tags or series. This finds each on AO3 by title and author — one request at a time — and swaps in AO3's own copy where there's exactly one sure match, keeping the old file in Backups. The rest can be matched by hand on their own page.")
+            Text("Fics downloaded outside Parade have no AO3 link, tags or series. This finds them on AO3 by title and author, 20 at a time and gently paced, and swaps in AO3's own copy where there's exactly one sure match, keeping the old file in Backups. The rest can be matched by hand on their own page.")
         }
     }
 

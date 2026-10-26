@@ -66,13 +66,13 @@ private struct FloatingListControls: View {
                         Text("Resume")
                             .font(.reading(14, relativeTo: .footnote, italic: true))
                             .foregroundStyle(palette.gold)
-                        Text(item.title)
+                        // Shortened by hand: a width cap made the pill
+                        // stretch to it even for a short title.
+                        Text(Self.short(item.title))
                             .font(.reading(14, relativeTo: .footnote))
                             .foregroundStyle(palette.ink)
                             .lineLimit(1)
-                            .truncationMode(.tail)
                     }
-                    .frame(maxWidth: 210)
                     .padding(.horizontal, 14)
                     .frame(height: 40)
                     .contentShape(Capsule())
@@ -95,5 +95,9 @@ private struct FloatingListControls: View {
             .help("Back to top")
         }
         .padding(16)
+    }
+
+    private static func short(_ title: String) -> String {
+        title.count <= 22 ? title : title.prefix(20).trimmingCharacters(in: .whitespaces) + "…"
     }
 }

@@ -33,6 +33,14 @@ private struct FicSearch: ViewModifier {
             }
     }
 
+    private static func symbol(_ kind: AppModel.SearchTerm.Kind) -> String {
+        switch kind {
+        case .author: "person"
+        case .title: "book.closed"
+        case .tag: "tag"
+        }
+    }
+
     @ViewBuilder
     private var suggestions: some View {
         let query = text.trimmingCharacters(in: .whitespaces)
@@ -53,13 +61,13 @@ private struct FicSearch: ViewModifier {
                 Label(recent, systemImage: "clock.arrow.circlepath")
                     .searchCompletion(recent)
             }
-            let tags = model.searchVocabulary
+            let terms = model.searchVocabulary
                 .lazy
-                .filter { $0.localizedCaseInsensitiveContains(query) && $0.caseInsensitiveCompare(query) != .orderedSame }
-                .prefix(5)
-            ForEach(Array(tags), id: \.self) { tag in
-                Label(tag, systemImage: "tag")
-                    .searchCompletion(tag)
+                .filter { $0.text.localizedCaseInsensitiveContains(query) && $0.text.caseInsensitiveCompare(query) != .orderedSame }
+                .prefix(6)
+            ForEach(Array(terms), id: \.self) { term in
+                Label(term.text, systemImage: Self.symbol(term.kind))
+                    .searchCompletion(term.text)
             }
         }
     }

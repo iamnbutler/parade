@@ -184,6 +184,7 @@ final class AppModel: ObservableObject {
         static let retired = ["autoImport.v1", "importedFiles.v1", "baselinedFolder.v1"]
         static let updatesAvailable = "updatesAvailable.v1"
         static let recentSearches = "recentSearches.v1"
+        static let lastUpdateCheck = "lastUpdateCheck.v1"
     }
 
     init() {
@@ -1003,21 +1004,37 @@ final class AppModel: ObservableObject {
         defaults.set(recentSearches, forKey: Keys.recentSearches)
     }
 
-    private var vocabularyCache: [String]?
+    private var vocabularyCache: [SearchTerm]?
 
-    /// Every fandom, ship, character, tag and series in the library, most
-    /// used first — what search suggests as you type.
-    var searchVocabulary: [String] {
+    /// A word search can suggest: a value from the library and what it is.
+    struct SearchTerm: Hashable {
+        enum Kind { case author, title, tag }
+        let text: String
+        let kind: Kind
+    }
+
+    /// Every author, title, fandom, ship, character, tag, series, rating,
+    /// warning and category in the library, most used first — what search
+    /// suggests as you type.
+    var searchVocabulary: [SearchTerm] {
         if let vocabularyCache { return vocabularyCache }
-        var counts: [String: Int] = [:]
+        var counts: [SearchTerm: Int] = [:]
+        for item in library.flatMap(\.items) + toRead {
+            for author in item.author.components(separatedBy: " & ") {
+                counts[SearchTerm(text: author, kind: .author), default: 0] += 1
+            }
+            counts[SearchTerm(text: item.title, kind: .title), default: 0] += 1
+        }
         for d in detailsIndex.values {
-            for value in d.fandoms + d.relationships + d.characters + d.additionalTags + [d.seriesName].compactMap({ $0 }) {
-                counts[value, default: 0] += 1
+            let values = d.fandoms + d.relationships + d.characters + d.additionalTags
+                + d.rating + d.warnings + d.categories + [d.seriesName].compactMap { $0 }
+            for value in values {
+                counts[SearchTerm(text: value, kind: .tag), default: 0] += 1
             }
         }
-        let words = counts.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.map(\.key)
-        vocabularyCache = words
-        return words
+        let terms = counts.sorted { ($0.value, $1.key.text) > ($1.value, $0.key.text) }.map(\.key)
+        vocabularyCache = terms
+        return terms
     }
 
     // MARK: - favorites
@@ -1241,23 +1258,14 @@ final class AppModel: ObservableObject {
             status("\(links.count) links…")
         }
         var saved = 0, failed = 0
-        var requested = false
+        // No sleeps here: every request waits its turn in AO3Scheduler.
         for link in links {
             do {
-                if requested {
-                    // Be polite to AO3 between links.
-                    try? await Task.sleep(for: .seconds(1.5))
-                }
-                requested = true
                 let ids = try await client.workIDs(for: link)
                 if case .series = link {
                     status("Series with \(ids.count) work\(ids.count == 1 ? "" : "s")…")
                 }
-                for (index, id) in ids.enumerated() {
-                    if index > 0 {
-                        // …and between a series' works.
-                        try? await Task.sleep(for: .seconds(1.5))
-                    }
+                for id in ids {
                     do {
                         try await downloadWork(id: id, toRead: toRead)
                         saved += 1
@@ -1316,7 +1324,8 @@ final class AppModel: ObservableObject {
 
     /// AO3 works that might be this fic, likeliest first: a title-and-
     /// creator search, then title alone if that finds nothing.
-    func ao3Candidates(for item: LibraryItem) async throws -> [WorkBlurb] {
+    func ao3Candidates(for item: LibraryItem,
+                       priority: AO3Scheduler.Priority = .user) async throws -> [WorkBlurb] {
         let author = item.author.components(separatedBy: " & ").first ?? item.author
         let creator = ["anonymous", "unknown", "orphan_account"].contains(author.lowercased()) ? "" : author
         let plain = AO3WorkQuery.plainTerms(item.title)
@@ -1328,8 +1337,8 @@ final class AppModel: ObservableObject {
         tries = tries.filter { !$0.0.isEmpty }
         var seen = Set<String>(), works: [WorkBlurb] = []
         for (title, creator) in tries where seen.insert(title + "|" + creator).inserted {
-            if seen.count > 1 { try? await Task.sleep(for: .seconds(1.5)) }
-            works = try await client.works(AO3WorkQuery(source: .titleAuthor(title: title, author: creator))).works
+            works = try await client.works(AO3WorkQuery(source: .titleAuthor(title: title, author: creator)),
+                                           priority: priority).works
             if !works.isEmpty { break }
         }
         let likely = works.filter { $0.matches(title: item.title, author: item.author) }
@@ -1355,11 +1364,12 @@ final class AppModel: ObservableObject {
         return linked
     }
 
-    private func relink(_ item: LibraryItem, toWork workID: Int) async -> Bool {
+    private func relink(_ item: LibraryItem, toWork workID: Int,
+                        priority: AO3Scheduler.Priority = .user) async -> Bool {
         do {
             status("Linking \(item.title.quoted) to AO3 work \(workID)…")
-            let work = try await client.fetchWork(id: workID)
-            let temp = try await client.downloadEPUB(work)
+            let work = try await client.fetchWork(id: workID, priority: priority)
+            let temp = try await client.downloadEPUB(work, priority: priority)
             let organizer = Organizer(root: isToRead(item) ? toReadRoot : destinationRoot, provider: item.provider)
             let dest = try organizer.place(temp, for: work)
             if dest.standardizedFileURL.path != item.url.standardizedFileURL.path,
@@ -1404,33 +1414,36 @@ final class AppModel: ObservableObject {
         if updatesAvailable.remove(old) != nil { saveUpdatesAvailable() }
     }
 
-    /// Links every unlinked fic whose AO3 search finds exactly one work with
-    /// its title and author — the sure ones. Others are left for the fic's
-    /// own page, to choose by hand. One request at a time, spaced.
-    func linkAllUnlinked() async {
-        guard !isWorking else { return }
-        let items = unlinkedItems
+    /// Links the next 20 unlinked fics whose AO3 search finds exactly one
+    /// work with their title and author — the sure ones. Others are left for
+    /// the fic's own page, to choose by hand. Twenty at a time, in the
+    /// background queue, so a big library never turns into a burst.
+    func linkNextUnlinked() async {
+        guard !isLinking else { return }
+        let items = Array(unlinkedItems.filter { !linkSkipped.contains($0.id) }.prefix(Self.linkBatch))
         guard !items.isEmpty else { return }
-        isWorking = true
         isLinking = true
         statusLines = []
-        defer { isWorking = false; isLinking = false }
+        defer { isLinking = false }
         var linked = 0, unsure = 0
-        for (i, item) in items.enumerated() {
-            if i > 0 { try? await Task.sleep(for: .seconds(1.5)) }
+        for item in items {
+            if Task.isCancelled { break }
             do {
-                let sure = try await ao3Candidates(for: item).filter { $0.matches(title: item.title, author: item.author) }
+                let sure = try await ao3Candidates(for: item, priority: .background)
+                    .filter { $0.matches(title: item.title, author: item.author) }
                 guard sure.count == 1 else {
                     unsure += 1
+                    // Not offered again this session; its page still is.
+                    linkSkipped.insert(item.id)
                     status("· \(item.title.quoted): \(sure.isEmpty ? "no sure match" : "\(sure.count) possible works") — choose on its page")
                     continue
                 }
-                try? await Task.sleep(for: .seconds(1.5))
-                if await relink(item, toWork: sure[0].id) { linked += 1 }
+                if await relink(item, toWork: sure[0].id, priority: .background) { linked += 1 }
             } catch AO3Error.rateLimited(let retry) {
                 status("⚠️ \(AO3Error.rateLimited(retryAfter: retry).localizedDescription) Stopped after \(linked).")
                 break
             } catch {
+                linkSkipped.insert(item.id)
                 status("⚠️ \(item.title.quoted): \(error.localizedDescription)")
             }
         }
@@ -1439,6 +1452,10 @@ final class AppModel: ObservableObject {
         await refreshLibraryNow()
         buildDetailsIndex()
     }
+
+    static let linkBatch = 20
+    /// Fics a batch couldn't link for sure, skipped by later batches.
+    private var linkSkipped: Set<String> = []
 
     // MARK: - fic updates (against AO3)
 
@@ -1460,50 +1477,52 @@ final class AppModel: ObservableObject {
         detailsIndex[item.id]?.latestDate ?? item.date
     }
 
-    /// Asks AO3 whether each fic changed since its EPUB was made, comparing
-    /// the download link's updated_at stamp to the date inside the EPUB.
-    /// One request per fic, politely spaced — explicit action, never automatic.
+    /// Asks AO3 which linked fics changed since their EPUB was made — by
+    /// searching AO3 for the library's work ids, revised since the last
+    /// check, a few hundred ids per request (about 25 requests for 10,000
+    /// fics), instead of fetching each work. Background priority: taps go
+    /// first, and AO3Scheduler rests between batches and backs off when AO3
+    /// asks. Explicit action, never automatic.
     func checkForUpdates() async {
-        guard !isCheckingUpdates, !isWorking else { return }
-        // Also "working": downloads and single updates wait, so nothing
-        // interleaves with the politely spaced sweep.
+        guard !isCheckingUpdates else { return }
         isCheckingUpdates = true
-        isWorking = true
-        defer {
-            isCheckingUpdates = false
-            isWorking = false
+        defer { isCheckingUpdates = false }
+        // What each EPUB says, from the index — no files opened.
+        var local: [Int: (id: String, chapters: Int?, updated: Date?)] = [:]
+        for item in library.flatMap(\.items) + toRead where item.isDownloaded {
+            guard let d = detailsIndex[item.id], let workID = d.workID else { continue }
+            local[workID] = (item.id, d.chapters.flatMap(Self.postedChapters), d.latestDate)
         }
-        await refreshLibraryNow()
-        let items = library.flatMap(\.items).filter(\.isDownloaded)
-        status("Checking \(items.count) fic\(items.count == 1 ? "" : "s") against AO3…")
-        var checked = 0, found = 0
-        for item in items {
-            guard let d = await details(for: item),
-                  let workID = d.workID,
-                  let local = d.latestDate else { continue }
-            if checked > 0 { try? await Task.sleep(for: .seconds(1.5)) }
-            do {
-                let info = try await client.fetchWork(id: workID)
-                checked += 1
-                // The EPUB's date is day-resolution; only a strictly later
-                // day counts, so a same-day download isn't a false positive.
-                if let ts = info.updatedAt,
-                   Date(timeIntervalSince1970: TimeInterval(ts)).timeIntervalSince(local) >= 86_400 {
-                    updatesAvailable.insert(item.id)
-                    saveUpdatesAvailable()
-                    found += 1
+        guard !local.isEmpty else {
+            status("No fics linked to AO3 to check")
+            return
+        }
+        let since = defaults.object(forKey: Keys.lastUpdateCheck) as? Date
+        status("Checking \(local.count) fic\(local.count == 1 ? "" : "s") against AO3…")
+        var found = 0
+        do {
+            for try await page in client.revisedWorks(ids: Array(local.keys), since: since) {
+                for blurb in page {
+                    guard let mine = local[blurb.id] else { continue }
+                    let moreChapters = (blurb.chaptersPosted ?? 0) > (mine.chapters ?? .max)
+                    // Day-resolution dates: only a strictly later day counts.
+                    let later = zip2(blurb.updated, mine.updated).map { $0.timeIntervalSince($1) >= 86_400 } ?? false
+                    if moreChapters || later, updatesAvailable.insert(mine.id).inserted { found += 1 }
                 }
-                if checked % 10 == 0 { status("…\(checked)/\(items.count) checked") }
-            } catch AO3Error.rateLimited {
-                status("⚠️ AO3 is rate-limiting — stopped at \(checked)/\(items.count). Try again later.")
-                break
-            } catch {
-                // One unreadable work shouldn't stop the sweep.
             }
+            defaults.set(Date(), forKey: Keys.lastUpdateCheck)
+        } catch {
+            status("⚠️ \(error.localizedDescription) Found \(found) so far; check again later.")
         }
+        saveUpdatesAvailable()
         status(found == 0
-            ? "✓ Checked \(checked) fic\(checked == 1 ? "" : "s") — everything is current"
+            ? "✓ Checked \(local.count) fic\(local.count == 1 ? "" : "s") — everything is current"
             : "✓ \(found) update\(found == 1 ? "" : "s") available")
+    }
+
+    /// "3/10" or "3/?" → 3.
+    private static func postedChapters(_ chapters: String) -> Int? {
+        Int(chapters.split(separator: "/").first?.trimmingCharacters(in: .whitespaces) ?? "")
     }
 
     /// A one-line result shown briefly over the app, for actions started
@@ -1669,4 +1688,9 @@ extension EnvironmentValues {
         get { self[AppModelKey.self] }
         set { self[AppModelKey.self] = newValue }
     }
+}
+
+private func zip2<A, B>(_ a: A?, _ b: B?) -> (A, B)? {
+    guard let a, let b else { return nil }
+    return (a, b)
 }
