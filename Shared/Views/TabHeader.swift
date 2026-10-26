@@ -26,10 +26,16 @@ private struct TabHeaderModifier<Accessory: View>: ViewModifier {
     let header: TabHeader<Accessory>
     let pinned: Bool
     @State private var hidden = false
-    @Environment(\.palette) private var palette
+    /// The whole page's size, safe areas included — the size the page's
+    /// own LeatherBackground is drawn at.
+    @State private var page: CGSize = .zero
 
     func body(content: Content) -> some View {
         content
+            .onGeometryChange(for: CGSize.self) { proxy in
+                CGSize(width: proxy.size.width + proxy.safeAreaInsets.leading + proxy.safeAreaInsets.trailing,
+                       height: proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom)
+            } action: { page = $0 }
             .toolbar(.hidden, for: .navigationBar)
             .hidesOnScrollDown($hidden)
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -44,24 +50,29 @@ private struct TabHeaderModifier<Accessory: View>: ViewModifier {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .background { HeaderBand().ignoresSafeArea(edges: .top) }
+                .background { HeaderBand(page: page).ignoresSafeArea(edges: .top) }
             }
     }
 }
 
-/// The page's color and grain, drawn locally: a header can't carry a slice
-/// of the full-page gradient without global geometry (which misbehaved in
-/// UIKit lists).
+/// The top of the page's own leather: the same background drawn at the
+/// page's full size from the top of the screen, cut to the header — so the
+/// light, vignette and grain run on without a seam. (The header sits in the
+/// page's inset, not in a UIKit list header, where a slice like this washed
+/// out rows mid-scroll.)
 private struct HeaderBand: View {
-    @Environment(\.palette) private var palette
+    let page: CGSize
 
     var body: some View {
-        ZStack {
-            palette.leather
-            Image(decorative: Grain.tile, scale: 2)
-                .resizable(resizingMode: .tile)
-                .opacity(palette.grain)
-        }
+        Color.clear
+            .overlay(alignment: .top) {
+                LeatherBackground()
+                    .frame(width: max(page.width, 1), height: max(page.height, 1))
+            }
+            .clipped()
+            // Clipping hides the rest of the page-sized background but
+            // doesn't stop it taking touches: it swallowed every scroll.
+            .allowsHitTesting(false)
     }
 }
 
