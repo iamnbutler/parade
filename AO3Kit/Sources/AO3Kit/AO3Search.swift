@@ -10,7 +10,23 @@ public struct AO3WorkQuery: Sendable, Hashable {
         case tag(String)
         /// AO3's search by title and creator fields — finding one known fic.
         case titleAuthor(title: String, author: String)
+        /// Exactly these works, as a work search: `id:1 OR id:2 OR …`.
+        /// AO3 (via Cloudflare) refuses URLs much past 500 IDs; keep it to
+        /// `AO3WorkQuery.maxIDs`. The grouped form `id:(1 OR 2)` matches nothing.
+        case ids([Int])
     }
+
+    /// Only works revised since a date. AO3 takes this either as the search
+    /// form's "Date updated" field or as query syntax.
+    public enum RevisedFilter: Sendable, Hashable {
+        /// `work_search[revised_at]=< N days`. Preferred.
+        case withinDays(Int)
+        /// `revised_at:[2026-10-20 TO *]`, ANDed onto the query text.
+        case inQuery(since: Date)
+    }
+
+    /// Most IDs one `.ids` query should carry.
+    public static let maxIDs = 400
 
     public enum Sort: String, Sendable, CaseIterable, Identifiable {
         case relevance = "_score"
@@ -37,13 +53,16 @@ public struct AO3WorkQuery: Sendable, Hashable {
     public var source: Source
     public var sort: Sort
     public var completeOnly: Bool
+    public var revised: RevisedFilter?
     /// 1-based, as on the site.
     public var page: Int
 
-    public init(source: Source, sort: Sort = .relevance, completeOnly: Bool = false, page: Int = 1) {
+    public init(source: Source, sort: Sort = .relevance, completeOnly: Bool = false,
+                revised: RevisedFilter? = nil, page: Int = 1) {
         self.source = source
         self.sort = sort
         self.completeOnly = completeOnly
+        self.revised = revised
         self.page = page
     }
 
@@ -51,9 +70,9 @@ public struct AO3WorkQuery: Sendable, Hashable {
         var c: URLComponents
         var items: [URLQueryItem] = []
         switch source {
-        case .search(let text):
+        case .search, .ids:
             c = URLComponents(string: "https://archiveofourown.org/works/search")!
-            items.append(.init(name: "work_search[query]", value: text))
+            items.append(.init(name: "work_search[query]", value: queryText ?? ""))
         case .tag(let name):
             c = URLComponents(string: "https://archiveofourown.org")!
             // AO3 spells a few characters out in tag URLs.
@@ -62,6 +81,16 @@ public struct AO3WorkQuery: Sendable, Hashable {
             c = URLComponents(string: "https://archiveofourown.org/works/search")!
             items.append(.init(name: "work_search[title]", value: title))
             if !author.isEmpty { items.append(.init(name: "work_search[creators]", value: author)) }
+        }
+        switch source {
+        case .tag, .titleAuthor:
+            // Only a date clause, from `revised`.
+            if let text = queryText { items.append(.init(name: "work_search[query]", value: text)) }
+        case .search, .ids:
+            break
+        }
+        if case .withinDays(let days) = revised {
+            items.append(.init(name: "work_search[revised_at]", value: "< \(max(1, days)) days"))
         }
         // Tag listings sort by update date unless told otherwise, and know
         // nothing of relevance.
@@ -74,6 +103,29 @@ public struct AO3WorkQuery: Sendable, Hashable {
         items.append(.init(name: "view_adult", value: "true"))
         c.queryItems = items
         return c.url!
+    }
+
+    /// What goes in `work_search[query]`, if anything.
+    var queryText: String? {
+        var text: String?
+        switch source {
+        case .search(let words): text = words
+        case .ids(let ids): text = ids.map { "id:\($0)" }.joined(separator: " OR ")
+        case .tag, .titleAuthor: text = nil
+        }
+        guard case .inQuery(let since) = revised else { return text }
+        let clause = "revised_at:[\(Self.day(since)) TO *]"
+        guard let text, !text.isEmpty else { return clause }
+        return "(\(text)) AND \(clause)"
+    }
+
+    /// "2026-10-20", in UTC.
+    static func day(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
     }
 
     /// `text` as plain search words. AO3's title and creator fields take
@@ -133,6 +185,28 @@ public struct WorkBlurb: Sendable, Hashable, Identifiable {
     }
 
     public var url: URL { AO3Link.work(id: id).pageURL }
+
+    /// Chapters posted: 108 in "108/?".
+    public var chaptersPosted: Int? {
+        chapters?.split(separator: "/").first.flatMap { Int($0.filter(\.isNumber)) }
+    }
+
+    /// Chapters planned: 120 in "108/120"; nil for "108/?" or when unknown.
+    public var chaptersExpected: Int? {
+        guard let parts = chapters?.split(separator: "/"), parts.count == 2 else { return nil }
+        return Int(parts[1].trimmingCharacters(in: .whitespaces))
+    }
+
+    /// `date` as a date: midnight UTC on the day the work was last updated.
+    /// AO3's listings give the day only.
+    public var updated: Date? {
+        guard let date else { return nil }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "d MMM yyyy"
+        return f.date(from: date)
+    }
 
     /// Whether this is the fic with that title by that author, loosely:
     /// case, punctuation and spacing aside (file names lose ":" and "/").
