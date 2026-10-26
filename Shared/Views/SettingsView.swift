@@ -34,6 +34,9 @@ struct SettingsView: View {
             #endif
             .navigationTitle("Settings")
             .pageTitleInContent()
+            #if os(iOS)
+            .tabHeader("Settings")
+            #endif
         }
         #if os(macOS)
         .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.folder]) { result in

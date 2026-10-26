@@ -24,32 +24,16 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Library")
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Menu {
-                            Picker("Sort", selection: $sortRaw) {
-                                ForEach(LibrarySort.allCases) { s in
-                                    Text(s.label).tag(s.rawValue)
-                                }
-                            }
-                            .pickerStyle(.inline)
-                        } label: {
-                            Image(systemName: "arrow.up.arrow.down")
-                        }
-                        .accessibilityLabel("Sort")
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            showAddSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("Add fic")
-                    }
+                .tabHeader(
+                    "Library",
+                    search: $searchText,
+                    prompt: "Search titles, tags, summaries…",
+                    onSubmitSearch: { model.rememberSearch($0) },
+                    add: ("Add fic", { showAddSheet = true })
+                ) {
+                    OrderMenu(sortRaw: $sortRaw)
                 }
                 .ficDestinations()
-                .navigationDestination(for: ToReadRoute.self) { _ in ToReadView() }
         }
         .sheet(isPresented: $showAddSheet) {
             AddFicSheet()
@@ -87,18 +71,6 @@ struct LibraryView: View {
                 if searchText.isEmpty {
                     ContinueReadingRow()
                         .id(ListTop.id)
-                    if !model.toRead.isEmpty {
-                        NavigationLink(value: ToReadRoute()) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Label("To Read", systemImage: "bookmark")
-                                    .textRole(.rowTitle)
-                                Spacer()
-                                Numeral(value: model.toRead.count)
-                            }
-                        }
-                        .leatherRows()
-                        .id(ToReadRoute())
-                    }
                 }
                 if sort.isGrouped {
                     ForEach(sections, id: \.name) { section in
@@ -130,7 +102,6 @@ struct LibraryView: View {
             .leatherList()
             .backToTop { topRowID }
             .noSearchResults(for: searchText, when: sort.isGrouped ? sections.isEmpty : flatItems.isEmpty)
-            .ficSearch(text: $searchText, prompt: "Search titles, tags, summaries…")
             .refreshable { model.refreshLibrary() }
         }
     }
@@ -139,7 +110,6 @@ struct LibraryView: View {
     /// the first fic.
     private var topRowID: AnyHashable? {
         if searchText.isEmpty, model.lastReadItem != nil { return ListTop.id }
-        if searchText.isEmpty, !model.toRead.isEmpty { return ToReadRoute() }
         return (sort.isGrouped ? sections.first?.items.first : flatItems.first)?.id
     }
 
@@ -147,6 +117,9 @@ struct LibraryView: View {
         FicRoute(item: item, list: .library(sort, query: searchText))
     }
 }
+
+/// Opens Favorites from the Collections tab.
+struct FavoritesRoute: Hashable {}
 
 /// Favorited fics, sorted by title.
 struct FavoritesView: View {
@@ -158,46 +131,40 @@ struct FavoritesView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if model.favoriteItems.isEmpty {
-                    if model.isMigrating || model.isScanning || !model.hasLoadedOnce {
-                        LibraryLoadingView(text: "Loading your library…")
-                    } else {
-                        EmptyPage(
-                            drawing: "EmptyFavorites",
-                            title: "No favorites yet",
-                            message: "Swipe right on a fic in your library and tap the star. The ones you keep coming back to gather here.")
-                        .leatherBackground()
-                    }
+        Group {
+            if model.favoriteItems.isEmpty {
+                if model.isMigrating || model.isScanning || !model.hasLoadedOnce {
+                    LibraryLoadingView(text: "Loading your library…")
                 } else {
-                    List {
-                        ForEach(items) { item in
-                            NavigationLink(value: FicRoute(item: item, list: .favorites(query: searchText))) {
-                                FicRow(item: item, showsAuthor: true)
-                            }
-                        }
-                        .leatherRows()
-                    }
-                    .leatherList()
-                    .backToTop { items.first?.id }
-                    .noSearchResults(for: searchText, when: items.isEmpty)
-                    .ficSearch(text: $searchText, prompt: "Filter favorites…")
-                    .refreshable { await model.refreshLibraryNow() }
+                    EmptyPage(
+                        drawing: "EmptyFavorites",
+                        title: "No favorites yet",
+                        message: "Swipe right on a fic in your library and tap the star. The ones you keep coming back to gather here.")
+                    .leatherBackground()
                 }
+            } else {
+                List {
+                    ForEach(items) { item in
+                        NavigationLink(value: FicRoute(item: item, list: .favorites(query: searchText))) {
+                            FicRow(item: item, showsAuthor: true)
+                        }
+                    }
+                    .leatherRows()
+                }
+                .leatherList()
+                .backToTop { items.first?.id }
+                .noSearchResults(for: searchText, when: items.isEmpty)
+                .ficSearch(text: $searchText, prompt: "Filter favorites…")
+                .refreshable { await model.refreshLibraryNow() }
             }
-            .navigationTitle("Favorites")
-            .ficDestinations()
         }
+        .navigationTitle("Favorites")
         // Favorites is the after-hours room: black leather, garnet, gold.
         .palette(.noir)
         .onAppear { model.refreshLibrary() }
     }
 }
-/// Opens To Read from the library.
-struct ToReadRoute: Hashable {}
-
-/// Fics saved to read later, newest first.
+/// The To Read tab: fics saved to read later, newest first.
 struct ToReadView: View {
     @EnvironmentObject private var model: AppModel
     @State private var searchText = ""
@@ -206,36 +173,67 @@ struct ToReadView: View {
     private var items: [LibraryItem] { model.items(for: .toRead(query: searchText)) }
 
     var body: some View {
-        Group {
-            if model.toRead.isEmpty {
-                EmptyPage(
-                    drawing: "EmptyShelf",
-                    title: "Nothing to read yet",
-                    message: "Fics saved for later wait here, in a folder of their own. Add one to the library when it's a keeper.")
-                .leatherBackground()
-            } else {
-                List {
-                    ForEach(items) { item in
-                        NavigationLink(value: FicRoute(item: item, list: .toRead(query: searchText))) {
-                            FicRow(item: item, showsAuthor: true, date: .added)
-                        }
-                    }
-                    .leatherRows()
-                }
-                .leatherList()
-                .backToTop { items.first?.id }
-                .noSearchResults(for: searchText, when: items.isEmpty)
-                .ficSearch(text: $searchText, prompt: "Filter to read…")
-            }
-        }
-        .navigationTitle("To Read")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showAddSheet = true } label: { Image(systemName: "plus") }
-                    .accessibilityLabel("Add to To Read")
-            }
+        NavigationStack {
+            list
+                .tabHeader(
+                    "To Read",
+                    search: $searchText,
+                    prompt: "Filter to read…",
+                    add: ("Add to To Read", { showAddSheet = true }))
+                .ficDestinations()
         }
         .sheet(isPresented: $showAddSheet) { AddFicSheet(toRead: true) }
+    }
+
+    @ViewBuilder
+    private var list: some View {
+        if model.toRead.isEmpty {
+            EmptyPage(
+                drawing: "EmptyShelf",
+                title: "Nothing to read yet",
+                message: "Fics saved for later wait here, in a folder of their own. Add one to the library when it's a keeper.")
+            .leatherBackground()
+        } else {
+            List {
+                ForEach(items) { item in
+                    NavigationLink(value: FicRoute(item: item, list: .toRead(query: searchText))) {
+                        FicRow(item: item, showsAuthor: true, date: .added)
+                    }
+                }
+                .leatherRows()
+            }
+            .leatherList()
+            .backToTop { items.first?.id }
+            .noSearchResults(for: searchText, when: items.isEmpty)
+        }
+    }
+}
+
+/// "Order ⌄": how the library is sorted and grouped.
+private struct OrderMenu: View {
+    @Binding var sortRaw: String
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Menu {
+            Picker("Order", selection: $sortRaw) {
+                ForEach(LibrarySort.allCases) { s in
+                    Text(s.label).tag(s.rawValue)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: 4) {
+                Text("Order").textRole(.small)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(palette.inkSoft)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .embossed(cornerRadius: 15)
+        }
+        .accessibilityLabel("Order")
     }
 }
 #endif

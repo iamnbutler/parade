@@ -135,7 +135,7 @@ private struct CollectionNameSheet: View {
 }
 
 #if os(iOS)
-/// The Collections tab: the user's own categories.
+/// The Collections tab: Favorites, then the user's own categories.
 struct CollectionsView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showNewCollection = false
@@ -144,54 +144,50 @@ struct CollectionsView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            List {
+                NavigationLink(value: FavoritesRoute()) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Label("Favorites", systemImage: "star")
+                            .textRole(.rowTitle)
+                            .lineLimit(1)
+                        Spacer()
+                        Numeral(value: model.favoriteItems.count)
+                    }
+                }
+                .leatherRows()
                 if model.collections.names.isEmpty {
-                    EmptyPage(
-                        drawing: "EmptyCollections",
-                        title: "No collections yet",
-                        message: "Collections are your own shelves, separate from AO3's tags. Make one, then long-press any fic to add it.")
-                    {
-                        Button { showNewCollection = true } label: { Label("New collection", systemImage: "plus") }
-                    }
-                    .leatherBackground()
-                } else {
-                    List {
-                        ForEach(model.collections.names, id: \.self) { name in
-                            NavigationLink(value: CollectionSelection(name: name)) {
-                                HStack(alignment: .firstTextBaseline) {
-                                    Text(name).textRole(.rowTitle).lineLimit(1)
-                                    Spacer()
-                                    Numeral(value: model.items(inCollection: name).count)
-                                }
-                            }
-                            .swipeActions(edge: .trailing) {
-                                Button { pendingDelete = name } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                .tint(SwipeTint.delete)
-                                Button { renaming = name } label: {
-                                    Label("Rename", systemImage: "pencil")
-                                }
-                                .tint(SwipeTint.update)
-                            }
+                    Text("Collections are your own shelves, separate from AO3's tags. Make one with +, then long-press any fic to add it.")
+                        .textRole(.meta)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .padding(.top, 8)
+                }
+                ForEach(model.collections.names, id: \.self) { name in
+                    NavigationLink(value: CollectionSelection(name: name)) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(name).textRole(.rowTitle).lineLimit(1)
+                            Spacer()
+                            Numeral(value: model.items(inCollection: name).count)
                         }
-                        .leatherRows()
                     }
-                    .leatherList()
-                    .refreshable { await model.refreshLibraryNow() }
-                }
-            }
-            .navigationTitle("Collections")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showNewCollection = true
-                    } label: {
-                        Image(systemName: "plus")
+                    .swipeActions(edge: .trailing) {
+                        Button { pendingDelete = name } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .tint(SwipeTint.delete)
+                        Button { renaming = name } label: {
+                            Label("Rename", systemImage: "pencil")
+                        }
+                        .tint(SwipeTint.update)
                     }
-                    .accessibilityLabel("New collection")
                 }
+                .leatherRows()
             }
+            .leatherList()
+            .refreshable { await model.refreshLibraryNow() }
+            .tabHeader("Collections", add: ("New collection", { showNewCollection = true }))
+            .navigationDestination(for: FavoritesRoute.self) { _ in FavoritesView() }
             .ficDestinations()
         }
         .newCollectionAlert(isPresented: $showNewCollection, model: model)
