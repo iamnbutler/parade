@@ -332,8 +332,7 @@ enum TextRole {
         case .body, .dek: 7
         case .subtitle: 3
         case .summary: 4
-        case .meta: 3
-        case .kicker, .runningHead, .small: 1
+        case .kicker, .runningHead, .meta, .small: 1
         }
     }
 }
