@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-10-25
 
 ### Added
+- **Read in Parade.** Fics open in Parade's own reader, as pages or one
+  scroll. It has contents, text size and page color, and it remembers your
+  place across devices. Fic formatting comes through: alignment, tables,
+  images, and texting-style chat logs drawn as phone threads.
 - **Search AO3**: a Search tab on iPhone and a sidebar section on Mac.
   - The first search covers the fandoms in your library. It stays as you
     leave it, synced through `Search.json` in the library folder.
@@ -15,18 +19,41 @@
     Read or the library from a row or the preview.
   - Results load one page at a time as you scroll, through the same polite
     request queue as downloads.
+- **To Read**: fics saved for later wait in a folder of their own, beside
+  the library. Add one to the library when it's a keeper.
+- **Continue reading**: the fic you read last, on any device, sits at the
+  top of the library. Long lists get a Back to Top arrow and a Resume
+  button.
+- **Link fics to AO3**: for EPUBs downloaded outside Parade, find the work
+  on AO3 and swap in AO3's own copy, with its link, tags, summary and
+  series. The old file goes to Backups. If search misses, paste the
+  work's link.
+- Library search remembers recent searches, suggests your fandoms, ships
+  and tags, and matches summaries.
+- Sort by fandom.
+
+### Changed
+- **A new look**: Leather & Ink — a warm dark theme with book typefaces,
+  drawings for empty pages, and a new app icon.
+- **iPhone tabs** are Library, To Read, Collections, Search and Settings.
+  Favorites is the first row in Collections. Tab headers slide away as a
+  list scrolls down and come back when it scrolls up.
+- **Check AO3 for Updates** asks AO3 for a few hundred fics per request
+  instead of fetching every fic. Every AO3 request now waits its turn: one
+  at a time, a few seconds apart, backing off when AO3 asks.
+- Fic details and search run from a local database on each device, so big
+  libraries open and search faster.
+- Section headings scroll with their fics instead of pinning.
 
 ### Removed
 - Apple Books integration: sending fics to Books, auto-import, Import All
   and the Apple Events permission, and the fic page's Books button. Fics
   are read in Parade's own reader.
-- Type and spacing settings (faces, sizes, spacing), for now.
+- The Add sheet's Paste button, which started downloading in one tap.
+  Paste into the link field instead.
 
 ### Fixed
-- Battery: reading no longer redraws the page whenever the library
-  refreshes, reading places reach iCloud in batches instead of on every
-  page turn, and background refreshes stop rewriting caches that didn't
-  change.
+- Battery: background refreshes stop rewriting caches that didn't change.
 - iOS: scrolling lists no longer washes out row text under section headers.
 
 ## 0.5.1 — 2026-10-20
