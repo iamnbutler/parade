@@ -38,6 +38,10 @@ public struct AO3WorkQuery: Sendable, Hashable {
         case hits = "hits"
         case bookmarks = "bookmarks_count"
         case words = "word_count"
+        case posted = "created_at"
+        case comments = "comments_count"
+        case title = "title_to_sort_on"
+        case creator = "authors_to_sort_on"
 
         public var id: String { rawValue }
 
@@ -49,6 +53,10 @@ public struct AO3WorkQuery: Sendable, Hashable {
             case .hits: "Hits"
             case .bookmarks: "Bookmarks"
             case .words: "Length"
+            case .posted: "Date posted"
+            case .comments: "Comments"
+            case .title: "Title"
+            case .creator: "Creator"
             }
         }
     }
@@ -87,16 +95,7 @@ public struct AO3WorkQuery: Sendable, Hashable {
         case .profile(let profile):
             c = URLComponents(string: "https://archiveofourown.org/works/search")!
             items.append(.init(name: "work_search[query]", value: queryText ?? ""))
-            if let tags = SearchProfile.names(profile.includeTags) {
-                items.append(.init(name: "work_search[other_tag_names]", value: tags))
-            }
-            if let hidden = SearchProfile.names(profile.hiddenTags) {
-                items.append(.init(name: "work_search[excluded_tag_names]", value: hidden))
-            }
-            if profile.explicitOnly {
-                items.append(.init(name: "work_search[rating_ids]", value: String(SearchProfile.explicitRatingID)))
-            }
-            items.append(.init(name: "work_search[language_id]", value: "en"))
+            items += profile.formItems
         }
         switch source {
         case .tag, .titleAuthor:

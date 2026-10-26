@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **Search AO3 has a proper form.** Set the search up on its own page, then
+  search; the results page shows a short summary of it with Edit Search.
+  - Every archive warning and category can be included (any of them) or
+    excluded.
+  - Fandoms, relationships, characters and additional tags can each be
+    included or excluded.
+  - Crossovers (include, exclude, only), complete or in progress, single
+    chapter, updated within, title, creator, and every sort AO3 has, in
+    either direction.
+  - Any tag on a result's page can be included in or excluded from the
+    search. Searches saved by 0.6.0 carry over.
+
 ## 0.6.0 — 2026-10-25
 
 ### Added
