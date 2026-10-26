@@ -7,7 +7,10 @@ import AO3Kit
 /// on iOS; it takes over the main window on the Mac.
 struct ReaderView: View {
     let item: LibraryItem
-    @EnvironmentObject private var model: AppModel
+    /// Held, not observed: the reader needs nothing the model publishes, and
+    /// observing it redrew (and re-laid out) the open page on every change.
+    @Environment(\.appModel) private var appModel
+    private var model: AppModel { appModel! }
     @State private var book: EPUBBook?
     @State private var failure: String?
     @State private var waitingForCloud = false
@@ -96,6 +99,7 @@ struct ReaderView: View {
         .task(id: item.id + String(item.date.timeIntervalSince1970)) {
             await load()
         }
+        .onDisappear { model.flushReadingPositions() }
     }
 
     private func load() async {
@@ -1435,7 +1439,9 @@ private enum BubbleKind {
 /// Draws one page of text with its own small TextKit stack, and the summary
 /// card and note clippings behind their text.
 private final class PageCanvas: PlatformView {
-    var text = NSAttributedString() { didSet { rebuild() } }
+    /// Re-laid out only when the page's text actually changes: SwiftUI
+    /// hands every visible page a fresh copy on each page turn.
+    var text = NSAttributedString() { didSet { if !text.isEqual(to: oldValue) { rebuild() } } }
     var palette = Palette.leather
     /// Padding a panel gets where a page cuts it.
     var pad: CGFloat = 18
@@ -1460,12 +1466,15 @@ private final class PageCanvas: PlatformView {
 
     #if os(macOS)
     override var isFlipped: Bool { true }
-    override func layout() { super.layout(); rebuild() }
+    override func layout() { super.layout(); if bounds.width != laidOutWidth { rebuild() } }
     #else
-    override func layoutSubviews() { super.layoutSubviews(); rebuild() }
+    override func layoutSubviews() { super.layoutSubviews(); if bounds.width != laidOutWidth { rebuild() } }
     #endif
 
+    private var laidOutWidth: CGFloat = -1
+
     private func rebuild() {
+        laidOutWidth = bounds.width
         container.size = CGSize(width: bounds.width, height: .greatestFiniteMagnitude)
         storage.setAttributedString(text)
         #if os(macOS)

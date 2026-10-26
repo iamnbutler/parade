@@ -65,6 +65,7 @@ private struct LeatherPage: ViewModifier {
         if backdrop {
             content
         } else {
+            #if os(macOS)
             content
                 .environment(\.backdropFrame, frame)
                 .background {
@@ -80,6 +81,11 @@ private struct LeatherPage: ViewModifier {
                             .ignoresSafeArea()
                         }
                 }
+            #else
+            // iOS headers wash with local pieces (WashBehind), so the page
+            // needn't track its frame — which redrew it through every slide.
+            content.background { LeatherBackground() }
+            #endif
         }
     }
 }

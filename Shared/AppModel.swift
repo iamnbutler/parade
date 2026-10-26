@@ -205,6 +205,7 @@ final class AppModel: ObservableObject {
         updatesAvailable = Set(defaults.stringArray(forKey: Keys.updatesAvailable) ?? [])
         recentSearches = defaults.stringArray(forKey: Keys.recentSearches) ?? []
         destinationRoot = Self.testLibrary ?? Self.localRoot()
+        loadPendingPositions()
         updateDestinationLabel()
         refreshLibrary()
         Task { await self.connectCloudRoot() }
@@ -420,8 +421,11 @@ final class AppModel: ObservableObject {
         let editStampAtStart = localEditStamp
         scanGeneration += 1
         let gen = scanGeneration
-        isScanning = true
-        defer { isScanning = false }
+        // Only the first scan of an empty library shows as loading; a
+        // background refresh mustn't redraw every observer twice a tick.
+        let showsScanning = library.isEmpty
+        if showsScanning { isScanning = true }
+        defer { if showsScanning { isScanning = false } }
         let started = Date()
         // While the visible library is empty (first launch, or the root just
         // moved), results stream in as the walk finds them instead of
@@ -448,10 +452,10 @@ final class AppModel: ObservableObject {
             library = []
             return
         }
-        libraryError = nil
+        if libraryError != nil { libraryError = nil }
         if localEditStamp == editStampAtStart {
-            favorites = scan.favorites
-            collections = scan.collections
+            if favorites != scan.favorites { favorites = scan.favorites }
+            if collections != scan.collections { collections = scan.collections }
         }
         // An unchanged library isn't republished: every publish redraws the
         // lists and pager, and the iOS refresh runs every 15 seconds.
@@ -463,7 +467,7 @@ final class AppModel: ObservableObject {
             toRead = scan.toRead
             idCache = nil
         }
-        hasLoadedOnce = true
+        if !hasLoadedOnce { hasLoadedOnce = true }
         requestDownloads(scan.placeholders)
     }
 
@@ -757,6 +761,7 @@ final class AppModel: ObservableObject {
     private var detailsCache: [String: WorkDetails] = [:]
     private var detailsCacheLoaded = false
     private var lastCacheSave = Date.distantPast
+    private var detailsCacheDirty = false
     private var indexTask: Task<Void, Never>?
 
     private nonisolated static var detailsCacheFile: URL {
@@ -792,6 +797,7 @@ final class AppModel: ObservableObject {
         }.value
         if let parsed {
             detailsCache[key] = parsed
+            detailsCacheDirty = true
             detailsIndex[item.id] = parsed
             didUpdateDetails()
         }
@@ -810,9 +816,12 @@ final class AppModel: ObservableObject {
     func buildDetailsIndex() {
         guard indexTask == nil else { return }
         indexTask = Task { [weak self] in
-            self?.isIndexing = true
+            // Shown only while the index is empty; flipping it on every
+            // refresh redrew every observer (the reader too) twice a tick.
+            let shows = self?.detailsIndex.isEmpty == true
+            if shows { self?.isIndexing = true }
             await self?.runDetailsIndexing()
-            self?.isIndexing = false
+            if shows { self?.isIndexing = false }
             self?.indexTask = nil
         }
     }
@@ -856,28 +865,36 @@ final class AppModel: ObservableObject {
                     (item.id, Self.cacheKey(item), (try? EPUBDetailsParser.parse(epubAt: item.url)) ?? WorkDetails())
                 }
             }.value
-            var enriched = false
+            // One merge per chunk: writing a @Published dictionary key by
+            // key copies the whole dictionary each time (O(n²) at 10k).
+            var enriched: [String: WorkDetails] = [:]
             for entry in parsed {
                 detailsCache[entry.key] = entry.details
-                if entry.details != WorkDetails() {
-                    detailsIndex[entry.id] = entry.details
-                    enriched = true
-                }
+                if entry.details != WorkDetails() { enriched[entry.id] = entry.details }
             }
-            if enriched { didUpdateDetails() }
+            if !enriched.isEmpty {
+                detailsIndex.merge(enriched) { _, new in new }
+                didUpdateDetails()
+            }
+            detailsCacheDirty = true
             saveDetailsCache(throttled: true)
         }
 
-        // Final save, dropping cache entries for files that no longer exist
-        // at that version so the cache can't grow without bound.
+        // Drop cache entries for files that no longer exist at that version,
+        // so the cache can't grow without bound. Saved only if something
+        // changed: this runs on every refresh, and the file is megabytes.
         let validKeys = Set(items.map(Self.cacheKey))
-        detailsCache = detailsCache.filter { validKeys.contains($0.key) }
-        saveDetailsCache(throttled: false)
+        if detailsCache.count != validKeys.count || detailsCache.keys.contains(where: { !validKeys.contains($0) }) {
+            detailsCache = detailsCache.filter { validKeys.contains($0.key) }
+            detailsCacheDirty = true
+        }
+        if detailsCacheDirty { saveDetailsCache(throttled: false) }
     }
 
     private func saveDetailsCache(throttled: Bool) {
         if throttled, Date().timeIntervalSince(lastCacheSave) < 10 { return }
         lastCacheSave = Date()
+        detailsCacheDirty = false
         let snapshot = detailsCache
         let file = Self.detailsCacheFile
         Task.detached(priority: .utility) {
@@ -1071,27 +1088,69 @@ final class AppModel: ObservableObject {
     }
 
     func readingPosition(for item: LibraryItem) -> ReadingPosition? {
-        readingPositions()[item.id]
+        pendingPositions[item.id] ?? readingPositions()[item.id]
     }
+
+    /// Places read since the last write to Reading.json. A page turn lands
+    /// here (and in local settings, so a crash loses nothing) — not in
+    /// iCloud, which gets one write when the reader closes, the app leaves
+    /// the foreground, or every ten minutes of reading.
+    private var pendingPositions: [String: ReadingPosition] = [:]
+    private var readingFileSeen: Date?
+    private var positionFlush: Task<Void, Never>?
+    private static let pendingPositionsKey = "pendingReading.v1"
 
     func saveReadingPosition(_ position: ReadingPosition, for item: LibraryItem) {
-        var all = readingPositions()
         var position = position
         position.date = Date()
-        lastReadID = item.id
-        lastReadDate = position.date
-        // Opening a fic counts as reading it, even without turning a page.
-        if position.samePlace(as: all[item.id]),
-           let saved = all[item.id]?.date, position.date!.timeIntervalSince(saved) < 60 { return }
-        all[item.id] = position
-        writeReadingPositions(all)
+        // Continue reading changes fic, not timestamp, per turn: a new date
+        // each page would redraw everything observing the model.
+        if lastReadID != item.id {
+            lastReadID = item.id
+            lastReadDate = position.date
+        }
+        pendingPositions[item.id] = position
+        if let data = try? Self.positionEncoder.encode(pendingPositions) {
+            defaults.set(data, forKey: Self.pendingPositionsKey)
+        }
+        guard positionFlush == nil else { return }
+        positionFlush = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(600))
+            guard !Task.isCancelled else { return }
+            self?.positionFlush = nil
+            self?.flushReadingPositions()
+        }
     }
 
-    private func writeReadingPositions(_ all: [String: ReadingPosition]) {
+    /// Writes pending places to Reading.json, merged over what other devices
+    /// wrote there.
+    func flushReadingPositions() {
+        positionFlush?.cancel()
+        positionFlush = nil
+        guard !pendingPositions.isEmpty else { return }
+        var all = readingPositions()
+        for (id, position) in pendingPositions { all[id] = position }
+        pendingPositions = [:]
+        defaults.removeObject(forKey: Self.pendingPositionsKey)
+        writeReadingPositions(all)
+        lastReadDate = all[lastReadID ?? ""]?.date ?? lastReadDate
+    }
+
+    private func loadPendingPositions() {
+        guard let data = defaults.data(forKey: Self.pendingPositionsKey) else { return }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        pendingPositions = (try? decoder.decode([String: ReadingPosition].self, from: data)) ?? [:]
+    }
+
+    private static let positionEncoder: JSONEncoder = {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(all) {
+        return encoder
+    }()
+
+    private func writeReadingPositions(_ all: [String: ReadingPosition]) {
+        if let data = try? Self.positionEncoder.encode(all) {
             try? data.write(to: readingFile, options: .atomic)
         }
     }
@@ -1103,6 +1162,12 @@ final class AppModel: ObservableObject {
     /// Re-reads Reading.json for the latest fic (another device may have
     /// read since).
     func refreshLastRead() {
+        // Mid-read, this device's own place is the latest.
+        guard pendingPositions.isEmpty else { return }
+        // Unchanged since the last look: nothing to decode.
+        let modified = (try? readingFile.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        guard modified == nil || modified != readingFileSeen else { return }
+        readingFileSeen = modified
         let latest = readingPositions()
             .compactMap { id, p in p.date.map { (id, $0) } }
             .max { $0.1 < $1.1 }
@@ -1750,5 +1815,18 @@ extension String {
             return self
         }
         return "“\(self)”"
+    }
+}
+
+private struct AppModelKey: EnvironmentKey {
+    static let defaultValue: AppModel? = nil
+}
+
+extension EnvironmentValues {
+    /// The model as a plain reference, for views that call into it but must
+    /// not redraw when it publishes (the reader).
+    var appModel: AppModel? {
+        get { self[AppModelKey.self] }
+        set { self[AppModelKey.self] = newValue }
     }
 }
