@@ -15,7 +15,13 @@ private struct FicSearch: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            #if os(iOS)
+            // Always showing: hidden until scrolled back to the top meant a
+            // trip up through hundreds of fics to search.
+            .searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: prompt)
+            #else
             .searchable(text: $text, prompt: prompt)
+            #endif
             .searchSuggestions { suggestions }
             .onSubmit(of: .search) { model.rememberSearch(text) }
             // Most people never press Search: a query left alone for a

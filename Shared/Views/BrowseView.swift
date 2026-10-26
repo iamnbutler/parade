@@ -38,7 +38,8 @@ struct BrowseView: View {
                     }
                     .leatherList()
                     .noSearchResults(for: searchText, when: groups.isEmpty)
-                    .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
+                    .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
+                                prompt: "Filter \(kind.label.lowercased())…")
                     .refreshable { await model.refreshLibraryNow() }
                 }
             }
