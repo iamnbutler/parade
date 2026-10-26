@@ -73,15 +73,16 @@ private struct SidebarRow: View {
 /// with the system sidebar toggle, collapsing, and resizable columns.
 struct MacRootView: View {
     enum SidebarSection: Hashable {
-        case library, toRead, browse, favorites, settings
+        case library, toRead, search, browse, favorites, settings
         case collection(String)
 
-        static let main: [SidebarSection] = [.library, .toRead, .browse, .favorites, .settings]
+        static let main: [SidebarSection] = [.library, .toRead, .search, .browse, .favorites, .settings]
 
         var title: String {
             switch self {
             case .library: "Library"
             case .toRead: "To Read"
+            case .search: "Search AO3"
             case .browse: "Browse"
             case .favorites: "Favorites"
             case .settings: "Settings"
@@ -92,6 +93,7 @@ struct MacRootView: View {
             switch self {
             case .library: "books.vertical"
             case .toRead: "bookmark"
+            case .search: "magnifyingglass"
             case .browse: "tag"
             case .favorites: "star"
             case .settings: "gearshape"
@@ -110,6 +112,9 @@ struct MacRootView: View {
     /// matching slice of it.
     @State private var backdropFrame: CGRect = .zero
     @State private var selectedID: String?
+    /// The AO3 result open in the detail column, in Search.
+    @State private var selectedWork: Int?
+    @EnvironmentObject private var search: SearchModel
     @State private var searchText = ""
     @State private var showAddSheet = false
     @State private var showNewCollection = false
@@ -265,6 +270,17 @@ struct MacRootView: View {
     private var detailColumn: some View {
         if section == .settings {
             Color.clear.leatherBackground()
+        } else if section == .search {
+            if let id = selectedWork, let work = search.works.first(where: { $0.id == id }) {
+                WorkPreview(work: work)
+                    .frame(minWidth: 260)
+            } else {
+                EmptyPage(
+                    drawing: "OpenBook",
+                    title: "Choose a fic",
+                    message: "Its summary and tags open here, to save or pass on.")
+                .leatherBackground()
+            }
         } else if let item = selectedItem {
             FicDetailView(item: item)
                 // A tapped tag or series opens in the content column;
@@ -320,7 +336,7 @@ struct MacRootView: View {
         case .browse:
             if let browseFacet { return Set(model.items(for: browseFacet).map(\.id)) }
             items = browseTag.map { model.items(for: .tag(TagSelection(kind: kind, name: $0), query: "")) } ?? []
-        case .settings: items = []
+        case .settings, .search: items = []
         case .toRead: items = model.toRead
         default: return Set(model.flatItems(.title).map(\.id))
         }
@@ -339,6 +355,7 @@ struct MacRootView: View {
                     .padding(.bottom, 14)
                 sidebarRow(.library, count: model.library.reduce(0) { $0 + $1.items.count })
                 sidebarRow(.toRead, count: model.toRead.count)
+                sidebarRow(.search)
                 sidebarRow(.browse)
                 sidebarRow(.favorites, count: model.favoriteItems.count)
                 SidebarPart(title: "Collections")
@@ -401,6 +418,9 @@ struct MacRootView: View {
         switch section {
         case .settings:
             SettingsView()
+        case .search:
+            SearchView(selection: $selectedWork)
+                .navigationTitle("Search AO3")
         case .browse:
             browseList
         case .toRead:

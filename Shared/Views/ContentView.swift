@@ -52,7 +52,7 @@ struct ContentView: View {
                 .tabItem { Label("To Read", systemImage: "bookmark") }
             CollectionsView()
                 .tabItem { Label("Collections", systemImage: "rectangle.stack.fill") }
-            SearchPlaceholderView()
+            SearchView()
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
@@ -95,17 +95,3 @@ private struct ToastView: View {
             .allowsHitTesting(false)
     }
 }
-
-#if os(iOS)
-/// The Search tab, until search (being built separately) lands.
-private struct SearchPlaceholderView: View {
-    var body: some View {
-        NavigationStack {
-            EmptyPage(title: "Search is on its way", message: "Finding fics on AO3 will live here.")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .leatherBackground()
-                .tabHeader("Search")
-        }
-    }
-}
-#endif

@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct ParadeApp: App {
     @StateObject private var model = AppModel()
+    @StateObject private var search = SearchModel()
     @Environment(\.scenePhase) private var scenePhase
     #if os(macOS)
     @StateObject private var updater = UpdaterModel()
@@ -18,6 +19,7 @@ struct ParadeApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .environmentObject(model)
+                .environmentObject(search)
                 .environment(\.appModel, model)
                 .defaultAppStorage(AppModel.settingsStore)
         }
@@ -45,6 +47,7 @@ struct ParadeApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .environmentObject(model)
+                .environmentObject(search)
                 .environment(\.appModel, model)
                 .defaultAppStorage(AppModel.settingsStore)
                 .onChange(of: scenePhase) { _, phase in

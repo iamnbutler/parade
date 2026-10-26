@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+- **Search AO3**: a Search tab on iPhone and a sidebar section on Mac.
+  - The first search covers the fandoms in your library. It stays as you
+    leave it, synced through `Search.json` in the library folder.
+  - Fandoms match any of them, not AO3's all-of-them. Fandom names from
+    EPUBs are looked up as AO3's canonical tags, so a synonym like "Mo Dao
+    Zu Shi" finds the whole fandom.
+  - Filters: Explicit only, Complete only, tags to include, hidden tags
+    and authors, and hide fics you already have.
+  - Results show what's already in your library or To Read. Save to To
+    Read or the library from a row or the preview.
+  - Results load one page at a time as you scroll, through the same polite
+    request queue as downloads.
+
 ### Removed
 - Apple Books integration: sending fics to Books, auto-import, Import All
   and the Apple Events permission, and the fic page's Books button. Fics

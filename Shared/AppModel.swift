@@ -1297,6 +1297,28 @@ final class AppModel: ObservableObject {
         #endif
     }
 
+    /// Downloads one AO3 work found in search into the library or To Read.
+    /// Waits for any download already running rather than refusing: saving
+    /// a few results in a row should just work. Returns whether it saved.
+    @discardableResult
+    func download(workID: Int, title: String, toRead: Bool) async -> Bool {
+        while isWorking {
+            try? await Task.sleep(for: .seconds(1))
+        }
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await downloadWork(id: workID, toRead: toRead)
+            showToast("Saved \(title.quoted) to \(toRead ? "To Read" : "your library")")
+        } catch {
+            showToast("Couldn't save \(title.quoted): \(error.localizedDescription)")
+            return false
+        }
+        await refreshLibraryNow()
+        buildDetailsIndex()
+        return true
+    }
+
     private func downloadWork(id: Int, toRead: Bool = false) async throws {
         status("Fetching work \(id)…")
         try await save(client.fetchWork(id: id), toRead: toRead)
