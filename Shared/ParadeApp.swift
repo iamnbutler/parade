@@ -49,8 +49,7 @@ struct ParadeApp: App {
                 .defaultAppStorage(AppModel.settingsStore)
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
-                        model.refreshLibrary()
-                        model.buildDetailsIndex()
+                        model.appBecameActive()
                     } else {
                         model.flushReadingPositions()
                     }

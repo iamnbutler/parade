@@ -9,6 +9,9 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: 2.9.0
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: 7.0.0
 
 settings:
   base:
@@ -21,6 +24,7 @@ targets:
     sources: [Shared]
     dependencies:
       - package: AO3Kit
+      - package: GRDB
       - package: Sparkle
         destinationFilters: [macOS]
     info:

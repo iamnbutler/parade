@@ -177,9 +177,6 @@ final class AppModel: ObservableObject {
     /// True once the library root is the app's iCloud container.
     @Published private(set) var inCloud = false
 
-    #if os(macOS)
-    private var timer: Timer?
-    #endif
 
     private enum Keys {
         static let folderBookmark = "destinationBookmark.v1"
@@ -195,34 +192,32 @@ final class AppModel: ObservableObject {
         updatesAvailable = Set(defaults.stringArray(forKey: Keys.updatesAvailable) ?? [])
         recentSearches = defaults.stringArray(forKey: Keys.recentSearches) ?? []
         destinationRoot = Self.testLibrary ?? Self.localRoot()
-        loadPendingPositions()
+        database = LibraryDatabase.openDefault(testLibrary: Self.testLibrary != nil)
+        adoptPendingPositions()
         updateDestinationLabel()
         refreshLibrary()
         Task { await self.connectCloudRoot() }
-        #if os(macOS)
-        startWatching()
-        #else
-        startAutoRefresh()
-        #endif
     }
 
-    #if os(iOS)
-    private var refreshTimer: Timer?
+    /// The device's working store (details, search, reading places).
+    private let database: LibraryDatabase
 
-    /// Poll the library folder while the app is in the foreground, so fics
-    /// synced in through iCloud show up without a manual refresh. (The
-    /// timer doesn't fire in the background; the folder is re-read the
-    /// moment views reappear anyway.)
-    private func startAutoRefresh() {
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, !self.isWorking, self.autoRefreshDue else { return }
-                self.refreshLibrary()
-                self.buildDetailsIndex()
-            }
-        }
+    /// Replaces polling: refreshes when iCloud reports the folder changed.
+    private lazy var watcher = LibraryWatcher { [weak self] in self?.libraryChanged() }
+
+    private func libraryChanged() {
+        refreshLibrary()
+        buildDetailsIndex()
+        pullReadingPositions()
     }
-    #endif
+
+    /// The app came forward. iCloud's query catches up on its own; this is
+    /// for folders it doesn't watch, and a cheap safety net — at most every
+    /// few minutes.
+    func appBecameActive() {
+        guard Date().timeIntervalSince(lastRefreshEnd) > (inCloud ? 300 : 15) else { return }
+        libraryChanged()
+    }
 
     // MARK: - destination folder (the app's iCloud container)
 
@@ -250,6 +245,7 @@ final class AppModel: ObservableObject {
             destinationLabel = "Test library › \(test.path)"
             await refreshLibraryNow()
             buildDetailsIndex()
+            pullReadingPositions()
             return
         }
         let container = await Task.detached(priority: .userInitiated) {
@@ -260,6 +256,7 @@ final class AppModel: ObservableObject {
             try? FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
             destinationRoot = container
             inCloud = true
+            watcher.watchCloud()
             // New root, new first scan — the loading state should show
             // until the container has actually been read once.
             hasLoadedOnce = false
@@ -272,6 +269,7 @@ final class AppModel: ObservableObject {
         isMigrating = false
         await refreshLibraryNow()
         buildDetailsIndex()
+        pullReadingPositions()
     }
 
     /// Every place a previous version kept the library, merged into the
@@ -367,12 +365,6 @@ final class AppModel: ObservableObject {
     private var requestedDownloads: Set<String> = []
     private var lastRefreshEnd = Date.distantPast
     private var lastScanDuration: TimeInterval = 0
-
-    /// Timers poll every 15 seconds, but a huge library shouldn't be
-    /// rescanned back-to-back — scans stay spaced at 10× their own cost.
-    var autoRefreshDue: Bool {
-        Date().timeIntervalSince(lastRefreshEnd) >= max(15, lastScanDuration * 10)
-    }
 
     /// Schedules a background rescan; results land back on the main actor.
     /// Cheap to call often — concurrent calls share one scan.
@@ -746,12 +738,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var detailsIndex: [String: WorkDetails] = [:] {
         didSet { vocabularyCache = nil }
     }
-    /// "path|mtime" → details. Persisted to Caches so a library is parsed
-    /// once ever, not once per launch.
+    /// "path|mtime" → details, loaded from the database: a library is
+    /// parsed once ever, not once per launch.
     private var detailsCache: [String: WorkDetails] = [:]
     private var detailsCacheLoaded = false
-    private var lastCacheSave = Date.distantPast
-    private var detailsCacheDirty = false
     private var indexTask: Task<Void, Never>?
 
     private nonisolated static var detailsCacheFile: URL {
@@ -787,7 +777,7 @@ final class AppModel: ObservableObject {
         }.value
         if let parsed {
             detailsCache[key] = parsed
-            detailsCacheDirty = true
+            store([.init(key: key, itemID: item.id, details: parsed)])
             detailsIndex[item.id] = parsed
             didUpdateDetails()
         }
@@ -819,10 +809,19 @@ final class AppModel: ObservableObject {
     private func runDetailsIndexing() async {
         if !detailsCacheLoaded {
             detailsCacheLoaded = true
+            let database = database
             let file = Self.detailsCacheFile
             let loaded = await Task.detached(priority: .utility) { () -> [String: WorkDetails] in
-                guard let data = try? Data(contentsOf: file) else { return [:] }
-                return (try? JSONDecoder().decode([String: WorkDetails].self, from: data)) ?? [:]
+                // Once: the JSON cache earlier builds kept in Caches moves
+                // into the database (it was rewritten whole on every save).
+                if database.isEmpty, let data = try? Data(contentsOf: file),
+                   let old = try? JSONDecoder().decode([String: WorkDetails].self, from: data) {
+                    try? database.upsert(old.map { key, details in
+                        .init(key: key, itemID: Self.itemID(fromCacheKey: key), details: details)
+                    })
+                }
+                try? FileManager.default.removeItem(at: file)
+                return (try? database.allDetails()) ?? [:]
             }.value
             detailsCache.merge(loaded) { current, _ in current }
         }
@@ -866,32 +865,33 @@ final class AppModel: ObservableObject {
                 detailsIndex.merge(enriched) { _, new in new }
                 didUpdateDetails()
             }
-            detailsCacheDirty = true
-            saveDetailsCache(throttled: true)
+            store(parsed.map { .init(key: $0.key, itemID: $0.id, details: $0.details) })
         }
 
-        // Drop cache entries for files that no longer exist at that version,
-        // so the cache can't grow without bound. Saved only if something
-        // changed: this runs on every refresh, and the file is megabytes.
+        // Drop entries for files that no longer exist at that version, so
+        // the store can't grow without bound — only when there are any.
         let validKeys = Set(items.map(Self.cacheKey))
         if detailsCache.count != validKeys.count || detailsCache.keys.contains(where: { !validKeys.contains($0) }) {
             detailsCache = detailsCache.filter { validKeys.contains($0.key) }
-            detailsCacheDirty = true
+            let database = database
+            Task.detached(priority: .utility) { try? database.prune(keeping: validKeys) }
+            searchHits = nil
         }
-        if detailsCacheDirty { saveDetailsCache(throttled: false) }
     }
 
-    private func saveDetailsCache(throttled: Bool) {
-        if throttled, Date().timeIntervalSince(lastCacheSave) < 10 { return }
-        lastCacheSave = Date()
-        detailsCacheDirty = false
-        let snapshot = detailsCache
-        let file = Self.detailsCacheFile
-        Task.detached(priority: .utility) {
-            if let data = try? JSONEncoder().encode(snapshot) {
-                try? data.write(to: file, options: .atomic)
-            }
-        }
+    /// Writes new entries to the database (rows, not the whole cache).
+    private func store(_ rows: [LibraryDatabase.DetailsRow]) {
+        guard !rows.isEmpty else { return }
+        searchHits = nil
+        let database = database
+        Task.detached(priority: .utility) { try? database.upsert(rows) }
+    }
+
+    /// "…/ao3/Author/Title.epub|123" → "ao3/Author/Title", the item's id.
+    private nonisolated static func itemID(fromCacheKey key: String) -> String {
+        let path = key.components(separatedBy: "|").first ?? key
+        let parts = path.components(separatedBy: "/").suffix(3)
+        return parts.joined(separator: "/").replacingOccurrences(of: ".epub", with: "", options: [.anchored, .backwards])
     }
 
     /// Fics grouped by one kind of metadata — fandom, series, tag… (a fic
@@ -929,20 +929,25 @@ final class AppModel: ObservableObject {
     }
 
     /// Search across title, author, and (once indexed) series, fandoms,
-    /// tags, relationships, characters and summary. Allocation-free per item —
-    /// this runs library-size times per keystroke.
+    /// tags, relationships, characters and summary. Runs library-size times
+    /// per keystroke, so the details side is one database query per query
+    /// string (a substring index), not a scan of every fic's text.
     func item(_ item: LibraryItem, matches query: String) -> Bool {
         guard !query.isEmpty else { return true }
         if item.title.localizedCaseInsensitiveContains(query) { return true }
         if item.author.localizedCaseInsensitiveContains(query) { return true }
-        guard let d = detailsIndex[item.id] else { return false }
-        if let series = d.seriesName, series.localizedCaseInsensitiveContains(query) { return true }
-        for list in [d.fandoms, d.additionalTags, d.relationships, d.characters, d.categories, d.rating, d.warnings] {
-            for value in list where value.localizedCaseInsensitiveContains(query) { return true }
-        }
-        // Longest, so last.
-        if let summary = d.summary, summary.localizedCaseInsensitiveContains(query) { return true }
-        return false
+        return detailsMatches(for: query).contains(item.id)
+    }
+
+    /// Ids whose indexed details contain `query`, cached per query until the
+    /// details change.
+    private var searchHits: (query: String, ids: Set<String>)?
+
+    private func detailsMatches(for query: String) -> Set<String> {
+        if let searchHits, searchHits.query == query { return searchHits.ids }
+        let ids = (try? database.itemIDs(matching: query)) ?? []
+        searchHits = (query, ids)
+        return ids
     }
 
     func delete(_ item: LibraryItem) {
@@ -1060,13 +1065,16 @@ final class AppModel: ObservableObject {
 
     // MARK: - reading positions
 
-    /// Where each fic was left off. Backed by Reading.json in the library
-    /// folder, so a fic opened on the phone picks up where the Mac stopped.
-    /// Read fresh on every open and merged on every save, so two devices
-    /// only ever overwrite each other's entry for the same fic.
+    /// Where each fic was left off. The device's database holds it; page
+    /// turns write only there. Reading.json in the library folder is how
+    /// devices share it: written in one batch when the reader closes, the
+    /// app leaves the foreground, or every 15 minutes of reading — and read
+    /// back when iCloud says another device changed it.
     private var readingFile: URL { destinationRoot.appendingPathComponent("Reading.json") }
+    private var readingFileSeen: Date?
+    private var positionSync: Task<Void, Never>?
 
-    private func readingPositions() -> [String: ReadingPosition] {
+    private func readingPositionsFile() -> [String: ReadingPosition] {
         guard let data = try? Data(contentsOf: readingFile) else { return [:] }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -1074,17 +1082,8 @@ final class AppModel: ObservableObject {
     }
 
     func readingPosition(for item: LibraryItem) -> ReadingPosition? {
-        pendingPositions[item.id] ?? readingPositions()[item.id]
+        try? database.readingPosition(for: item.id)
     }
-
-    /// Places read since the last write to Reading.json. A page turn lands
-    /// here (and in local settings, so a crash loses nothing) — not in
-    /// iCloud, which gets one write when the reader closes, the app leaves
-    /// the foreground, or every ten minutes of reading.
-    private var pendingPositions: [String: ReadingPosition] = [:]
-    private var readingFileSeen: Date?
-    private var positionFlush: Task<Void, Never>?
-    private static let pendingPositionsKey = "pendingReading.v1"
 
     func saveReadingPosition(_ position: ReadingPosition, for item: LibraryItem) {
         var position = position
@@ -1095,38 +1094,57 @@ final class AppModel: ObservableObject {
             lastReadID = item.id
             lastReadDate = position.date
         }
-        pendingPositions[item.id] = position
-        if let data = try? Self.positionEncoder.encode(pendingPositions) {
-            defaults.set(data, forKey: Self.pendingPositionsKey)
-        }
-        guard positionFlush == nil else { return }
-        positionFlush = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(600))
+        try? database.saveReadingPosition(position, for: item.id)
+        guard positionSync == nil else { return }
+        positionSync = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(900))
             guard !Task.isCancelled else { return }
-            self?.positionFlush = nil
+            self?.positionSync = nil
             self?.flushReadingPositions()
         }
     }
 
-    /// Writes pending places to Reading.json, merged over what other devices
-    /// wrote there.
+    /// Writes this device's new places to Reading.json, merged over what
+    /// other devices wrote there (newest place per fic wins).
     func flushReadingPositions() {
-        positionFlush?.cancel()
-        positionFlush = nil
-        guard !pendingPositions.isEmpty else { return }
-        var all = readingPositions()
-        for (id, position) in pendingPositions { all[id] = position }
-        pendingPositions = [:]
-        defaults.removeObject(forKey: Self.pendingPositionsKey)
-        writeReadingPositions(all)
-        lastReadDate = all[lastReadID ?? ""]?.date ?? lastReadDate
+        positionSync?.cancel()
+        positionSync = nil
+        guard database.hasPendingReadingPositions else { return }
+        let shared = readingPositionsFile()
+        try? database.mergeReadingPositions(shared)
+        guard let mine = try? database.readingPositions() else { return }
+        var all = shared
+        for (id, position) in mine where (position.date ?? .distantPast) > (all[id]?.date ?? .distantPast) {
+            all[id] = position
+        }
+        if let data = try? Self.positionEncoder.encode(all) {
+            try? data.write(to: readingFile, options: .atomic)
+            try? database.markReadingPositionsSynced()
+            readingFileSeen = (try? readingFile.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        }
+        if let date = all[lastReadID ?? ""]?.date, date != lastReadDate { lastReadDate = date }
     }
 
-    private func loadPendingPositions() {
-        guard let data = defaults.data(forKey: Self.pendingPositionsKey) else { return }
+    /// Takes in places other devices wrote to Reading.json — only when the
+    /// file changed since the last look.
+    private func pullReadingPositions() {
+        let modified = (try? readingFile.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        guard let modified, modified != readingFileSeen else { return }
+        readingFileSeen = modified
+        try? database.mergeReadingPositions(readingPositionsFile())
+        refreshLastRead()
+    }
+
+    /// Places the previous build kept in settings between syncs.
+    private func adoptPendingPositions() {
+        let key = "pendingReading.v1"
+        guard let data = defaults.data(forKey: key) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        pendingPositions = (try? decoder.decode([String: ReadingPosition].self, from: data)) ?? [:]
+        for (id, position) in (try? decoder.decode([String: ReadingPosition].self, from: data)) ?? [:] {
+            try? database.saveReadingPosition(position, for: id)
+        }
+        defaults.removeObject(forKey: key)
     }
 
     private static let positionEncoder: JSONEncoder = {
@@ -1135,30 +1153,14 @@ final class AppModel: ObservableObject {
         return encoder
     }()
 
-    private func writeReadingPositions(_ all: [String: ReadingPosition]) {
-        if let data = try? Self.positionEncoder.encode(all) {
-            try? data.write(to: readingFile, options: .atomic)
-        }
-    }
-
     /// The fic read most recently, on any device — for Continue reading.
     @Published private(set) var lastReadID: String?
     @Published private(set) var lastReadDate: Date?
 
-    /// Re-reads Reading.json for the latest fic (another device may have
-    /// read since).
     func refreshLastRead() {
-        // Mid-read, this device's own place is the latest.
-        guard pendingPositions.isEmpty else { return }
-        // Unchanged since the last look: nothing to decode.
-        let modified = (try? readingFile.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-        guard modified == nil || modified != readingFileSeen else { return }
-        readingFileSeen = modified
-        let latest = readingPositions()
-            .compactMap { id, p in p.date.map { (id, $0) } }
-            .max { $0.1 < $1.1 }
-        if latest?.0 != lastReadID { lastReadID = latest?.0 }
-        if latest?.1 != lastReadDate { lastReadDate = latest?.1 }
+        let latest = try? database.latestRead()
+        if latest?.itemID != lastReadID { lastReadID = latest?.itemID }
+        if latest?.date != lastReadDate { lastReadDate = latest?.date }
     }
 
     var lastReadItem: LibraryItem? { lastReadID.flatMap(item(withID:)) }
@@ -1394,10 +1396,9 @@ final class AppModel: ObservableObject {
             }
             saveCollections()
         }
-        var positions = readingPositions()
-        if let p = positions.removeValue(forKey: old) {
-            positions[new] = p
-            writeReadingPositions(positions)
+        if let p = try? database.readingPosition(for: old) {
+            // Under the new id; the next sync writes it to Reading.json.
+            try? database.saveReadingPosition(p, for: new)
             if lastReadID == old { lastReadID = new }
         }
         if updatesAvailable.remove(old) != nil { saveUpdatesAvailable() }
@@ -1571,21 +1572,10 @@ final class AppModel: ObservableObject {
         return path.hasPrefix(root) ? String(path.dropFirst(root.count)) : path
     }
 
-    // MARK: - folder watching (macOS)
+    // MARK: - scanning on request (macOS)
 
     #if os(macOS)
-    private func startWatching() {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.autoRefreshDue else { return }
-                self.scan()
-            }
-        }
-        scan()
-    }
-
-    /// One poll of the library folder.
+    /// A rescan on request (Scan Now).
     func scan() {
         Task { await self.scanNow() }
     }
