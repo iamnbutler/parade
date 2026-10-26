@@ -128,17 +128,20 @@ final class SearchModel: ObservableObject {
         profile.seedIfNeeded(fandomLists: libraryFandomLists)
     }
 
-    private var libraryFandomLists: [[String]] {
+    var libraryFandomLists: [[String]] {
         app?.detailsIndex.values.map(\.fandoms) ?? []
     }
 
     /// Library fandoms the search leaves out, most fics first.
     /// A synonym the search already covers ("MDZS" when searching its
     /// canonical tag) isn't offered: names are compared as AO3 resolves them.
-    var unsearchedLibraryFandoms: [(name: String, count: Int)] {
+    var unsearchedLibraryFandoms: [(name: String, count: Int)] { unsearchedLibraryFandoms(in: profile) }
+
+    /// The same, for a search being edited.
+    func unsearchedLibraryFandoms(in profile: SearchProfile) -> [(name: String, count: Int)] {
         let counts = Dictionary(libraryFandomLists.flatMap { Set($0) }.map { ($0, 1) }, uniquingKeysWith: +)
         return SearchProfile.seedFandoms(from: libraryFandomLists)
-            .filter { tag in !profile.fandoms.contains { $0.isSame(as: known(tag.name)) } }
+            .filter { tag in !(profile.fandoms + profile.excludedFandoms).contains { $0.isSame(as: known(tag.name)) } }
             .map { ($0.name, counts[$0.name] ?? 0) }
     }
 
@@ -173,7 +176,6 @@ final class SearchModel: ObservableObject {
         }
     }
 
-    func resetToLibrary() { profile.reset(fandomLists: libraryFandomLists) }
 
     private func save() {
         guard let file, let data = try? JSONEncoder.pretty.encode(profile) else { return }
@@ -266,7 +268,7 @@ final class SearchModel: ObservableObject {
     /// (an EPUB's fandom may be a synonym, which matches almost nothing), and
     /// writes what it learns back into the profile.
     private func resolveTags() async {
-        let pending = (profile.fandoms + profile.includeTags + profile.hiddenTags).filter { $0.canonical == nil }
+        let pending = profile.allTags.filter { $0.canonical == nil }
         guard !pending.isEmpty else { return }
         resolving = Set(pending.map(\.name))
         defer { resolving = [] }
@@ -289,9 +291,7 @@ final class SearchModel: ObservableObject {
         }
         // Not through `profile`'s didSet: resolving shouldn't restart the search it's part of.
         var updated = profile
-        updated.fandoms = fill(updated.fandoms)
-        updated.includeTags = fill(updated.includeTags)
-        updated.hiddenTags = fill(updated.hiddenTags)
+        updated.updateTags(fill)
         loaded = false
         profile = updated
         loaded = true
@@ -350,18 +350,23 @@ final class SearchModel: ObservableObject {
         profile.hiddenAuthors.append(author)
     }
 
-    func hide(tag name: String) {
+    /// A tag from a result: fics must have it, or never show it.
+    func set(_ name: String, kind: TagField, to inclusion: Inclusion) {
         let tag = TagRef(name: name)
-        guard !profile.hiddenTags.contains(where: { $0.isSame(as: tag) }) else { return }
-        profile.includeTags.removeAll { $0.isSame(as: tag) }
-        profile.hiddenTags.append(tag)
+        var rule = profile.rule(kind)
+        rule.include.removeAll { $0.isSame(as: tag) }
+        rule.exclude.removeAll { $0.isSame(as: tag) }
+        if inclusion == .include { rule.include.append(tag) } else { rule.exclude.append(tag) }
+        profile.setRule(rule, kind)
     }
 
-    func include(tag name: String) {
+    /// Whether the search names this tag, and how.
+    func inclusion(of name: String, kind: TagField) -> Inclusion? {
         let tag = TagRef(name: name)
-        guard !profile.includeTags.contains(where: { $0.isSame(as: tag) }) else { return }
-        profile.hiddenTags.removeAll { $0.isSame(as: tag) }
-        profile.includeTags.append(tag)
+        let rule = profile.rule(kind)
+        if rule.include.contains(where: { $0.isSame(as: tag) }) { return .include }
+        if rule.exclude.contains(where: { $0.isSame(as: tag) }) { return .exclude }
+        return nil
     }
 
     static func message(for error: Error) -> String {

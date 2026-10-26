@@ -1,16 +1,14 @@
 import SwiftUI
 import AO3Kit
 
-/// AO3 search: the filter bar, then results that page in as you scroll.
-/// The search stays as it was left — filters, words and all — until
-/// changed here.
+/// AO3 search results, under a summary of what the search is set to. The
+/// search itself is set up on its own page, `SearchForm`; it stays as it
+/// was left until changed there.
 struct SearchView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var search: SearchModel
     @Environment(\.scenePhase) private var scenePhase
-    /// The search field. It becomes the profile's words on Return or after
-    /// a pause, not on every keystroke: each search is a request to AO3.
-    @State private var words = ""
+    @State private var editing = false
     #if os(macOS)
     /// The result shown in the detail column.
     @Binding var selection: Int?
@@ -20,48 +18,35 @@ struct SearchView: View {
         #if os(iOS)
         NavigationStack {
             content
-                .tabHeader("Search", search: $words, prompt: "Words, tags, authors…",
-                           onSubmitSearch: { _ in commitWords() })
+                .tabHeader("Search") {
+                    Button("Edit Search") { editing = true }
+                        .buttonStyle(.leather)
+                }
                 .navigationDestination(for: WorkBlurb.self) { work in
                     WorkPreview(work: work)
                 }
         }
         #else
         content
-            .searchable(text: $words, prompt: "Words, tags, authors…")
-            .onSubmit(of: .search) { commitWords() }
         #endif
     }
 
     private var content: some View {
         list
-            .task(id: words) {
-                try? await Task.sleep(for: .seconds(1.5))
-                guard !Task.isCancelled else { return }
-                commitWords()
+            .sheet(isPresented: $editing) {
+                SearchForm()
             }
             .onAppear {
                 search.start(with: model)
-                words = search.profile.words
                 model.buildDetailsIndex()
             }
             .onChange(of: model.detailsIndex) { _, _ in
                 search.start(with: model)
                 search.refreshOwned()
             }
-            .onChange(of: search.profile.words) { _, new in
-                if new != words { words = new }
-            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { search.reloadFromDisk() }
             }
-    }
-
-    private func commitWords() {
-        let trimmed = words.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed != search.profile.words.trimmingCharacters(in: .whitespacesAndNewlines) {
-            search.profile.words = trimmed
-        }
     }
 
     private var list: some View {
@@ -80,8 +65,8 @@ struct SearchView: View {
     @ViewBuilder
     private var rows: some View {
             Section {
-                SearchFilterBar()
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+                SearchSummaryCard { editing = true }
+                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 10, trailing: 16))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 summaryLine
@@ -343,5 +328,31 @@ struct BlurbActions: View {
                 Label("Hide \(author)", systemImage: "eye.slash")
             }
         }
+    }
+}
+
+/// What the search is set to, at the top of the results: a few plain lines
+/// and the way into the form.
+private struct SearchSummaryCard: View {
+    let edit: () -> Void
+    @EnvironmentObject private var search: SearchModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(Array(SearchSummary.lines(search.profile).enumerated()), id: \.offset) { index, line in
+                    Text(line)
+                        .textRole(index == 0 ? .rowTitle : .meta)
+                        .lineLimit(2)
+                }
+            }
+            Button(action: edit) {
+                Label("Edit Search", systemImage: "slider.horizontal.3")
+            }
+            .buttonStyle(.leatherProminent)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .debossed(cornerRadius: 12)
     }
 }

@@ -15,56 +15,53 @@ site on 2026-10-25 and are marked **verified**.
 
 | AO3 | Parade |
 |---|---|
-| ~30 fields across two pages; most people use three of them | Six controls: fandoms, words, include tags, hide tags, Explicit only, Complete only. Plus sort. |
+| Two pages of fields: the search form, plus a filter sidebar with its own rules | One form, set up on its own page. The results page shows a short summary of it. |
 | Several fandoms means fics in **all** of them (crossovers only) | Several fandoms means fics in **any** of them. That's how people read. |
+| Several categories or warnings means **all** of them | Include means **any** of them: "F/F or Multi". |
+| The search form can't exclude anything | Every warning, category, fandom, relationship, character and tag can be included or excluded. |
 | Every search starts empty | Your search is sticky. It's still set up the way you left it, on every device. |
 | A first search starts from nothing | A first search starts from the fandoms in your library. |
 | Ratings are five checkboxes | One switch: **Explicit only**. Off means every rating. |
-| Exclusions are retyped every time | Hidden tags and authors are part of the profile. They stay hidden until you unhide them. |
 | You can't tell what you already have | Results show **In library** / **To Read**, and there's an option to hide fics you already have. |
 | Tags are typed exactly or they don't match | You pick tags by name, and Parade resolves them to AO3's canonical tag. |
+
+The form covers AO3's search options:
+- words (any field), title, creator
+- fandoms, with crossovers to include, exclude or show only
+- Explicit only
+- each archive warning and category: any, include or exclude
+- relationships, characters and additional tags, each included or excluded
+- complete or in progress, single chapter, date updated
+- every sort AO3 offers, in either direction
+
+Parade adds excluded creators and "hide fics I already have".
 
 **Cut on purpose:**
 - the Work Stats fields (hits, kudos, comments, bookmarks)
 - word count
 - language (English always)
-- archive warnings and categories
-- single chapter, crossover
-- date ranges, title and creator fields
+- ratings other than Explicit
 
-Sorting by kudos, hits or bookmarks stays: that's a sort, not a filter.
+Sorting by kudos, hits, bookmarks or comments stays: that's a sort, not a filter.
 
 ## 2. The search profile
 
 One value, saved and synced, that every search is built from:
+`SearchProfile` in `AO3Kit/Sources/AO3Kit/SearchProfile.swift`. It holds:
+- words, title and creator
+- fandoms and excluded fandoms, and crossovers
+- Explicit only
+- warnings and categories, as `[AO3 tag id: include | exclude]`
+- a `TagRule` (include / exclude lists) for each of relationships,
+  characters and additional tags
+- excluded creators
+- completion, single chapter and updated within
+- sort and direction
+- hide-owned and seeded
 
-```swift
-struct SearchProfile: Codable, Equatable {
-    /// Matches fics in any of these. Empty means all of AO3.
-    var fandoms: [TagRef] = []
-    /// Free text: title, summary, tags, author. AO3 query syntax passes through.
-    var words = ""
-    /// Ships, characters and freeforms. A fic must have all of them.
-    var includeTags: [TagRef] = []
-    /// Never shown. Sent to AO3 as excluded_tag_names and also filtered locally.
-    var hiddenTags: [TagRef] = []
-    /// Filtered locally only; AO3 can't exclude a creator.
-    var hiddenAuthors: [String] = []
-    var explicitOnly = false
-    var completeOnly = false
-    /// Local filter: drop works whose AO3 id is already in the library or To Read.
-    var hideOwned = false
-    var sort: AO3WorkQuery.Sort = .updated
-    /// Set once the profile has been seeded from the library.
-    var seeded = false
-}
-
-struct TagRef: Codable, Hashable {
-    var name: String         // what the person picked or the EPUB said
-    var canonical: String?   // AO3's canonical name, once resolved
-    var id: Int?             // AO3 tag id, once resolved
-}
-```
+Every tag is a `TagRef`: the name as picked, plus AO3's canonical name and
+id once it's been looked up. Profiles saved by the first version, with its
+`includeTags` / `hiddenTags` / `completeOnly`, still decode.
 
 ### Where it lives
 
@@ -125,26 +122,35 @@ From `WorksController#work_search_params`, `WorkQuery` and `TaggableQuery`:
 
 ```
 /works/search?
-  work_search[query]=(<words>) AND filter_ids:(<id1> OR <id2> OR …)
-  work_search[other_tag_names]=<include tags, canonical names, comma-separated>
-  work_search[excluded_tag_names]=<hidden tags, comma-separated>
-  work_search[rating_ids]=13              # only when explicitOnly
-  work_search[complete]=T                 # only when completeOnly
+  work_search[query]=(<words>) AND filter_ids:(<fandom ids, OR'd>)
+                     AND filter_ids:(<included warnings, OR'd>) AND filter_ids:(<included categories, OR'd>)
+                     NOT filter_ids:<each excluded warning, category or tag with an id>
+  work_search[title], work_search[creators]
+  work_search[relationship_names|character_names|freeform_names]=<included, canonical, comma-separated>
+  work_search[excluded_tag_names]=<excluded tags AO3 has no id for>
+  work_search[rating_ids]=13              # Explicit only
+  work_search[complete]=T|F               # complete / in progress
+  work_search[crossover]=F|T              # exclude / only
+  work_search[single_chapter]=1
+  work_search[revised_at]=< 1 week|month|6 months|year
+  work_search[sort_column]=…  work_search[sort_direction]=asc|desc
   work_search[language_id]=en
-  work_search[sort_column]=revised_at|_score|kudos_count|hits|bookmarks_count
   page=N
 ```
 
-- Every search, one fandom or several, goes through `/works/search`, so
-  there's only one request shape to get right.
-- **Best match** (`_score`) only makes sense when there are words. With
-  no words, the sort picker hides it and falls back to Updated.
-- **No fandoms** searches all of AO3. That's allowed, and the filter bar
-  says so plainly.
+**Verified live:** warning and category IDs come from AO3's own form:
+- warnings: 14, 16, 17, 18, 19 and 20
+- categories: 116 F/F, 22 F/M, 21 Gen, 23 M/M, 2246 Multi, 24 Other
 
-`AO3WorkQuery` grows a new source, `.profile(SearchProfile)`. Its `url` is
-unit-tested like the existing cases. Encoding follows `plainTerms` and
-`tagPath`, which already exist.
+Counts for the Hades fandom (8,576 works):
+- M/M or F/F finds 5,646. That's M/M's 5,098 plus F/F's 651, less the 103 tagged both.
+- Excluding Major Character Death finds 8,214, which is 8,576 less its 362. `NOT filter_ids:18` and `excluded_tag_names` give the same count.
+
+- Every search goes through `/works/search`, so there's only one request
+  shape to get right.
+- **Best match** (`_score`) only makes sense when there are words; without
+  them it falls back to Updated, and the form says so.
+- **No fandoms** searches all of AO3.
 
 ### Resolving tags (name → canonical name + id)
 
@@ -249,73 +255,32 @@ try again shortly" rather than retrying blindly.
 
 ## 5. Screens
 
-### iOS: a Search tab
-
-Its own tab, in the slot the tab bar kept for it (Library, To Read,
-Collections, Search, Settings). It uses the same `tabHeader` as the other
-tabs: the search field, then the page title. `Tab(role: .search)` would
-need iOS 18, and Parade targets iOS 17.
-
-```
-┌──────────────────────────────────────┐
-│ 🔍  Words, tags, authors…             │  always-visible field
-├──────────────────────────────────────┤
-│ [6 fandoms] [Explicit] [Complete]    │  filter bar: chips, scrolls
-│ [+ tags] [Hidden 4] [Updated ▾]      │  sideways; tap = edit
-├──────────────────────────────────────┤
-│ 12,408 fics                    ⓘ     │  count; ⓘ = what's applied
-│                                      │
-│ Title of the Work          In library│  blurb row (FicRow styling)
-│ by author · Fandom A, Fandom B       │
-│ E · Complete · 84k · 23 ch · ♥ 4.1k  │
-│ Summary, three lines, then fades…    │
-│ ship · ship · tag · tag · +12        │
-│ ─────────────────────────────────    │
-│ …                                    │
-└──────────────────────────────────────┘
-```
-
-**Chips.** Off chips are quiet and on chips are raised (Leather & Ink:
-rose marks interaction, gold marks counts).
-- **Fandoms** opens the fandom editor:
-  - your fandoms, each with a remove action and its library count
-  - an add field that suggests from the library first
-  - "In your library, not in your search"
-  - Reset to my fandoms / Clear
-- **Explicit only** and **Complete only** toggle in place. No sheet.
-- **+ tags** opens an include-tag editor with the same suggestion source.
-- **Hidden N** lists hidden tags and authors, each with Unhide.
-- **Sort** is a menu: Updated, Best match (only with words), Kudos, Hits,
-  Bookmarks.
-- **Hide fics I have** sits in the ⓘ sheet. It's a local filter, so pages
-  can come back with fewer than 20 rows.
-
-**A result row:**
-- Tap opens a **preview**: full summary, all tags, series, stats, and
-  Save to To Read / Save to Library / Open on AO3. This is built from the
-  blurb already in hand, so it costs no request.
-- Swipe or long-press offers:
-  - **Save to To Read**: one tap, using the existing `downloadWork(id:
-    toRead:)` path
-  - **Save to Library**
-  - **Hide author**
-  - **Hide tag…**
-- Tapping a tag in the preview gives **Add to search** / **Hide** /
-  **Search only this**. The last one temporarily overrides the profile,
-  with a "Back to your search" chip.
-- Owned works carry **In library** or **To Read**. They're matched by
-  AO3 work id against `detailsIndex`, so no request is needed.
-
-**Empty and error states** use the existing drawings:
-- No results: "Nothing matches. Remove a tag?" with one-tap removal of the
-  most recently added filter.
-- Offline or blocked: say which, and when it will retry.
-
-### macOS
-
-A **Search** sidebar section. The list column holds the filter bar and
-results; the detail column holds the preview. Filter editors are popovers
-anchored on the chips.
+- **Results** (`SearchView`). On iPhone this is the Search tab; on Mac it's
+  the sidebar section.
+  - A card at the top sums up the search in a few plain lines ("Harry
+    Potter · no crossovers", "F/F or Multi · no Major Character Death",
+    "Complete · updated this year", "Sorted by kudos"), with **Edit
+    Search** under them.
+  - Below the card, results page in as you scroll.
+- **The form** (`SearchForm`) opens as a sheet and edits a copy of the
+  search. Nothing is asked of AO3 until **Search**; **Cancel** drops the
+  edits. Its sections, in order:
+  - Words
+  - Fandoms, with suggestions from the library
+  - Crossovers
+  - Rating
+  - Archive warnings and Categories: each row has Any / Include / Exclude
+  - Relationships, Characters, Additional tags: type to add, then
+    Include or Exclude
+  - The work
+  - Order
+  - Your library
+  - Start over / Clear
+- **The preview** (`WorkPreview`). Every tag on a result can be included
+  in or excluded from the search, by its kind; this applies at once.
+- **Debug:** `PARADE_SCREEN=search-form[@categories|@tags|@end]` opens the
+  form alone, scrolled to a section. It's for simulator screenshots, which
+  can't tap.
 
 ## 6. Code layout
 

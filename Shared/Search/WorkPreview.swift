@@ -25,11 +25,12 @@ struct WorkPreview: View {
                 Text(WorkFacts.line(work)).textRole(.meta)
                 Hairline()
                 VStack(alignment: .leading, spacing: 18) {
-                    field("Fandom", work.fandoms)
-                    field("Warnings", work.warnings.filter { $0 != "No Archive Warnings Apply" }, tappable: false)
-                    field("Relationships", work.relationships)
-                    field("Characters", work.characters)
-                    field("Tags", work.freeforms)
+                    field("Fandom", work.fandoms, kind: .fandom)
+                    fixedField("Warnings", work.warnings, FixedTag.warnings, \.warnings)
+                    fixedField("Category", work.categories, FixedTag.categories, \.categories)
+                    field("Relationships", work.relationships, kind: .relationship)
+                    field("Characters", work.characters, kind: .character)
+                    field("Tags", work.freeforms, kind: .freeform)
                 }
                 Fleuron().padding(.top, 8)
             }
@@ -91,42 +92,59 @@ struct WorkPreview: View {
         }
     }
 
-    /// A labelled run of tags. Each one can join the search or be hidden.
+    /// A labelled run of tags. Each one can be included in the search or
+    /// excluded from it.
     @ViewBuilder
-    private func field(_ label: String, _ values: [String], tappable: Bool = true) -> some View {
+    private func field(_ label: String, _ values: [String], kind: TagField) -> some View {
         if !values.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(label).textRole(.kicker)
-                FlowLayout(spacing: 6) {
-                    ForEach(values, id: \.self) { value in
-                        if tappable {
-                            Menu {
-                                Button { search.include(tag: value) } label: {
-                                    Label("Add to Search", systemImage: "plus.magnifyingglass")
-                                }
-                                Button { search.hide(tag: value) } label: {
-                                    Label("Hide Fics with This", systemImage: "eye.slash")
-                                }
-                            } label: {
-                                Chip(text: value, selected: isIncluded(value))
-                                    .multilineTextAlignment(.leading)
-                            }
-                            .menuStyle(.button)
-                            .buttonStyle(.plain)
-                            // Not fixedSize: a long fandom name wraps instead of
-                            // widening the page past its column.
-                            .menuIndicator(.hidden)
-                        } else {
-                            Chip(text: value)
-                        }
-                    }
-                }
+            chips(label, values) { value in
+                search.inclusion(of: value, kind: kind)
+            } set: { value, inclusion in
+                search.set(value, kind: kind, to: inclusion)
             }
         }
     }
 
-    private func isIncluded(_ name: String) -> Bool {
-        let tag = TagRef(name: name)
-        return (search.profile.fandoms + search.profile.includeTags).contains { $0.isSame(as: tag) }
+    /// Warnings or categories: AO3's fixed tags, set by id.
+    @ViewBuilder
+    private func fixedField(_ label: String, _ values: [String], _ known: [FixedTag],
+                            _ path: WritableKeyPath<SearchProfile, [Int: Inclusion]>) -> some View {
+        if !values.isEmpty {
+            chips(label, values) { value in
+                known.first { $0.name == value }.flatMap { search.profile[keyPath: path][$0.id] }
+            } set: { value, inclusion in
+                guard let tag = known.first(where: { $0.name == value }) else { return }
+                search.profile[keyPath: path][tag.id] = inclusion
+            }
+        }
+    }
+
+    private func chips(_ label: String, _ values: [String],
+                       state: @escaping (String) -> Inclusion?,
+                       set: @escaping (String, Inclusion) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).textRole(.kicker)
+            FlowLayout(spacing: 6) {
+                ForEach(values, id: \.self) { value in
+                    Menu {
+                        Button { set(value, .include) } label: {
+                            Label("Include in Search", systemImage: "checkmark.circle")
+                        }
+                        Button { set(value, .exclude) } label: {
+                            Label("Exclude from Search", systemImage: "nosign")
+                        }
+                    } label: {
+                        Chip(text: value, selected: state(value) == .include)
+                            .strikethrough(state(value) == .exclude)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .menuStyle(.button)
+                    .buttonStyle(.plain)
+                    // Not fixedSize: a long fandom name wraps instead of
+                    // widening the page past its column.
+                    .menuIndicator(.hidden)
+                }
+            }
+        }
     }
 }

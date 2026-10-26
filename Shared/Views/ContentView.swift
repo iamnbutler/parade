@@ -20,6 +20,11 @@ struct ContentView: View {
         if ThemeGallery.requested != nil {
             ThemeGallery()
                 .palette(ThemeGallery.requested?.contains("noir") == true ? .noir : .leather)
+        } else if let screen = ProcessInfo.processInfo.environment["PARADE_SCREEN"], screen.hasPrefix("search-form") {
+            // For screenshots: the search form alone, as its sheet shows it,
+            // scrolled to a section: "search-form@categories".
+            SearchForm(scrolledTo: screen.components(separatedBy: "@").dropFirst().first)
+                .onAppear { model.refreshLibrary() }
         } else {
             appRoot
         }
