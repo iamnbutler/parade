@@ -154,7 +154,7 @@ final class AppModel: ObservableObject {
 
     /// Debug builds only: `PARADE_TEST_LIBRARY=/some/folder` runs the app
     /// against that folder instead of the iCloud library — no migration,
-    /// separate settings and caches, nothing sent to Apple Books — so it can
+    /// separate settings and caches — so it can
     /// be exercised with fixtures without touching a real library.
     nonisolated static let testLibrary: URL? = {
         #if DEBUG
@@ -178,30 +178,20 @@ final class AppModel: ObservableObject {
     @Published private(set) var inCloud = false
 
     #if os(macOS)
-    @Published var autoImport: Bool {
-        didSet { defaults.set(autoImport, forKey: Keys.autoImport) }
-    }
     private var timer: Timer?
-    /// relativePath → last-imported mtime, so each EPUB version reaches
-    /// Apple Books exactly once.
-    private var imported: [String: TimeInterval]
     #endif
 
     private enum Keys {
         static let folderBookmark = "destinationBookmark.v1"
-        static let autoImport = "autoImport.v1"
-        static let imported = "importedFiles.v1"
-        static let baselinedFolder = "baselinedFolder.v1"
+        /// Apple Books integration, removed; cleared once at launch.
+        static let retired = ["autoImport.v1", "importedFiles.v1", "baselinedFolder.v1"]
         static let updatesAvailable = "updatesAvailable.v1"
         static let recentSearches = "recentSearches.v1"
     }
 
     init() {
         defaults = Self.settingsStore
-        #if os(macOS)
-        autoImport = defaults.object(forKey: Keys.autoImport) as? Bool ?? false
-        imported = defaults.dictionary(forKey: Keys.imported) as? [String: TimeInterval] ?? [:]
-        #endif
+        Keys.retired.forEach(defaults.removeObject(forKey:))
         updatesAvailable = Set(defaults.stringArray(forKey: Keys.updatesAvailable) ?? [])
         recentSearches = defaults.stringArray(forKey: Keys.recentSearches) ?? []
         destinationRoot = Self.testLibrary ?? Self.localRoot()
@@ -962,10 +952,6 @@ final class AppModel: ObservableObject {
         if let remaining = try? fm.contentsOfDirectory(atPath: dir.path), remaining.isEmpty {
             try? fm.removeItem(at: dir)
         }
-        #if os(macOS)
-        imported.removeValue(forKey: relativePath(of: item.url))
-        persistImported()
-        #endif
         if favorites.remove(item.id) != nil { saveFavorites() }
         if !collections.collections(containing: item.id).isEmpty {
             collections.removeEverywhere(item.id)
@@ -1585,57 +1571,9 @@ final class AppModel: ObservableObject {
         return path.hasPrefix(root) ? String(path.dropFirst(root.count)) : path
     }
 
-    // MARK: - Apple Books (macOS)
+    // MARK: - folder watching (macOS)
 
     #if os(macOS)
-    /// Sends one fic to Apple Books (silent import) and remembers it.
-    func addToBooks(_ item: LibraryItem) {
-        guard sendToBooks([item.url]) else {
-            showToast("Couldn't send \(item.title.quoted) to Apple Books")
-            return
-        }
-        markImported(item.url)
-        persistImported()
-        if Self.testLibrary == nil { status("→ Books: \(item.title)") }
-        showToast(Self.testLibrary == nil
-            ? "Sent \(item.title.quoted) to Apple Books"
-            : "Test library — \(item.title.quoted) not actually sent to Books")
-    }
-
-    @discardableResult
-    private func sendToBooks(_ urls: [URL]) -> Bool {
-        guard Self.testLibrary == nil else {
-            // Behave as if sent (so nothing is retried every scan) without
-            // touching the real Books library.
-            status("Test library — skipped sending \(urls.count) book\(urls.count == 1 ? "" : "s") to Apple Books")
-            return true
-        }
-        guard let books = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.iBooksX") else {
-            status("⚠️ Apple Books not found")
-            return false
-        }
-        let config = NSWorkspace.OpenConfiguration()
-        config.activates = false
-        NSWorkspace.shared.open(urls, withApplicationAt: books, configuration: config)
-        return true
-    }
-
-    /// "Opening" an EPUB is the only supported way into Books' library, but it
-    /// also opens a reader window per book — close them so a bulk import
-    /// doesn't bury the user in 300 windows. Best-effort AppleScript (the
-    /// first use prompts once to allow controlling Books).
-    private func closeBooksWindows() {
-        let script = NSAppleScript(source: #"tell application "Books" to close every window"#)
-        var error: NSDictionary?
-        script?.executeAndReturnError(&error)
-    }
-
-    private func markImported(_ url: URL) {
-        let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
-            .contentModificationDate?.timeIntervalSince1970 ?? 0
-        imported[relativePath(of: url)] = mtime
-    }
-
     private func startWatching() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
@@ -1647,73 +1585,18 @@ final class AppModel: ObservableObject {
         scan()
     }
 
-    /// One poll of the library folder: refresh the view, and auto-import
-    /// EPUBs that arrived or changed since the last look.
+    /// One poll of the library folder.
     func scan() {
         Task { await self.scanNow() }
     }
 
     func scanNow() async {
         await refreshLibraryNow()
-        let downloaded = library.flatMap(\.items).filter(\.isDownloaded)
-
-        // First look at a folder: baseline its existing contents as already
-        // imported, so switching folders never mass-imports by surprise —
-        // "Import All to Apple Books" is the explicit way to do that.
-        if defaults.string(forKey: Keys.baselinedFolder) != destinationRoot.path {
-            imported = [:]
-            downloaded.forEach { markImported($0.url) }
-            persistImported()
-            defaults.set(destinationRoot.path, forKey: Keys.baselinedFolder)
-            if !downloaded.isEmpty {
-                status("Found \(downloaded.count) existing book\(downloaded.count == 1 ? "" : "s") — use “Import All to Apple Books” in Settings to send them to Books.")
-            }
-            return
-        }
-
-        guard autoImport else { return }
-        let currentPaths = Set(downloaded.map { relativePath(of: $0.url) })
-        let fresh = downloaded.filter { item in
-            let mtime = item.date.timeIntervalSince1970
-            if let seen = imported[relativePath(of: item.url)], seen >= mtime { return false }
-            return true
-        }
-
-        // Auto-import is for single-URL downloads (pasted here, or synced in
-        // from the phone one fic at a time). A large batch landing at once —
-        // an initial iCloud sync, a folder copied in by hand — is bulk:
-        // baseline it and leave Books to the explicit "Import All".
-        if fresh.count > 20 {
-            fresh.forEach { markImported($0.url) }
-            imported = imported.filter { currentPaths.contains($0.key) }
-            persistImported()
-            status("Found \(fresh.count) new fics — bulk arrival, skipping auto-import. Use “Import All to Apple Books” to send them.")
-            return
-        }
-
-        var imports = 0
-        for item in fresh {
-            guard sendToBooks([item.url]) else { return }
-            markImported(item.url)
-            status("→ Books: \(item.title)")
-            imports += 1
-        }
-        if imports > 0 {
-            // Don't leave reader windows piling up on an unattended Mac.
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(1500))
-                self.closeBooksWindows()
-            }
-        }
-        // Forget deleted files so a future re-download imports again.
-        imported = imported.filter { currentPaths.contains($0.key) }
-        persistImported()
     }
 
     /// Merges an existing `[Author]/…/[epub]` tree (e.g. a Calibre library)
     /// INTO the library folder — the folder is the source of truth, so
-    /// getting fics into Parade (and from there into Books, via the watcher)
-    /// means getting the files into the folder. Files are moved; duplicates
+    /// getting fics into Parade means getting the files into the folder. Files are moved; duplicates
     /// already in the library are left in place at the source.
     func mergeFolder(_ folder: URL) async {
         // Merging the library (or a folder inside it, or one holding it) into
@@ -1759,49 +1642,16 @@ final class AppModel: ObservableObject {
                     try fm.copyItem(at: url, to: dest)
                     try? fm.removeItem(at: url)
                 }
-                // Baseline the file so the watcher does NOT auto-import it —
-                // Books auto-import is only for single-URL downloads; bulk
-                // goes through the explicit "Import All to Apple Books".
-                markImported(dest)
                 moved += 1
             } catch {
                 failed += 1
             }
         }
-        persistImported()
         var summary = "✓ Merged \(moved) fic\(moved == 1 ? "" : "s") into the library"
         if skipped > 0 { summary += ", \(skipped) already there" }
         if failed > 0 { summary += ", \(failed) failed" }
         status(summary)
-        if moved > 0 {
-            status("Use “Import All to Apple Books” to send them to Books.")
-        }
         refreshLibrary()
-    }
-
-    /// Explicit bulk action: send every EPUB in the library to Apple Books,
-    /// batched, tidying the reader windows Books opens along the way.
-    func importAllToBooks() async {
-        await refreshLibraryNow()
-        let epubs = library.flatMap(\.items).filter(\.isDownloaded).map(\.url)
-        guard !epubs.isEmpty else {
-            status("⚠️ Library is empty")
-            return
-        }
-        status("Importing \(epubs.count) book\(epubs.count == 1 ? "" : "s") to Apple Books…")
-        for start in stride(from: 0, to: epubs.count, by: 20) {
-            let batch = Array(epubs[start..<min(start + 20, epubs.count)])
-            guard sendToBooks(batch) else { return }
-            try? await Task.sleep(for: .milliseconds(1500))
-            closeBooksWindows()
-        }
-        epubs.forEach { markImported($0) }
-        persistImported()
-        status("✓ Sent \(epubs.count) book\(epubs.count == 1 ? "" : "s") to Apple Books")
-    }
-
-    private func persistImported() {
-        defaults.set(imported, forKey: Keys.imported)
     }
     #endif
 }

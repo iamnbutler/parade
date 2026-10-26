@@ -17,7 +17,7 @@ struct SettingsView: View {
                 linkSection
                 searchSection
                 #if os(macOS)
-                booksSection
+                folderImportSection
                 #endif
                 if !model.statusLines.isEmpty {
                     LeatherSection("Activity") {
@@ -55,7 +55,7 @@ struct SettingsView: View {
             LabeledContent("Saving to", value: model.destinationLabel)
         } footer: {
             if AppModel.testLibrary != nil {
-                Text("Test library (debug build): a scratch folder with its own settings. Nothing here touches the real library, iCloud, or Apple Books.")
+                Text("Test library (debug build): a scratch folder with its own settings. Nothing here touches the real library or iCloud.")
             } else {
                 libraryFooter
             }
@@ -68,7 +68,7 @@ struct SettingsView: View {
             ? Text("The library lives in Parade's own iCloud Drive folder and syncs to all your devices automatically. Fics are filed by source: ao3/Author/Title.epub.")
             : Text("iCloud isn't available, so the library is kept on this device only. Fics are filed by source: ao3/Author/Title.epub.")
         #else
-        Text("The library lives in iCloud Drive › Parade, synced with your other devices. The folder is watched: fics that appear in it — downloaded here or synced from the phone — can be imported into Apple Books.")
+        Text("The library lives in iCloud Drive › Parade, synced with your other devices. Fics that appear in it — downloaded here or synced from the phone — show up in the library.")
         #endif
     }
 
@@ -127,16 +127,12 @@ struct SettingsView: View {
     }
 
     #if os(macOS)
-    private var booksSection: some View {
-        LeatherSection(title: "Apple Books") {
-            Toggle("Auto-import new fics into Apple Books", isOn: $model.autoImport)
+    private var folderImportSection: some View {
+        LeatherSection(title: "Bring Fics In") {
             Button("Add a Folder to Library…") { showImportPicker = true }
-            Button("Import All to Apple Books") {
-                Task { await model.importAllToBooks() }
-            }
             Button("Scan Now") { model.scan() }
         } footer: {
-            Text("“Add a Folder to Library…” moves an existing [Author]/[epub] tree (like a Calibre library) into the library folder — the watcher then imports new arrivals into Apple Books. “Import All” re-sends everything in the library to Books.")
+            Text("“Add a Folder to Library…” moves an existing [Author]/[epub] tree (like a Calibre library) into the library folder.")
         }
     }
     #endif

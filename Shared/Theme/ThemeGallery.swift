@@ -23,7 +23,7 @@ struct ThemeGallery: View {
                 HStack(spacing: 8) {
                     Button {} label: { Label("Update", systemImage: "arrow.down.circle") }
                         .buttonStyle(.leatherProminent)
-                    Button {} label: { Label("Books", systemImage: "book.closed") }
+                    Button {} label: { Label("Share", systemImage: "square.and.arrow.up") }
                         .buttonStyle(.leather)
                     Button {} label: { Label("Favorite", systemImage: "star") }
                         .buttonStyle(.leather)

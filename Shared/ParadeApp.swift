@@ -29,9 +29,6 @@ struct ParadeApp: App {
                 Button("Check AO3 for Updates") {
                     Task { await model.checkForUpdates() }
                 }
-                Button("Import All to Apple Books") {
-                    Task { await model.importAllToBooks() }
-                }
                 Button("Scan Now") { model.scan() }
                     .keyboardShortcut("r")
             }

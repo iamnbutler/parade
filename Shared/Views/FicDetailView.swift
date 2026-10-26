@@ -126,19 +126,10 @@ struct FicDetailView: View {
             updateButton
                 .buttonStyle(LeatherButtonStyle(prominent: model.hasUpdate(item)))
             if item.isDownloaded {
-                #if os(iOS)
                 ShareLink(item: item.url) {
-                    Label("Books", systemImage: "book.closed")
+                    Label("Share", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.leather)
-                #else
-                Button {
-                    model.addToBooks(item)
-                } label: {
-                    Label("Books", systemImage: "book.closed")
-                }
-                .buttonStyle(.leather)
-                #endif
             }
             if let url = details?.workURL {
                 Link(destination: url) {

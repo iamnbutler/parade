@@ -20,8 +20,7 @@ xcrun simctl launch booted com.natebutler.parade
 ```
 
 **macOS** (debug builds only — `PARADE_TEST_LIBRARY` swaps in a scratch
-folder with its own settings and caches, skips iCloud and migration, and
-refuses to send anything to Apple Books):
+folder with its own settings and caches, skips iCloud and migration):
 
 ```sh
 xcodebuild -project Parade.xcodeproj -scheme Parade -destination 'platform=macOS' \
@@ -76,8 +75,8 @@ Legend: (iOS) / (Mac) = platform-specific; unmarked = both.
   the file (and its empty author folder), its favorite, its collection
   memberships, and its update flag.
 - 3.4 Context menu (long-press / right-click): favorite, Collections ›
-  (checkmarks + New Collection…), Update from AO3, (Mac) Add to Apple
-  Books, Reveal in Finder, Delete.
+  (checkmarks + New Collection…), Update from AO3, (Mac) Reveal in
+  Finder, Delete.
 
 ## 4. Fic detail
 
@@ -86,8 +85,7 @@ Legend: (iOS) / (Mac) = platform-specific; unmarked = both.
 - 4.2 Action buttons never squeeze or break mid-word; they wrap.
 - 4.3 Update button appears (prominent) only when flagged; otherwise
   Update lives in the Collections menu.
-- 4.4 (iOS) Books opens the share sheet; (Mac) Books is refused in a test
-  library (status line says so).
+- 4.4 Share opens the share sheet with the EPUB.
 - 4.5 AO3 opens the work page.
 - 4.6 Favorite toggles and stays in sync with the list star.
 - 4.7 Tapping a chip opens every fic with that tag; tapping the series
@@ -166,9 +164,8 @@ Legend: (iOS) / (Mac) = platform-specific; unmarked = both.
 
 - 11.1 "Saving to" label correct; footer text accurate.
 - 11.2 Activity log shows the last lines, errors in red.
-- 11.3 (Mac) Auto-import toggle persists; Add a Folder to Library merges
-  an `Author/x.epub` tree; Import All / Scan Now behave (Books refused in
-  test library).
+- 11.3 (Mac) Add a Folder to Library merges an `Author/x.epub` tree; Scan
+  Now refreshes.
 
 ## 12. Mac-only shell
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+- Apple Books integration: sending fics to Books, auto-import, Import All
+  and the Apple Events permission. Fics are read in Parade's own reader; a
+  fic page's Share button still hands the EPUB to any app.
+- Type and spacing settings (faces, sizes, spacing), for now.
+
+### Fixed
+- Battery: reading no longer redraws the page whenever the library
+  refreshes, reading places reach iCloud in batches instead of on every
+  page turn, and background refreshes stop rewriting caches that didn't
+  change.
+- iOS: scrolling lists no longer washes out row text under section headers.
+
 ## 0.5.1 — 2026-10-20
 
 ### Fixed

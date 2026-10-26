@@ -83,8 +83,8 @@ struct FicRow: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(model.inCloud
-                ? "Removes the file from your library folder — and, via iCloud, from your other devices. Copies already in Apple Books stay."
-                : "Removes the file from your library folder. Copies already in Apple Books stay.")
+                ? "Removes the file from your library folder — and, via iCloud, from your other devices."
+                : "Removes the file from your library folder.")
         }
         .contextMenu {
             if model.isToRead(item) {
@@ -114,7 +114,6 @@ struct FicRow: View {
             }
             .disabled(model.isWorking)
             #if os(macOS)
-            Button("Add to Apple Books") { model.addToBooks(item) }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([item.url])
             }

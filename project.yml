@@ -52,8 +52,6 @@ targets:
             NSUbiquitousContainerName: Parade
             NSUbiquitousContainerSupportedFolderLevels: Any
         LSApplicationCategoryType: public.app-category.utilities
-        # macOS: closing Books reader windows after bulk imports
-        NSAppleEventsUsageDescription: Parade closes the reader windows Apple Books opens when importing books.
         # macOS: Sparkle auto-updates
         SUFeedURL: https://github.com/iamnbutler/parade/releases/latest/download/appcast.xml
         SUPublicEDKey: 2x9mwsp0yDklLf5QWUBo9Ip0tB7uLhK3/mCOUOLX4Ms=
@@ -61,9 +59,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.natebutler.parade
-        # Per-platform entitlements: both get the iCloud container; macOS
-        # additionally needs apple-events (hardened runtime) to close the
-        # reader windows Books opens on import.
+        # Per-platform entitlements: both get the iCloud container.
         "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": Shared/Parade-iOS.entitlements
         "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Shared/Parade-iOS.entitlements
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Shared/Parade-macOS.entitlements
