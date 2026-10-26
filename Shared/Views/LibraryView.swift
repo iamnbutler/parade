@@ -86,6 +86,7 @@ struct LibraryView: View {
             List {
                 if searchText.isEmpty {
                     ContinueReadingRow()
+                        .id(ListTop.id)
                     if !model.toRead.isEmpty {
                         NavigationLink(value: ToReadRoute()) {
                             HStack(alignment: .firstTextBaseline) {
@@ -96,6 +97,7 @@ struct LibraryView: View {
                             }
                         }
                         .leatherRows()
+                        .id(ToReadRoute())
                     }
                 }
                 if sort.isGrouped {
@@ -127,10 +129,19 @@ struct LibraryView: View {
                 }
             }
             .leatherList()
+            .backToTop { topRowID }
             .noSearchResults(for: searchText, when: sort.isGrouped ? sections.isEmpty : flatItems.isEmpty)
             .ficSearch(text: $searchText, prompt: "Search titles, tags, summaries…")
             .refreshable { model.refreshLibrary() }
         }
+    }
+
+    /// The list's first row, for Back to Top: Continue Reading, To Read, or
+    /// the first fic.
+    private var topRowID: AnyHashable? {
+        if searchText.isEmpty, model.lastReadItem != nil { return ListTop.id }
+        if searchText.isEmpty, !model.toRead.isEmpty { return ToReadRoute() }
+        return (sort.isGrouped ? sections.first?.items.first : flatItems.first)?.id
     }
 
     private func route(_ item: LibraryItem) -> FicRoute {
@@ -170,6 +181,7 @@ struct FavoritesView: View {
                         .leatherRows()
                     }
                     .leatherList()
+                    .backToTop { items.first?.id }
                     .noSearchResults(for: searchText, when: items.isEmpty)
                     .ficSearch(text: $searchText, prompt: "Filter favorites…")
                     .refreshable { await model.refreshLibraryNow() }
@@ -212,6 +224,7 @@ struct ToReadView: View {
                     .leatherRows()
                 }
                 .leatherList()
+                .backToTop { items.first?.id }
                 .noSearchResults(for: searchText, when: items.isEmpty)
                 .ficSearch(text: $searchText, prompt: "Filter to read…")
             }

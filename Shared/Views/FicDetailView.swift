@@ -82,8 +82,7 @@ struct FicDetailView: View {
             Text(details?.title ?? item.title)
                 .textRole(.title)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("by \(details?.authors.joined(separator: " & ") ?? item.author)")
-                .textRole(.dek)
+            byline
             if let series = details?.series {
                 if let name = details?.seriesName {
                     TagLink(tag: TagSelection(kind: .series, name: name)) {
@@ -101,6 +100,27 @@ struct FicDetailView: View {
                     .textRole(.meta)
             }
         }
+    }
+
+    /// "by A & B", each author opening their fics.
+    private var byline: some View {
+        FlowLayout(spacing: 5) {
+            Text("by").textRole(.dek)
+            ForEach(Array(authors.enumerated()), id: \.offset) { i, author in
+                if i > 0 { Text("&").textRole(.dek) }
+                FacetLink(facet: FacetSelection(kind: .author, name: author)) {
+                    Text(author)
+                        .textRole(.dek)
+                        .foregroundStyle(palette.rose)
+                }
+            }
+        }
+    }
+
+    /// The EPUB's authors; before it's read, the folder's ("A & B").
+    private var authors: [String] {
+        if let authors = details?.authors, !authors.isEmpty { return authors }
+        return item.author.components(separatedBy: " & ")
     }
 
     private var actions: some View {
@@ -162,6 +182,10 @@ struct FicDetailView: View {
     private func metadata(_ d: WorkDetails) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             facts(d)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(authors.count == 1 ? "Author" : "Authors").textRole(.kicker)
+                FacetChips(kind: .author, values: authors)
+            }
             field("Fandom", d.fandoms, kind: .fandoms)
             field("Relationships", d.relationships, kind: .relationships)
             field("Characters", d.characters, kind: .characters)
@@ -184,17 +208,16 @@ struct FicDetailView: View {
     }
 
     /// Rating, warnings and category as a small two-column table: italic
-    /// gold labels, plain values.
+    /// gold labels, chips that open every fic sharing the value.
     private func facts(_ d: WorkDetails) -> some View {
-        let rows = [("Rating", d.rating), ("Warnings", d.warnings), ("Category", d.categories)]
-            .filter { !$0.1.isEmpty }
+        let rows: [(String, FacetSelection.Kind, [String])] = [
+            ("Rating", .rating, d.rating), ("Warnings", .warning, d.warnings), ("Category", .category, d.categories),
+        ].filter { !$0.2.isEmpty }
         return Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 8) {
-            ForEach(rows, id: \.0) { label, values in
+            ForEach(rows, id: \.0) { label, kind, values in
                 GridRow {
                     Text(label).textRole(.kicker)
-                    Text(values.joined(separator: ", "))
-                        .textRole(.body)
-                        .textSelection(.enabled)
+                    FacetChips(kind: kind, values: values)
                 }
             }
         }

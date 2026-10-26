@@ -255,6 +255,7 @@ struct CollectionFicsView: View {
                     .leatherRows()
                 }
                 .leatherList()
+                .backToTop { items.first?.id }
                 .noSearchResults(for: searchText, when: items.isEmpty)
                 .ficSearch(text: $searchText, prompt: "Filter collection…")
                 .refreshable { await model.refreshLibraryNow() }
