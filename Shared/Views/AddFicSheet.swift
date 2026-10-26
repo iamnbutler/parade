@@ -4,7 +4,6 @@ import AO3Kit
 struct AddFicSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.palette) private var palette
     @State private var linkText = ""
     /// The log is shown only once a download starts here — older lines are
     /// some other action's business.
@@ -118,16 +117,6 @@ struct AddFicSheet: View {
                 LeatherSection(title: "Links from AO3") {
                     destinationPicker
                     linkField
-                    PasteButton(payloadType: String.self) { strings in
-                        guard let text = strings.first else { return }
-                        Task { @MainActor in
-                            linkText = text
-                            startDownload()
-                        }
-                    }
-                    .labelStyle(.titleAndIcon)
-                    .buttonBorderShape(.capsule)
-                    .tint(palette.rose)
                 } footer: {
                     Text(footnote)
                 }
