@@ -14,6 +14,9 @@ public struct AO3WorkQuery: Sendable, Hashable {
         /// AO3 (via Cloudflare) refuses URLs much past 500 IDs; keep it to
         /// `AO3WorkQuery.maxIDs`. The grouped form `id:(1 OR 2)` matches nothing.
         case ids([Int])
+        /// Parade's own search: any of the profile's fandoms, all of its
+        /// tags, none of its hidden ones.
+        case profile(SearchProfile)
     }
 
     /// Only works revised since a date. AO3 takes this either as the search
@@ -28,7 +31,7 @@ public struct AO3WorkQuery: Sendable, Hashable {
     /// Most IDs one `.ids` query should carry.
     public static let maxIDs = 400
 
-    public enum Sort: String, Sendable, CaseIterable, Identifiable {
+    public enum Sort: String, Codable, Sendable, CaseIterable, Identifiable {
         case relevance = "_score"
         case kudos = "kudos_count"
         case updated = "revised_at"
@@ -81,12 +84,25 @@ public struct AO3WorkQuery: Sendable, Hashable {
             c = URLComponents(string: "https://archiveofourown.org/works/search")!
             items.append(.init(name: "work_search[title]", value: title))
             if !author.isEmpty { items.append(.init(name: "work_search[creators]", value: author)) }
+        case .profile(let profile):
+            c = URLComponents(string: "https://archiveofourown.org/works/search")!
+            items.append(.init(name: "work_search[query]", value: queryText ?? ""))
+            if let tags = SearchProfile.names(profile.includeTags) {
+                items.append(.init(name: "work_search[other_tag_names]", value: tags))
+            }
+            if let hidden = SearchProfile.names(profile.hiddenTags) {
+                items.append(.init(name: "work_search[excluded_tag_names]", value: hidden))
+            }
+            if profile.explicitOnly {
+                items.append(.init(name: "work_search[rating_ids]", value: String(SearchProfile.explicitRatingID)))
+            }
+            items.append(.init(name: "work_search[language_id]", value: "en"))
         }
         switch source {
         case .tag, .titleAuthor:
             // Only a date clause, from `revised`.
             if let text = queryText { items.append(.init(name: "work_search[query]", value: text)) }
-        case .search, .ids:
+        case .search, .ids, .profile:
             break
         }
         if case .withinDays(let days) = revised {
@@ -111,6 +127,7 @@ public struct AO3WorkQuery: Sendable, Hashable {
         switch source {
         case .search(let words): text = words
         case .ids(let ids): text = ids.map { "id:\($0)" }.joined(separator: " OR ")
+        case .profile(let profile): text = profile.queryText
         case .tag, .titleAuthor: text = nil
         }
         guard case .inQuery(let since) = revised else { return text }
@@ -230,6 +247,9 @@ public struct WorkResults: Sendable, Hashable {
     public var total: Int?
     public var page: Int
     public var hasNextPage: Bool
+    /// AO3 shows at most 100,000 results and says so on the last page it
+    /// will show; past it, it repeats that page.
+    public var isCapped = false
 }
 
 enum BlurbExtract {
@@ -243,7 +263,10 @@ enum BlurbExtract {
         let total = HTMLExtract.firstMatch(in: html, pattern: #"<h2 class="heading">[^<]*?of ([\d,]+) Works"#)
             ?? HTMLExtract.firstMatch(in: html, pattern: #"<h3 class="heading">\s*([\d,]+) Found"#)
         let hasNext = html.range(of: #"<li class="next"[^>]*><a "#, options: .regularExpression) != nil
-        return WorkResults(works: works, total: total.flatMap(number), page: page, hasNextPage: hasNext)
+        // "Displaying 100000 results out of 918234. Please use the filters…"
+        let capped = html.range(of: #"Displaying [\d,]+ results out of [\d,]+"#, options: .regularExpression) != nil
+        return WorkResults(works: works, total: total.flatMap(number), page: page, hasNextPage: hasNext,
+                           isCapped: capped)
     }
 
     static func blurb(_ s: String) -> WorkBlurb? {

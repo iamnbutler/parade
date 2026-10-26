@@ -80,6 +80,21 @@ public struct AO3Client: Sendable {
         }
     }
 
+    /// A tag name as AO3 has it: the canonical tag it's a synonym of (or
+    /// itself), with its id. `/works?tag_id=` redirects a synonym to its
+    /// canonical tag's listing, which names the tag and links its feed by id.
+    /// Use `TagResolver`, which asks once per name ever.
+    public func resolveTag(_ name: String, priority: AO3Scheduler.Priority = .user) async throws -> TagRef {
+        var c = URLComponents(string: "https://archiveofourown.org/works")!
+        c.queryItems = [.init(name: "tag_id", value: name)]
+        let (html, response) = try await fetchHTML(c.url!, priority: priority)
+        let listing = TagExtract.listing(html)
+        let landed = response.url
+            .flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.percentEncodedPath }
+            .flatMap(TagExtract.tagName(fromWorksPath:))
+        return TagRef(name: name, canonical: listing.name ?? landed ?? name, id: listing.id)
+    }
+
     // MARK: - internals
 
     private func fetchHTML(_ url: URL, priority: AO3Scheduler.Priority) async throws -> (String, HTTPURLResponse) {
