@@ -15,7 +15,9 @@ private struct FicDestinations: ViewModifier {
         content
             .navigationDestination(for: FicRoute.self) { route in
                 #if os(iOS)
-                FicPager(route: route, items: model.items(for: route.list))
+                FicPager(start: route.item, listTitle: route.list.title, items: model.items(for: route.list)) {
+                    $0.items(for: route.list)
+                }
                 #else
                 FicDetailView(item: route.item)
                 #endif
@@ -24,6 +26,15 @@ private struct FicDestinations: ViewModifier {
                 TagFicsView(tag: tag)
             }
             #if os(iOS)
+            .navigationDestination(for: FacetFicRoute.self) { route in
+                FicPager(start: route.item, listTitle: route.facet.name,
+                         items: model.items(for: route.facet, query: route.query)) {
+                    $0.items(for: route.facet, query: route.query)
+                }
+            }
+            .navigationDestination(for: FacetSelection.self) { facet in
+                FacetFicsView(facet: facet)
+            }
             .navigationDestination(for: CollectionSelection.self) { collection in
                 CollectionFicsView(collection: collection.name)
             }
@@ -44,7 +55,11 @@ struct FicPager: View {
     /// under the pager mid-gesture and made it jerk.
     private static let margin = 20
 
-    let route: FicRoute
+    /// The fic opened, the list's name for the running head, and the list
+    /// itself, read live.
+    let start: LibraryItem
+    let listTitle: String
+    let list: (AppModel) -> [LibraryItem]
     @EnvironmentObject private var model: AppModel
     @State private var currentID: String
     /// The fic the window is centered on — moves rarely, not every swipe.
@@ -53,11 +68,13 @@ struct FicPager: View {
     /// list (unfavorited, removed from a collection) so the pager stays put.
     @State private var lastPages: [LibraryItem]
 
-    init(route: FicRoute, items: [LibraryItem]) {
-        self.route = route
-        _currentID = State(initialValue: route.item.id)
-        _anchorID = State(initialValue: route.item.id)
-        _lastPages = State(initialValue: Self.window(items, around: route.item.id) ?? [route.item])
+    init(start: LibraryItem, listTitle: String, items: [LibraryItem], list: @escaping (AppModel) -> [LibraryItem]) {
+        self.start = start
+        self.listTitle = listTitle
+        self.list = list
+        _currentID = State(initialValue: start.id)
+        _anchorID = State(initialValue: start.id)
+        _lastPages = State(initialValue: Self.window(items, around: start.id) ?? [start])
     }
 
     private static func window(_ items: [LibraryItem], around id: String) -> [LibraryItem]? {
@@ -66,7 +83,7 @@ struct FicPager: View {
     }
 
     var body: some View {
-        let items = model.items(for: route.list)
+        let items = list(model)
         let pages = Self.window(items, around: anchorID)
             ?? Self.window(items, around: currentID)
             ?? lastPages
@@ -102,7 +119,7 @@ struct FicPager: View {
     /// "Library, 3 of 26": position in the whole list, not the window.
     private func runningHead(_ index: Int?, of items: [LibraryItem]) -> String? {
         guard let index, index < items.count, items.count > 1 else { return nil }
-        return "\(route.list.title), \(index + 1) of \(items.count)"
+        return "\(listTitle), \(index + 1) of \(items.count)"
     }
 }
 #endif
@@ -128,6 +145,7 @@ struct TagFicsView: View {
         }
         .leatherList()
         #if os(iOS)
+        .backToTop { items.first?.id }
         .noSearchResults(for: searchText, when: items.isEmpty)
         .ficSearch(text: $searchText, prompt: "Filter fics…")
         .navigationBarTitleDisplayMode(.inline)
@@ -219,6 +237,17 @@ struct FlowLayout: Layout {
                 x += size.width + spacing
             }
         }
+    }
+
+    /// The first row's text baseline, so a flow of chips lines up with a
+    /// label beside it (a Grid's .leadingFirstTextBaseline).
+    func explicitAlignment(of guide: VerticalAlignment, in bounds: CGRect, proposal: ProposedViewSize,
+                           subviews: Subviews, cache: inout ()) -> CGFloat? {
+        guard guide == .firstTextBaseline, let row = arrange(subviews, width: bounds.width).first,
+              let index = row.indices.first
+        else { return nil }
+        let dimensions = subviews[index].dimensions(in: ProposedViewSize(width: bounds.width, height: nil))
+        return bounds.minY + (row.height - dimensions.height) / 2 + dimensions[.firstTextBaseline]
     }
 
     private struct Row {
