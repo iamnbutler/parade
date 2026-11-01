@@ -150,6 +150,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var hasLoadedOnce = false
 
     private let client = AO3Client()
+    /// For web.archive.org links to AO3 works, when AO3 is down.
+    private let wayback = WaybackClient()
     private let defaults: UserDefaults
 
     /// Debug builds only: `PARADE_TEST_LIBRARY=/some/folder` runs the app
@@ -1260,6 +1262,16 @@ final class AppModel: ObservableObject {
         var saved = 0, failed = 0
         // No sleeps here: every request waits its turn in AO3Scheduler.
         for link in links {
+            if case .archivedWork(let id, let timestamp, let original) = link {
+                do {
+                    try await downloadArchivedWork(id: id, timestamp: timestamp, original: original, toRead: toRead)
+                    saved += 1
+                } catch {
+                    failed += 1
+                    status("⚠️ Work \(id): \(error.localizedDescription)")
+                }
+                continue
+            }
             do {
                 let ids = try await client.workIDs(for: link)
                 if case .series = link {
@@ -1322,6 +1334,22 @@ final class AppModel: ObservableObject {
     private func downloadWork(id: Int, toRead: Bool = false) async throws {
         status("Fetching work \(id)…")
         try await save(client.fetchWork(id: id), toRead: toRead)
+    }
+
+    /// Saves a work from the Wayback Machine's copy of its page: AO3's own
+    /// EPUB if the archive has it, else one built from the page's text.
+    private func downloadArchivedWork(id: Int, timestamp: String, original: String, toRead: Bool) async throws {
+        status("Fetching work \(id) from the Wayback Machine…")
+        let archived = try await wayback.fetchWork(id: id, timestamp: timestamp, original: original)
+        let page = archived.page
+        if !archived.isAO3Export, !page.hasAllChapters {
+            let posted = page.postedChapters.map { " of \($0)" } ?? ""
+            status("⚠️ The archived page has \(page.chapters.count)\(posted) chapters — saving those. "
+                + "A snapshot of the work with ?view_full_work=true has them all.")
+        }
+        let dest = try Organizer(root: toRead ? toReadRoot : destinationRoot).place(archived.epub, for: archived.work)
+        let when = archived.captured.map { " (archived \(WaybackClient.display($0)))" } ?? ""
+        status("✓ Saved \(relativePath(of: dest)) from the Wayback Machine\(when)")
     }
 
     private func save(_ work: WorkInfo, toRead: Bool = false) async throws {

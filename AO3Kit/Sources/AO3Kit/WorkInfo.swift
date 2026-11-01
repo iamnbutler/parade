@@ -34,6 +34,10 @@ public enum AO3Error: Error, LocalizedError, Equatable {
     case rateLimited(retryAfter: Int?)
     case parseFailed(String)
     case httpError(Int)
+    /// The Wayback Machine has no capture of the page asked for.
+    case notArchived
+    /// Something else went wrong fetching from the Wayback Machine.
+    case archive(String)
 
     public var errorDescription: String? {
         switch self {
@@ -45,6 +49,8 @@ public enum AO3Error: Error, LocalizedError, Equatable {
             return "AO3 is rate-limiting requests." + hint
         case .parseFailed(let what): return "Couldn't read the AO3 page (\(what)). The site layout may have changed."
         case .httpError(let code): return "AO3 returned HTTP \(code)."
+        case .notArchived: return "The Wayback Machine has no copy of this work's page."
+        case .archive(let message): return message
         }
     }
 }

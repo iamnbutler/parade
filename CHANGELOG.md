@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+- **Wayback Machine links**: paste a web.archive.org link to an AO3 work
+  when AO3 is down. Parade uses AO3's EPUB if the archive has it, and
+  otherwise builds one from the archived page, with the same tags, summary,
+  notes and chapters as AO3's own export. A chapter link brings in the
+  full-work snapshot if there is one; if only some chapters were archived,
+  it says so.
+
 ### Changed
 - **Search AO3 has a proper form.** Set the search up on its own page, then
   search; the results page shows a short summary of it with Edit Search.
@@ -14,6 +22,10 @@
     either direction.
   - Any tag on a result's page can be included in or excluded from the
     search. Searches saved by 0.6.0 carry over.
+
+### Fixed
+- Works with "works inspired by this one" were filed under those works'
+  authors too; only the work's own byline counts now.
 
 ## 0.6.0 — 2026-10-25
 
