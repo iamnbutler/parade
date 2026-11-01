@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — 2026-10-31
 
 ### Added
 - **Wayback Machine links**: paste a web.archive.org link to an AO3 work
