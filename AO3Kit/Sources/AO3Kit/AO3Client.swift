@@ -26,7 +26,7 @@ public struct AO3Client: Sendable {
     /// each work in order for a series link.
     public func workIDs(for link: AO3Link, priority: AO3Scheduler.Priority = .user) async throws -> [Int] {
         switch link {
-        case .work(let id):
+        case .work(let id), .archivedWork(let id, _, _):
             return [id]
         case .series:
             let (html, _) = try await fetchHTML(link.pageURL, priority: priority)

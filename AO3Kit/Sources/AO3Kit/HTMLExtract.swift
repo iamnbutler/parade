@@ -11,9 +11,14 @@ enum HTMLExtract {
             .flatMap { $0.isEmpty ? nil : $0 }
     }
 
+    /// The work's creators, from the byline under its title. The rest of
+    /// the page has other people's author links too — chapter bylines, and
+    /// "works inspired by this one" in the afterword — so the whole page is
+    /// only read when there's no byline to read.
     static func authors(in html: String) -> [String] {
         let pattern = #"<a rel="author"[^>]*>([\s\S]*?)</a>"#
-        let names = allMatches(in: html, pattern: pattern)
+        let byline = firstMatch(in: html, pattern: #"<h3 class="byline heading">([\s\S]*?)</h3>"#) ?? html
+        let names = allMatches(in: byline, pattern: pattern)
             .map(decodeEntities)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

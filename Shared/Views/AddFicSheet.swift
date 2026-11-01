@@ -30,6 +30,10 @@ struct AddFicSheet: View {
 
     private var footnote: String {
         if linkCount > 1 { return "\(linkCount) links — they download one after another." }
+        if case .archivedWork? = AO3Link(text: linkText) {
+            return "A Wayback Machine copy: Parade saves the work from the archived page, for when AO3 is down. "
+                + "Snapshots with ?view_full_work=true have every chapter."
+        }
         return toRead
             ? "Saved to To Read, a folder of its own beside the library. Add a fic to the library when you want to keep it."
             : "Works and whole series — paste one link or a whole batch. The EPUB is AO3's own export, filed as Author/Title in your library."
