@@ -305,6 +305,12 @@ private struct ReaderPage: View {
                         .frame(maxWidth: 200)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 48)
+                    EndBackToTop {
+                        guard let first = lines.first else { return }
+                        withAnimation(.snappy) { proxy.scrollTo(first.id, anchor: .top) }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 32)
                 }
                 .scrollTargetLayout()
                 .textSelection(.enabled)
@@ -337,6 +343,26 @@ private struct ReaderPage: View {
                 onPosition(ReadingPosition(section: lines[id].section, block: lines[id].indexInSection))
             }
         }
+    }
+}
+
+/// The "Back to top" button at the end of a fic: one tap returns to the start.
+private struct EndBackToTop: View {
+    let action: () -> Void
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Button(action: action) {
+            Label("Back to top", systemImage: "arrow.up")
+                .font(.reading(15, relativeTo: .footnote))
+                .foregroundStyle(palette.gold)
+                .padding(.horizontal, 16)
+                .frame(height: 40)
+                .contentShape(Capsule())
+                .embossed(cornerRadius: 20, lifted: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Back to top")
     }
 }
 
@@ -1790,6 +1816,17 @@ private struct PagedReader: View {
     }
 
     private func pageView(_ i: Int, paged: PagedText, pageSize: CGSize) -> some View {
+        pageContent(i, paged: paged, pageSize: pageSize)
+            .overlay(alignment: .bottom) {
+                // On the last page, a way back to the first.
+                if i == pages.count - 1, i > 0 {
+                    EndBackToTop { go(to: 0) }
+                        .padding(.bottom, Self.furniture + 6)
+                }
+            }
+    }
+
+    private func pageContent(_ i: Int, paged: PagedText, pageSize: CGSize) -> some View {
         let range = pages[i]
         let section = paged.line(at: range.location)?.section ?? 0
         // A chapter's opening page carries its own heading, as in a book.

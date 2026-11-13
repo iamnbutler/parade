@@ -152,6 +152,7 @@ final class AppModel: ObservableObject {
     private let client = AO3Client()
     /// For web.archive.org links to AO3 works, when AO3 is down.
     private let wayback = WaybackClient()
+    private let ao3saver = AO3SaverClient()
     private let defaults: UserDefaults
 
     /// Debug builds only: `PARADE_TEST_LIBRARY=/some/folder` runs the app
@@ -1272,6 +1273,16 @@ final class AppModel: ObservableObject {
                 }
                 continue
             }
+            if case .ao3saver(let id, let version) = link {
+                do {
+                    try await downloadAO3SaverWork(id: id, version: version, toRead: toRead)
+                    saved += 1
+                } catch {
+                    failed += 1
+                    status("⚠️ Work \(id): \(error.localizedDescription)")
+                }
+                continue
+            }
             do {
                 let ids = try await client.workIDs(for: link)
                 if case .series = link {
@@ -1350,6 +1361,14 @@ final class AppModel: ObservableObject {
         let dest = try Organizer(root: toRead ? toReadRoot : destinationRoot).place(archived.epub, for: archived.work)
         let when = archived.captured.map { " (archived \(WaybackClient.display($0)))" } ?? ""
         status("✓ Saved \(relativePath(of: dest)) from the Wayback Machine\(when)")
+    }
+
+    /// Saves a work from ao3saver.com's copy, built into an EPUB.
+    private func downloadAO3SaverWork(id: Int, version: Int?, toRead: Bool) async throws {
+        status("Fetching work \(id) from ao3saver.com…")
+        let saved = try await ao3saver.fetchWork(id: id, version: version)
+        let dest = try Organizer(root: toRead ? toReadRoot : destinationRoot).place(saved.epub, for: saved.work)
+        status("✓ Saved \(relativePath(of: dest)) from ao3saver.com")
     }
 
     private func save(_ work: WorkInfo, toRead: Bool = false) async throws {

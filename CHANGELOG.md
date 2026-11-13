@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 — 2026-11-12
+
+### Added
+- **ao3saver.com links**: paste an ao3saver.com work link (with or without
+  `?version=`) and Parade saves that version, built into an EPUB with the
+  same tags, summary, notes and chapters as AO3's own export. No AO3
+  needed.
+- **Back to top** at the end of a fic, in both Pages and Scroll: one tap
+  returns to the first page.
+
 ## 0.7.0 — 2026-10-31
 
 ### Added
