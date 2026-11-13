@@ -8,6 +8,9 @@ public enum AO3Link: Equatable, Sendable {
     /// `https://web.archive.org/web/<timestamp>/<original>`, where
     /// `original` is an AO3 work URL (scheme included, fragment dropped).
     case archivedWork(id: Int, timestamp: String, original: String)
+    /// `https://ao3saver.com/works/<id>?version=<n>`: a saved version of an
+    /// AO3 work (the latest when `version` is nil).
+    case ao3saver(id: Int, version: Int?)
 
     /// Extracts the first AO3 work or series link found in `text`.
     /// Accepts archiveofourown.org URLs (chapter links, collection-scoped
@@ -16,6 +19,10 @@ public enum AO3Link: Equatable, Sendable {
     public init?(text: String) {
         if let archived = Self.archived(in: text) {
             self = archived
+            return
+        }
+        if let saver = Self.ao3saver(in: text) {
+            self = saver
             return
         }
         // A real AO3 URL anywhere in the text, or the string itself is just a path.
@@ -58,7 +65,7 @@ public enum AO3Link: Equatable, Sendable {
     /// The AO3 work this link names, if it names one work.
     public var workID: Int? {
         switch self {
-        case .work(let id), .archivedWork(let id, _, _): return id
+        case .work(let id), .archivedWork(let id, _, _), .ao3saver(let id, _): return id
         case .series: return nil
         }
     }
@@ -80,9 +87,20 @@ public enum AO3Link: Equatable, Sendable {
         return .archivedWork(id: id, timestamp: String(text[stampRange]), original: original)
     }
 
+    private static func ao3saver(in text: String) -> AO3Link? {
+        let pattern = #"ao3saver\.com/works/(\d+)(?:[^\s]*?[?&]version=(\d+))?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let idRange = Range(match.range(at: 1), in: text),
+              let id = Int(text[idRange])
+        else { return nil }
+        let version = Range(match.range(at: 2), in: text).flatMap { Int(text[$0]) }
+        return .ao3saver(id: id, version: version)
+    }
+
     public var pageURL: URL {
         switch self {
-        case .work(let id), .archivedWork(let id, _, _):
+        case .work(let id), .archivedWork(let id, _, _), .ao3saver(let id, _):
             return URL(string: "https://archiveofourown.org/works/\(id)?view_adult=true")!
         case .series(let id):
             return URL(string: "https://archiveofourown.org/series/\(id)?view_adult=true")!

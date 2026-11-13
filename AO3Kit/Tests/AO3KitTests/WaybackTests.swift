@@ -309,3 +309,50 @@ final class StubWayback: URLProtocol, @unchecked Sendable {
 
     override func stopLoading() {}
 }
+
+final class AO3SaverTests: XCTestCase {
+    func testLinks() {
+        XCTAssertEqual(AO3Link(text: "https://ao3saver.com/works/95013986?version=2191988"),
+                       .ao3saver(id: 95013986, version: 2191988))
+        XCTAssertEqual(AO3Link(text: "ao3saver.com/works/5"), .ao3saver(id: 5, version: nil))
+        XCTAssertEqual(AO3Link(text: "https://ao3saver.com/works/5?x=1&version=9"), .ao3saver(id: 5, version: 9))
+    }
+
+    func testParsesExport() throws {
+        let html = """
+        <html><body><div id="preface"><h2 class="toc-heading">Preface</h2>
+        <div class="meta"><dl class="tags">
+        <dt>Rating:</dt><dd><a href="x">Explicit</a></dd>
+        <dt>Fandoms:</dt><dd><a href="x">A</a>, <a href="y">B</a></dd>
+        <dt>Language:</dt><dd>English</dd>
+        <dt>Stats:</dt><dd>Published: 2026-10-19 Words: 11,042 Chapters: 1/1</dd></dl>
+        <h1>Let's Ride!</h1><div class="byline">by <a rel="author" href="https://archiveofourown.org/users/s/pseuds/s">sixrows</a></div>
+        <p>Summary</p><blockquote class="userstuff"><p>Hi</p></blockquote></div></div>
+        <div id="chapters" class="userstuff"><h2 class="toc-heading">Let's Ride!</h2>
+        <div class="userstuff"><p>Text.</p></div></div>
+        <div id="afterword"><div class="meta"><div id="endnotes"><p>End Notes</p><blockquote class="userstuff"><p>Bye</p></blockquote></div></div></div>
+        </body></html>
+        """
+        let page = try AO3ExportParser.parse(html, id: 7)
+        XCTAssertEqual(page.title, "Let's Ride!")
+        XCTAssertEqual(page.authors, ["sixrows"])
+        XCTAssertEqual(page.tags.map(\.label), ["Rating", "Fandom"])
+        XCTAssertEqual(page.words, "11,042")
+        XCTAssertEqual(page.language, "en")
+        XCTAssertEqual(page.summary, "<p>Hi</p>")
+        XCTAssertEqual(page.endNotes, "<p>Bye</p>")
+        XCTAssertEqual(page.chapters.count, 1)
+        XCTAssertNil(page.chapters[0].title)
+        XCTAssertEqual(page.chapters[0].text, "<p>Text.</p>")
+    }
+
+    func testRealPageIfPresent() throws {
+        guard let html = try? String(contentsOfFile: "/tmp/a3s.html", encoding: .utf8) else { return }
+        let page = try AO3ExportParser.parse(html, id: 95013986)
+        XCTAssertEqual(page.title, "Let's Ride!")
+        XCTAssertEqual(page.authors, ["sixrowsofroses"])
+        XCTAssertEqual(page.chapters.count, 1)
+        XCTAssertEqual(page.words, "11,042")
+        XCTAssertNotNil(page.endNotes)
+    }
+}
