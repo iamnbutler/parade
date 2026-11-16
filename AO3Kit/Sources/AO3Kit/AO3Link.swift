@@ -11,6 +11,9 @@ public enum AO3Link: Equatable, Sendable {
     /// `https://ao3saver.com/works/<id>?version=<n>`: a saved version of an
     /// AO3 work (the latest when `version` is nil).
     case ao3saver(id: Int, version: Int?)
+    /// `https://ellipsus.com/read/<id>`: a story shared by Reader link on
+    /// Ellipsus, which isn't an AO3 work at all.
+    case ellipsus(id: String)
 
     /// Extracts the first AO3 work or series link found in `text`.
     /// Accepts archiveofourown.org URLs (chapter links, collection-scoped
@@ -23,6 +26,10 @@ public enum AO3Link: Equatable, Sendable {
         }
         if let saver = Self.ao3saver(in: text) {
             self = saver
+            return
+        }
+        if let ellipsus = Self.ellipsus(in: text) {
+            self = ellipsus
             return
         }
         // A real AO3 URL anywhere in the text, or the string itself is just a path.
@@ -66,7 +73,7 @@ public enum AO3Link: Equatable, Sendable {
     public var workID: Int? {
         switch self {
         case .work(let id), .archivedWork(let id, _, _), .ao3saver(let id, _): return id
-        case .series: return nil
+        case .series, .ellipsus: return nil
         }
     }
 
@@ -87,6 +94,12 @@ public enum AO3Link: Equatable, Sendable {
         return .archivedWork(id: id, timestamp: String(text[stampRange]), original: original)
     }
 
+    private static func ellipsus(in text: String) -> AO3Link? {
+        guard let id = HTMLExtract.firstMatch(
+            in: text, pattern: #"(?i)ellipsus\.com/read/([A-Za-z0-9_-]{8,})"#) else { return nil }
+        return .ellipsus(id: id)
+    }
+
     private static func ao3saver(in text: String) -> AO3Link? {
         let pattern = #"ao3saver\.com/works/(\d+)(?:[^\s]*?[?&]version=(\d+))?"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
@@ -104,6 +117,8 @@ public enum AO3Link: Equatable, Sendable {
             return URL(string: "https://archiveofourown.org/works/\(id)?view_adult=true")!
         case .series(let id):
             return URL(string: "https://archiveofourown.org/series/\(id)?view_adult=true")!
+        case .ellipsus(let id):
+            return URL(string: "https://ellipsus.com/read/\(id)")!
         }
     }
 }

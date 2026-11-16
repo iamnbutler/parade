@@ -153,6 +153,7 @@ final class AppModel: ObservableObject {
     /// For web.archive.org links to AO3 works, when AO3 is down.
     private let wayback = WaybackClient()
     private let ao3saver = AO3SaverClient()
+    private let ellipsus = EllipsusClient()
     private let defaults: UserDefaults
 
     /// Debug builds only: `PARADE_TEST_LIBRARY=/some/folder` runs the app
@@ -1273,6 +1274,16 @@ final class AppModel: ObservableObject {
                 }
                 continue
             }
+            if case .ellipsus(let id) = link {
+                do {
+                    try await downloadEllipsusStory(id: id, toRead: toRead)
+                    saved += 1
+                } catch {
+                    failed += 1
+                    status("⚠️ Ellipsus \(id): \(error.localizedDescription)")
+                }
+                continue
+            }
             if case .ao3saver(let id, let version) = link {
                 do {
                     try await downloadAO3SaverWork(id: id, version: version, toRead: toRead)
@@ -1363,6 +1374,16 @@ final class AppModel: ObservableObject {
         status("✓ Saved \(relativePath(of: dest)) from the Wayback Machine\(when)")
     }
 
+    /// Saves a story from its Ellipsus Reader link, under the `ellipsus`
+    /// provider folder.
+    private func downloadEllipsusStory(id: String, toRead: Bool) async throws {
+        status("Fetching story from Ellipsus…")
+        let saved = try await ellipsus.fetchWork(id: id)
+        let organizer = Organizer(root: toRead ? toReadRoot : destinationRoot, provider: EllipsusClient.provider)
+        let dest = try organizer.place(saved.epub, for: saved.work)
+        status("✓ Saved \(relativePath(of: dest)) from Ellipsus")
+    }
+
     /// Saves a work from ao3saver.com's copy, built into an EPUB.
     private func downloadAO3SaverWork(id: Int, version: Int?, toRead: Bool) async throws {
         status("Fetching work \(id) from ao3saver.com…")
@@ -1439,7 +1460,9 @@ final class AppModel: ObservableObject {
             status("Linking \(item.title.quoted) to AO3 work \(workID)…")
             let work = try await client.fetchWork(id: workID, priority: priority)
             let temp = try await client.downloadEPUB(work, priority: priority)
-            let organizer = Organizer(root: isToRead(item) ? toReadRoot : destinationRoot, provider: item.provider)
+            // AO3's export of a story first saved from Ellipsus is an AO3 fic.
+            let provider = item.provider == EllipsusClient.provider ? Organizer.ao3 : item.provider
+            let organizer = Organizer(root: isToRead(item) ? toReadRoot : destinationRoot, provider: provider)
             let dest = try organizer.place(temp, for: work)
             if dest.standardizedFileURL.path != item.url.standardizedFileURL.path,
                FileManager.default.fileExists(atPath: item.url.path) {
@@ -1449,7 +1472,7 @@ final class AppModel: ObservableObject {
                     try? FileManager.default.removeItem(at: dir)
                 }
             }
-            let newID = item.provider + "/" + dest.deletingLastPathComponent().lastPathComponent
+            let newID = provider + "/" + dest.deletingLastPathComponent().lastPathComponent
                 + "/" + dest.deletingPathExtension().lastPathComponent
             if newID != item.id { carryOver(from: item.id, to: newID) }
             status("✓ Linked \(item.title.quoted) to AO3")

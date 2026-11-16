@@ -37,8 +37,8 @@ struct FicDetailView: View {
                             .textSelection(.enabled)
                     }
                 }
-                if let details, details.workURL == nil {
-                    AO3LinkFinder(item: item)
+                if let details {
+                    AO3LinkFinder(item: item, linkedWorkID: details.workID)
                 }
                 if let details {
                     statsRow(details)
@@ -150,6 +150,11 @@ struct FicDetailView: View {
                     Label("AO3", systemImage: "safari")
                 }
                 .buttonStyle(.leather)
+            } else if let url = details?.sourceURL {
+                Link(destination: url) {
+                    Label("Ellipsus", systemImage: "safari")
+                }
+                .buttonStyle(.leather)
             }
             Button {
                 model.toggleFavorite(item)
@@ -254,10 +259,14 @@ struct FicDetailView: View {
 }
 
 /// For a fic whose EPUB has no AO3 link (downloaded elsewhere): finds the
-/// work on AO3 by title and author, and on a choice re-downloads AO3's own
-/// export, which brings the link, tags, summary and series with it.
+/// work on AO3 by title and author, or takes a pasted link, and re-downloads
+/// AO3's own export, which brings the link, tags, summary and series with it.
+/// A fic already linked shows its work and can be pointed at another.
 private struct AO3LinkFinder: View {
     let item: LibraryItem
+    /// The AO3 work the EPUB links to now, if any.
+    let linkedWorkID: Int?
+    @State private var changing = false
     @EnvironmentObject private var model: AppModel
     @Environment(\.palette) private var palette
     @State private var candidates: [WorkBlurb]?
@@ -266,11 +275,29 @@ private struct AO3LinkFinder: View {
     @State private var pasted = ""
 
     var body: some View {
+        if let linkedWorkID, !changing {
+            HStack(spacing: 12) {
+                Text("Linked to AO3 work \(linkedWorkID.formatted(.number.grouping(.never)))")
+                    .textRole(.meta)
+                Spacer()
+                Button("Change Link") { changing = true }
+                    .buttonStyle(.leather)
+                    .disabled(model.isWorking)
+            }
+        } else {
+            finder
+        }
+    }
+
+    private var finder: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Not linked to AO3").textRole(.kicker)
-            Text("This copy came from outside Parade, so it has no AO3 link, tags or series. Find the work on AO3 and Parade will fetch AO3's own copy; this one goes to Backups.")
+            Text(linkedWorkID == nil ? "Not linked to AO3" : "Change the AO3 link").textRole(.kicker)
+            Text(linkedWorkID == nil
+                 ? "This copy came from outside Parade, so it has no AO3 link, tags or series. Paste the work's AO3 link, or find it on AO3; Parade fetches AO3's own copy and this one goes to Backups."
+                 : "Linked to the wrong work? Paste the right work's AO3 link, or find it on AO3; Parade fetches that work's own copy and this one goes to Backups.")
                 .textRole(.meta)
                 .fixedSize(horizontal: false, vertical: true)
+            pasteField
             if let candidates {
                 if candidates.isEmpty {
                     Text("AO3's search found nothing by that title and author.").textRole(.dek)
@@ -285,7 +312,9 @@ private struct AO3LinkFinder: View {
                         }
                         Spacer()
                         Button("This one") {
-                            Task { await model.link(item, toWork: work.id) }
+                            Task {
+                                if await model.link(item, toWork: work.id) { changing = false }
+                            }
                         }
                         .buttonStyle(LeatherButtonStyle(prominent: work.matches(title: item.title, author: item.author)))
                         .disabled(model.isWorking)
@@ -294,23 +323,6 @@ private struct AO3LinkFinder: View {
                 }
             } else if let failure {
                 Text(failure).textRole(.dek)
-            }
-            if candidates?.isEmpty == true || failure != nil {
-                // AO3's search misses some works (renamed, anonymous, odd
-                // titles); a link always finds it.
-                HStack(spacing: 8) {
-                    TextField("Or paste the work's AO3 link", text: $pasted)
-                        .textFieldStyle(.roundedBorder)
-                        #if os(iOS)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        #endif
-                        .autocorrectionDisabled()
-                        .onSubmit { linkPasted() }
-                    Button("Link") { linkPasted() }
-                        .buttonStyle(.leather)
-                        .disabled(pastedWorkID == nil || model.isWorking)
-                }
             }
             if candidates == nil || candidates?.isEmpty == true {
                 Button {
@@ -332,6 +344,28 @@ private struct AO3LinkFinder: View {
         .debossed(cornerRadius: 12)
     }
 
+    /// A link always finds the work, even where AO3's search misses it
+    /// (renamed, anonymous, odd titles) — and skips the search.
+    private var pasteField: some View {
+        HStack(spacing: 8) {
+            TextField("Paste the work's AO3 link", text: $pasted)
+                .textFieldStyle(.roundedBorder)
+                #if os(iOS)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                #endif
+                .autocorrectionDisabled()
+                .onSubmit { linkPasted() }
+            Button("Link") { linkPasted() }
+                .buttonStyle(.leather)
+                .disabled(pastedWorkID == nil || model.isWorking)
+            if linkedWorkID != nil {
+                Button("Cancel") { changing = false }
+                    .buttonStyle(.leather)
+            }
+        }
+    }
+
     /// "by taliiaa · Heated Rivalry (TV) · 1,429 words"
     private func byline(_ work: WorkBlurb) -> String {
         var parts = ["by " + work.authors.joined(separator: " & ")]
@@ -341,13 +375,17 @@ private struct AO3LinkFinder: View {
     }
 
     private var pastedWorkID: Int? {
-        if case .work(let id) = AO3Link(text: pasted) { return id }
-        return nil
+        // An ao3saver or Wayback link names the work too: Parade still
+        // fetches AO3's own export.
+        guard let id = AO3Link(text: pasted)?.workID, id != linkedWorkID else { return nil }
+        return id
     }
 
     private func linkPasted() {
         guard let id = pastedWorkID, !model.isWorking else { return }
-        Task { await model.link(item, toWork: id) }
+        Task {
+            if await model.link(item, toWork: id) { changing = false }
+        }
     }
 
     private func search() async {
