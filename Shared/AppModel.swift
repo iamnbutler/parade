@@ -136,6 +136,9 @@ struct FicRoute: Hashable {
 final class AppModel: ObservableObject {
     @Published var library: [(author: String, items: [LibraryItem])] = []
     @Published var statusLines: [String] = []
+    /// AO3 has a waiting room up and requests are queued in it: Parade
+    /// keeps its place and goes on by itself once let in.
+    @Published private(set) var inAO3Line = false
     @Published var isWorking = false
     @Published var destinationLabel = ""
     @Published var libraryError: String?
@@ -202,6 +205,23 @@ final class AppModel: ObservableObject {
         updateDestinationLabel()
         refreshLibrary()
         Task { await self.connectCloudRoot() }
+        Task { [weak self] in
+            guard let scheduler = self?.client.scheduler else { return }
+            for await state in await scheduler.stateUpdates() { self?.schedulerChanged(state) }
+        }
+    }
+
+    /// Says so in the activity log when AO3's waiting room takes over, and
+    /// when the wait ends.
+    private func schedulerChanged(_ state: AO3Scheduler.State) {
+        if case .inLine = state {
+            guard !inAO3Line else { return }
+            inAO3Line = true
+            status("AO3 has a waiting room up. In line: Parade checks back every few seconds and carries on when let in.")
+        } else if inAO3Line {
+            inAO3Line = false
+            if state == .running { status("Through AO3's waiting room.") }
+        }
     }
 
     /// The device's working store (details, search, reading places).
@@ -1301,10 +1321,14 @@ final class AppModel: ObservableObject {
                 }
                 for id in ids {
                     do {
-                        try await downloadWork(id: id, toRead: toRead)
+                        try await downloadWork(id: id, toRead: toRead, fallback: true)
                         saved += 1
                     } catch AO3Error.rateLimited(let retry) {
                         throw AO3Error.rateLimited(retryAfter: retry)
+                    } catch AO3Error.waitingRoom {
+                        throw AO3Error.waitingRoom
+                    } catch is CancellationError {
+                        throw CancellationError()
                     } catch {
                         failed += 1
                         status("⚠️ Work \(id): \(error.localizedDescription)")
@@ -1313,6 +1337,14 @@ final class AppModel: ObservableObject {
             } catch AO3Error.rateLimited(let retry) {
                 // Hammering on would only make it worse — stop the batch.
                 status("⚠️ \(AO3Error.rateLimited(retryAfter: retry).localizedDescription) Stopped after \(saved) fic\(saved == 1 ? "" : "s").")
+                failed += 1
+                break
+            } catch AO3Error.waitingRoom {
+                status("⚠️ \(AO3Error.waitingRoom.localizedDescription) Stopped after \(saved) fic\(saved == 1 ? "" : "s").")
+                failed += 1
+                break
+            } catch is CancellationError {
+                status("Stopped waiting in line.")
                 failed += 1
                 break
             } catch {
@@ -1342,7 +1374,7 @@ final class AppModel: ObservableObject {
         isWorking = true
         defer { isWorking = false }
         do {
-            try await downloadWork(id: workID, toRead: toRead)
+            try await downloadWork(id: workID, toRead: toRead, fallback: true)
             showToast("Saved \(title.quoted) to \(toRead ? "To Read" : "your library")")
         } catch {
             showToast("Couldn't save \(title.quoted): \(error.localizedDescription)")
@@ -1353,9 +1385,34 @@ final class AppModel: ObservableObject {
         return true
     }
 
-    private func downloadWork(id: Int, toRead: Bool = false) async throws {
+    /// With `fallback`, a work AO3 isn't serving (it's down, busy or failing)
+    /// is looked for at ao3saver.com and then in the Wayback Machine.
+    private func downloadWork(id: Int, toRead: Bool = false, fallback: Bool = false) async throws {
         status("Fetching work \(id)…")
-        try await save(client.fetchWork(id: id), toRead: toRead)
+        do {
+            try await save(client.fetchWork(id: id), toRead: toRead)
+        } catch let ao3Error as AO3Error where fallback && ao3Error.suggestsAO3IsDown {
+            status("AO3 isn't serving work \(id) right now. Looking for a saved copy…")
+            do {
+                try await downloadAO3SaverWork(id: id, version: nil, toRead: toRead)
+                return
+            } catch {
+                status("ao3saver.com: \(error.localizedDescription)")
+            }
+            do {
+                let stamp = DateFormatter()
+                stamp.locale = Locale(identifier: "en_US_POSIX")
+                stamp.timeZone = TimeZone(identifier: "UTC")
+                stamp.dateFormat = "yyyyMMddHHmmss"
+                try await downloadArchivedWork(
+                    id: id, timestamp: stamp.string(from: Date()),
+                    original: "https://archiveofourown.org/works/\(id)", toRead: toRead)
+                return
+            } catch {
+                status("Wayback Machine: \(error.localizedDescription)")
+            }
+            throw ao3Error
+        }
     }
 
     /// Saves a work from the Wayback Machine's copy of its page: AO3's own
@@ -1533,6 +1590,11 @@ final class AppModel: ObservableObject {
                 if await relink(item, toWork: sure[0].id, priority: .background) { linked += 1 }
             } catch AO3Error.rateLimited(let retry) {
                 status("⚠️ \(AO3Error.rateLimited(retryAfter: retry).localizedDescription) Stopped after \(linked).")
+                break
+            } catch AO3Error.waitingRoom {
+                status("⚠️ \(AO3Error.waitingRoom.localizedDescription) Stopped after \(linked).")
+                break
+            } catch is CancellationError {
                 break
             } catch {
                 linkSkipped.insert(item.id)

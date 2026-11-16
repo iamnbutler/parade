@@ -38,6 +38,12 @@ public enum AO3Error: Error, LocalizedError, Equatable {
     case notArchived
     /// Something else went wrong fetching from the Wayback Machine.
     case archive(String)
+    /// AO3 answered, but not with the work's page — a maintenance or
+    /// overload page, which is what it serves when it's down.
+    case unavailable
+    /// AO3 is letting people in through a Cloudflare Waiting Room, a queue,
+    /// and this request is still in it.
+    case waitingRoom
 
     public var errorDescription: String? {
         switch self {
@@ -51,6 +57,24 @@ public enum AO3Error: Error, LocalizedError, Equatable {
         case .httpError(let code): return "AO3 returned HTTP \(code)."
         case .notArchived: return "The Wayback Machine has no copy of this work's page."
         case .archive(let message): return message
+        case .waitingRoom:
+            return "AO3 has a waiting room up while it recovers, and you're still in line. Parade keeps your place; try again in a few minutes."
+        case .unavailable:
+            return "AO3 isn't serving work pages right now (it may be down or overloaded). Try again later, or paste an ao3saver.com or Wayback Machine link."
+        }
+    }
+}
+
+public extension AO3Error {
+    /// Whether this means AO3 itself isn't serving the work — down, busy or
+    /// failing — so a saved copy elsewhere is worth trying. A deleted or
+    /// restricted work isn't: those copies wouldn't be there either.
+    var suggestsAO3IsDown: Bool {
+        switch self {
+        case .unavailable, .rateLimited, .waitingRoom: return true
+        case .httpError(let code): return code >= 500
+        case .parseFailed(let what): return what == "EPUB download link" || what == "title" || what == "HTML download"
+        default: return false
         }
     }
 }

@@ -356,3 +356,41 @@ final class AO3SaverTests: XCTestCase {
         XCTAssertNotNil(page.endNotes)
     }
 }
+
+final class AO3DownTests: XCTestCase {
+    func testWhichErrorsSuggestAO3IsDown() {
+        XCTAssertTrue(AO3Error.unavailable.suggestsAO3IsDown)
+        XCTAssertTrue(AO3Error.parseFailed("EPUB download link").suggestsAO3IsDown)
+        XCTAssertTrue(AO3Error.httpError(502).suggestsAO3IsDown)
+        XCTAssertTrue(AO3Error.rateLimited(retryAfter: nil).suggestsAO3IsDown)
+        // A deleted, restricted or unreadable-for-other-reasons work has no copy to find.
+        XCTAssertFalse(AO3Error.notFound.suggestsAO3IsDown)
+        XCTAssertFalse(AO3Error.restricted.suggestsAO3IsDown)
+        XCTAssertFalse(AO3Error.httpError(403).suggestsAO3IsDown)
+    }
+}
+
+final class AO3HTMLDownloadTests: XCTestCase {
+    /// AO3's HTML export of a two-chapter work becomes an EPUB with both chapters.
+    func testTwoChapterExportBuildsEPUB() throws {
+        let html = """
+        <html><body><div id="preface"><h2 class="toc-heading">Preface</h2>
+        <div class="meta"><dl class="tags"><dt>Rating:</dt><dd><a href="x">Teen</a></dd>
+        <dt>Stats:</dt><dd>Published: 2026-01-01 Words: 20 Chapters: 2/2</dd></dl>
+        <h1>Two Parts</h1><div class="byline">by <a rel="author" href="https://archiveofourown.org/users/a/pseuds/a">a</a></div></div></div>
+        <div id="chapters" class="userstuff">
+        <h2 class="toc-heading">Chapter 1: Start</h2><div class="userstuff"><p>One.</p></div>
+        <h2 class="toc-heading">Chapter 2: End</h2><div class="userstuff"><p>Two.</p></div></div>
+        <div id="afterword"><h2 class="toc-heading">Afterword</h2></div></body></html>
+        """
+        let page = try AO3ExportParser.parse(html, id: 5)
+        XCTAssertEqual(page.chapters.map(\.title), ["Chapter 1: Start", "Chapter 2: End"])
+        let files = Dictionary(uniqueKeysWithValues: WorkPageEPUB.files(page))
+        XCTAssertNotNil(files["chapter2.xhtml"])
+        // Read back, it's linked to its AO3 work like any AO3 download.
+        let details = EPUBDetailsParser.parse(opf: try XCTUnwrap(files["content.opf"]),
+                                              preface: try XCTUnwrap(files["preface.xhtml"]))
+        XCTAssertEqual(details.workID, 5)
+        XCTAssertEqual(details.rating, ["Teen"])
+    }
+}

@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **AO3's waiting room.** While AO3 recovers it queues visitors behind a
+  Cloudflare waiting room. Parade used to read that as rate limiting and
+  back off for ten minutes at a time; now it recognizes the queue, says
+  it's in line, keeps its place (the pass cookie is shared by everything
+  Parade asks AO3), checks back every twenty seconds or so and carries on
+  when let in, for up to half an hour. Adding fics and search show it, and
+  Stop waiting is there if you'd rather not.
+- When AO3 is down or overloaded, saving by link or from search no longer
+  fails with "Couldn't read the AO3 page (EPUB download link)". Parade says
+  AO3 isn't serving the work, then looks for a saved copy at ao3saver.com
+  and in the Wayback Machine, and saves that if it finds one.
+- **AO3 has turned EPUB downloads off** (its HTML download still works).
+  Parade now takes the HTML download and builds the EPUB from it, with the
+  same tags, summary, notes and every chapter, so fics save and read as
+  usual. The preface says it was built from the HTML download; Update on
+  the fic's page fetches AO3's own EPUB once those are back.
+- A work page whose download link Parade can't find (or finds on another
+  AO3 host) still downloads.
+
 ## 0.9.0 — 2026-11-15
 
 ### Added

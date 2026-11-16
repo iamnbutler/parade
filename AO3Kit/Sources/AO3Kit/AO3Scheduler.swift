@@ -30,6 +30,9 @@ public actor AO3Scheduler {
         case waiting(until: Date)
         /// The circuit breaker tripped; nothing goes out until then.
         case paused(until: Date)
+        /// In AO3's Waiting Room: a queue it runs while it's overloaded.
+        /// Parade keeps its place and retries on its own until let in.
+        case inLine(since: Date)
     }
 
     public struct Configuration: Sendable {
@@ -51,6 +54,10 @@ public actor AO3Scheduler {
         /// Background requests between rests.
         public var batchSize = 20
         public var batchRest: TimeInterval = 60
+        /// How often to check back while in AO3's Waiting Room (its own page
+        /// refreshes about this often), and how long to stay in line.
+        public var queueCheck: TimeInterval = 20
+        public var maxQueueWait: TimeInterval = 30 * 60
 
         public init() {}
     }
@@ -114,6 +121,9 @@ public actor AO3Scheduler {
     private var batchCount = 0
     private var lastFinish = Date.distantPast
 
+    /// When the current stay in AO3's Waiting Room began, if in it.
+    private var inLineSince: Date?
+
     private var recentLimits: [Date] = []
     private var consecutiveLimits = 0
     private var breakerTrips = 0
@@ -139,6 +149,22 @@ public actor AO3Scheduler {
                 let value = try await operation()
                 finish(ticket, rateLimit: nil)
                 return value
+            } catch AO3Error.waitingRoom {
+                // Not a rate limit: no breaker, no doubling. Hold everything
+                // for a short while and ask again; the session's cookie
+                // keeps the place in line.
+                attempt -= 1
+                let now = clock.now
+                let since = inLineSince ?? now
+                guard now.timeIntervalSince(since) < configuration.maxQueueWait else {
+                    inLineSince = nil
+                    finish(ticket, rateLimit: nil, failed: true)
+                    throw AO3Error.waitingRoom
+                }
+                inLineSince = since
+                finish(ticket, rateLimit: nil, failed: true, retrying: true)
+                notBefore = max(notBefore, now.addingTimeInterval(jittered(configuration.queueCheck, 0.2)))
+                state = .inLine(since: since)
             } catch AO3Error.rateLimited(let retryAfter) {
                 let retrying = attempt < configuration.maxAttempts
                 finish(ticket, rateLimit: retryAfter.map(TimeInterval.init) ?? 0, retrying: retrying)
@@ -170,11 +196,12 @@ public actor AO3Scheduler {
                         if now.timeIntervalSince(lastFinish) >= configuration.batchRest { batchCount = 0 }
                         batchCount += 1
                     }
-                    state = .running
+                    state = inLineSince.map { .inLine(since: $0) } ?? .running
                     return
                 }
                 state = pausedUntil > now ? .paused(until: pausedUntil)
-                    : (backingOff || ready > notBefore) ? .waiting(until: ready) : .running
+                    : inLineSince.map { .inLine(since: $0) }
+                    ?? ((backingOff || ready > notBefore) ? .waiting(until: ready) : .running)
                 try await clock.sleep(until: ready)
             }
         } catch {
@@ -212,6 +239,7 @@ public actor AO3Scheduler {
         lastFinish = now
         notBefore = now.addingTimeInterval(jittered(configuration.spacing, configuration.spacingJitter))
         backingOff = false
+        if retryAfter == nil, !failed { inLineSince = nil }
         if let retryAfter {
             recordRateLimit(retryAfter: retryAfter, now: now)
         } else if !failed {

@@ -27,7 +27,15 @@ enum HTMLExtract {
     }
 
     static func epubPath(in html: String) -> String? {
-        firstMatch(in: html, pattern: #"href="(/downloads/[^"]+?\.epub[^"]*)""#)
+        // Relative, or absolute (AO3 has served downloads from a host of its own).
+        firstMatch(in: html, pattern: #"href="((?:https?://[^/"]*archiveofourown\.org)?/downloads/[^"]+?\.epub[^"]*)""#)
+            .map { $0.replacingOccurrences(of: "&amp;", with: "&") }
+    }
+
+    /// AO3's HTML download link — the one format still offered when its other
+    /// downloads (EPUB, MOBI, PDF) are switched off.
+    static func htmlDownloadPath(in html: String) -> String? {
+        firstMatch(in: html, pattern: #"href="((?:https?://[^/"]*archiveofourown\.org)?/downloads/[^"]+?\.html[^"]*)""#)
             .map { $0.replacingOccurrences(of: "&amp;", with: "&") }
     }
 

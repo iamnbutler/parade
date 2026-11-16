@@ -8,6 +8,7 @@ struct AddFicSheet: View {
     /// The log is shown only once a download starts here — older lines are
     /// some other action's business.
     @State private var startedHere = false
+    @State private var task: Task<Void, Never>?
     /// Save into To Read rather than the library.
     @State private var toRead: Bool
 
@@ -20,11 +21,11 @@ struct AddFicSheet: View {
     var body: some View {
         #if os(macOS)
         macSheet
-            .interactiveDismissDisabled(model.isWorking)
+            .interactiveDismissDisabled(model.isWorking && !model.inAO3Line)
         #else
         iosSheet
             .presentationDetents([.medium, .large])
-            .interactiveDismissDisabled(model.isWorking)
+            .interactiveDismissDisabled(model.isWorking && !model.inAO3Line)
         #endif
     }
 
@@ -100,10 +101,10 @@ struct AddFicSheet: View {
             Spacer(minLength: 0)
             HStack(spacing: 10) {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(model.inAO3Line ? "Stop waiting" : "Cancel") { cancel() }
                     .buttonStyle(.leather)
                     .keyboardShortcut(.cancelAction)
-                    .disabled(model.isWorking)
+                    .disabled(model.isWorking && !model.inAO3Line)
                 if model.isWorking {
                     ProgressView()
                         .controlSize(.small)
@@ -144,8 +145,8 @@ struct AddFicSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .disabled(model.isWorking)
+                    Button(model.inAO3Line ? "Stop waiting" : "Cancel") { cancel() }
+                        .disabled(model.isWorking && !model.inAO3Line)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if model.isWorking {
@@ -174,11 +175,17 @@ struct AddFicSheet: View {
         #endif
     }
 
+    /// Closes the sheet; while in AO3's waiting room, also gives up the wait.
+    private func cancel() {
+        if model.isWorking { task?.cancel() }
+        dismiss()
+    }
+
     private func startDownload() {
         let text = linkText
         guard !text.isEmpty, !model.isWorking else { return }
         startedHere = true
-        Task {
+        task = Task {
             await model.handle(text, toRead: toRead)
             // Success closes the sheet; an error keeps it open to read.
             if model.statusLines.contains(where: { $0.hasPrefix("✓") }),
