@@ -239,6 +239,7 @@ const privacy = page({
           <li>web.archive.org, ao3saver.com and ellipsus.com, only when you paste a link to one of them.</li>
         </ul>
         <p>Those sites can see your IP address and which pages you request, and their own policies apply. Parade doesn't log in to any of them and never asks for a password, so it only reads works that are public. Each request carries a User-Agent that names Parade and my contact address. It holds nothing about you.</p>
+        <p>When AO3 has a waiting room up, the site hands Parade a cookie with your place in the queue. Parade keeps it in memory only, and it is gone when you quit the app.</p>
 
         <h2 id="mac">Mac updates</h2>
         <p>The Mac app checks GitHub for new versions, using the Sparkle update framework. GitHub sees your IP address, as it does for any download. Parade doesn't send details about your Mac with that check.</p>
