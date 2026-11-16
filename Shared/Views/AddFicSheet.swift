@@ -17,6 +17,11 @@ struct AddFicSheet: View {
     }
 
     private var linkCount: Int { AO3Link.all(in: linkText).count }
+    private var isBlank: Bool { linkText.allSatisfy(\.isWhitespace) }
+    /// Something is pasted but no link in it is one Parade knows. Download
+    /// stays tappable then, and says so, rather than going quietly grey.
+    private var unrecognized: Bool { !isBlank && linkCount == 0 }
+    @Environment(\.palette) private var palette
 
     var body: some View {
         #if os(macOS)
@@ -85,6 +90,7 @@ struct AddFicSheet: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .debossed(cornerRadius: 10)
                 Text(footnote).textRole(.meta)
+                    .foregroundStyle(unrecognized ? palette.alert : palette.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if !activity.isEmpty {
@@ -116,7 +122,7 @@ struct AddFicSheet: View {
                     Button(downloadTitle, action: startDownload)
                         .buttonStyle(.leatherProminent)
                         .keyboardShortcut(.defaultAction)
-                        .disabled(linkCount == 0)
+                        .disabled(isBlank)
                 }
             }
         }
@@ -133,6 +139,7 @@ struct AddFicSheet: View {
                     linkField
                 } footer: {
                     Text(footnote)
+                        .foregroundStyle(unrecognized ? palette.alert : palette.inkSoft)
                 }
 
                 if !activity.isEmpty {
@@ -156,7 +163,7 @@ struct AddFicSheet: View {
                         ProgressView()
                     } else {
                         Button(downloadTitle, action: startDownload)
-                            .disabled(linkCount == 0)
+                            .disabled(isBlank)
                     }
                 }
             }
