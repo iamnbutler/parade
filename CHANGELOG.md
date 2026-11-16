@@ -3,6 +3,13 @@
 ## Unreleased
 
 ### Fixed
+- **AO3's waiting room.** While AO3 recovers it queues visitors behind a
+  Cloudflare waiting room. Parade used to read that as rate limiting and
+  back off for ten minutes at a time; now it recognizes the queue, says
+  it's in line, keeps its place (the pass cookie is shared by everything
+  Parade asks AO3), checks back every twenty seconds or so and carries on
+  when let in, for up to half an hour. Adding fics and search show it, and
+  Stop waiting is there if you'd rather not.
 - When AO3 is down or overloaded, saving by link or from search no longer
   fails with "Couldn't read the AO3 page (EPUB download link)". Parade says
   AO3 isn't serving the work, then looks for a saved copy at ao3saver.com

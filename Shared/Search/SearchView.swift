@@ -123,6 +123,8 @@ struct SearchView: View {
         switch search.schedulerState {
         case .waiting(let until) where until.timeIntervalSinceNow > 5:
             "AO3 asked us to slow down — continuing at \(until.formatted(date: .omitted, time: .shortened))"
+        case .inLine:
+            "In AO3's waiting room — Parade keeps its place and continues when let in"
         case .paused(let until):
             "Paused until \(until.formatted(date: .omitted, time: .shortened)) — AO3 is busy"
         default:

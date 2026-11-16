@@ -10,16 +10,19 @@ public struct AO3Client: Sendable {
     public let scheduler: AO3Scheduler
     public static let userAgent = "Parade/1.0 (personal archiving tool; +iamnbutler@gmail.com)"
 
+    /// The session every client shares by default, so the cookie AO3's
+    /// waiting room hands out (your place in line, then your pass) is kept
+    /// for all of them.
+    static let sharedSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpAdditionalHeaders = ["User-Agent": AO3Client.userAgent]
+        config.timeoutIntervalForRequest = 30
+        return URLSession(configuration: config)
+    }()
+
     public init(session: URLSession? = nil, scheduler: AO3Scheduler = .shared) {
         self.scheduler = scheduler
-        if let session {
-            self.session = session
-        } else {
-            let config = URLSessionConfiguration.ephemeral
-            config.httpAdditionalHeaders = ["User-Agent": Self.userAgent]
-            config.timeoutIntervalForRequest = 30
-            self.session = URLSession(configuration: config)
-        }
+        self.session = session ?? Self.sharedSession
     }
 
     /// Resolves a link to the list of works it names — one for a work link,
@@ -95,6 +98,16 @@ public struct AO3Client: Sendable {
         }
     }
 
+    /// A downloaded file is only looked into when it isn't a plain success
+    /// (or came back as a web page): that's where a waiting room shows.
+    static func checkDownload(_ response: URLResponse, file: URL) throws {
+        let http = response as? HTTPURLResponse
+        let isPage = (http?.value(forHTTPHeaderField: "Content-Type") ?? "").contains("text/html")
+        let body = (!(200..<300).contains(http?.statusCode ?? 0) || isPage)
+            ? (try? FileHandle(forReadingFrom: file).read(upToCount: 20_000)) : nil
+        try check(response, body: body)
+    }
+
     private static func isMissingDownload(_ error: AO3Error) -> Bool {
         switch error {
         case .notFound: return true
@@ -107,7 +120,7 @@ public struct AO3Client: Sendable {
         let session = session
         return try await scheduler.run(priority) {
             let (tempURL, response) = try await session.download(for: URLRequest(url: url))
-            try Self.check(response)
+            try Self.checkDownload(response, file: tempURL)
             let dest = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString)
                 .appendingPathExtension("epub")
@@ -123,7 +136,7 @@ public struct AO3Client: Sendable {
         let session = session
         let data = try await scheduler.run(priority) { () -> Data in
             let (data, response) = try await session.data(for: URLRequest(url: url))
-            try Self.check(response)
+            try Self.check(response, body: data)
             return data
         }
         guard let html = String(data: data, encoding: .utf8) else { throw AO3Error.parseFailed("HTML download encoding") }
@@ -158,7 +171,7 @@ public struct AO3Client: Sendable {
         let (data, http) = try await scheduler.run(priority) { () -> (Data, HTTPURLResponse) in
             let (data, response) = try await session.data(for: URLRequest(url: url))
             guard let http = response as? HTTPURLResponse else { throw AO3Error.httpError(0) }
-            try Self.check(http)
+            try Self.check(http, body: data)
             return (data, http)
         }
         guard let html = String(data: data, encoding: .utf8) else {
@@ -167,8 +180,15 @@ public struct AO3Client: Sendable {
         return (html, http)
     }
 
-    static func check(_ response: URLResponse, now: Date = Date()) throws {
+    /// Cloudflare's Waiting Room page, which AO3 serves (as a 429, or even a
+    /// 200) while it lets people in a few at a time.
+    static func isWaitingRoom(_ body: Data) -> Bool {
+        String(decoding: body.prefix(20_000), as: UTF8.self).contains("Waiting Room powered by Cloudflare")
+    }
+
+    static func check(_ response: URLResponse, body: Data? = nil, now: Date = Date()) throws {
         guard let http = response as? HTTPURLResponse else { throw AO3Error.httpError(0) }
+        if let body, isWaitingRoom(body) { throw AO3Error.waitingRoom }
         switch http.statusCode {
         case 200..<300: return
         case 404: throw AO3Error.notFound

@@ -278,3 +278,79 @@ func XCTAssertThrowsRateLimit<T>(_ body: () async throws -> T, file: StaticStrin
         XCTFail("unexpected \(error)", file: file, line: line)
     }
 }
+
+final class WaitingRoomTests: XCTestCase {
+    let noJitter: @Sendable (ClosedRange<Double>) -> Double = { ($0.lowerBound + $0.upperBound) / 2 }
+
+    /// In AO3's Waiting Room the request is retried on a short timer until
+    /// it gets in — without tripping the breaker the way rate limits do.
+    func testWaitsInLineThenGoesThrough() async throws {
+        let clock = TestClock()
+        let start = clock.now
+        let scheduler = AO3Scheduler(clock: clock, random: noJitter)
+        let tries = Log<Date>()
+        let states = Log<AO3Scheduler.State>()
+        let watcher = Task { for await s in await scheduler.stateUpdates() { await states.add(s) } }
+        let result: String = try await scheduler.run {
+            await tries.add(clock.now)
+            if await tries.items.count < 8 { throw AO3Error.waitingRoom }
+            return "in"
+        }
+        XCTAssertEqual(result, "in")
+        let times = await tries.items.map { $0.timeIntervalSince(start) }
+        XCTAssertEqual(times.count, 8)
+        // Checking back every ~20s (plus the usual spacing), not doubling.
+        XCTAssertLessThan(times.last!, 8 * 25)
+        // And another request goes straight out afterwards: no breaker pause.
+        let after = clock.now
+        _ = try await scheduler.run { "ok" }
+        XCTAssertLessThan(clock.now.timeIntervalSince(after), 10)
+        watcher.cancel()
+        let seen = await states.items
+        XCTAssertTrue(seen.contains { if case .inLine = $0 { return true } else { return false } })
+    }
+
+    func testGivesUpAfterTheMaximumWait() async {
+        let clock = TestClock()
+        let scheduler = AO3Scheduler(clock: clock, random: noJitter)
+        do {
+            _ = try await scheduler.run { () -> Int in throw AO3Error.waitingRoom }
+            XCTFail("should have thrown")
+        } catch {
+            XCTAssertEqual(error as? AO3Error, .waitingRoom)
+        }
+    }
+
+    func testRecognizesTheWaitingRoomPage() {
+        let page = Data("<html><head><title>Waiting Room powered by Cloudflare</title></head></html>".utf8)
+        XCTAssertTrue(AO3Client.isWaitingRoom(page))
+        XCTAssertFalse(AO3Client.isWaitingRoom(Data("<title>Retry later</title>".utf8)))
+        let url = URL(string: "https://archiveofourown.org/works/1")!
+        for status in [429, 200] {
+            let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
+            XCTAssertThrowsError(try AO3Client.check(response, body: page)) {
+                XCTAssertEqual($0 as? AO3Error, .waitingRoom)
+            }
+        }
+        // A real rate limit is still one.
+        let limited = HTTPURLResponse(url: url, statusCode: 429, httpVersion: nil, headerFields: nil)!
+        XCTAssertThrowsError(try AO3Client.check(limited, body: Data("Retry later".utf8))) {
+            XCTAssertEqual($0 as? AO3Error, .rateLimited(retryAfter: nil))
+        }
+    }
+
+    func testDownloadedFileIsLookedIntoWhenItIsAPage() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data("<title>Waiting Room powered by Cloudflare</title>".utf8).write(to: file)
+        let url = URL(string: "https://archiveofourown.org/downloads/1/a.epub")!
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                                       headerFields: ["Content-Type": "text/html"])!
+        XCTAssertThrowsError(try AO3Client.checkDownload(response, file: file)) {
+            XCTAssertEqual($0 as? AO3Error, .waitingRoom)
+        }
+        // A real EPUB isn't opened.
+        let epub = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                                   headerFields: ["Content-Type": "application/epub+zip"])!
+        XCTAssertNoThrow(try AO3Client.checkDownload(epub, file: file))
+    }
+}
