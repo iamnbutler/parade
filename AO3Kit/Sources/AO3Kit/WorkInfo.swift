@@ -68,7 +68,7 @@ public extension AO3Error {
         switch self {
         case .unavailable, .rateLimited: return true
         case .httpError(let code): return code >= 500
-        case .parseFailed(let what): return what == "EPUB download link" || what == "title"
+        case .parseFailed(let what): return what == "EPUB download link" || what == "title" || what == "HTML download"
         default: return false
         }
     }

@@ -56,9 +56,13 @@ public struct AO3Client: Sendable {
             // 200 maintenance or overload page when it's down.
             throw AO3Error.unavailable
         }
-        // AO3 serves /downloads/<id>/<anything>.epub, so a work page whose
-        // download link can't be found still has one.
-        let epubPath = HTMLExtract.epubPath(in: html) ?? "/downloads/\(id)/\(id).epub"
+        // The EPUB; or, when AO3 has switched EPUB downloads off, its HTML
+        // download, which `downloadEPUB` builds into an EPUB. AO3 serves
+        // /downloads/<id>/<anything>.<format>, so a page whose links can't
+        // be found still has one.
+        let epubPath = HTMLExtract.epubPath(in: html)
+            ?? HTMLExtract.htmlDownloadPath(in: html)
+            ?? "/downloads/\(id)/\(id).html"
         var authors = HTMLExtract.authors(in: html)
         if authors.isEmpty { authors = ["Anonymous"] }
 
@@ -72,9 +76,37 @@ public struct AO3Client: Sendable {
 
     /// Downloads the work's EPUB to a temporary file and returns its URL.
     public func downloadEPUB(_ work: WorkInfo, priority: AO3Scheduler.Priority = .user) async throws -> URL {
+        if work.epubURL.pathExtension == "html" {
+            return try await epubFromHTMLDownload(work, from: work.epubURL, priority: priority)
+        }
+        do {
+            return try await download(work.epubURL, priority: priority)
+        } catch let error as AO3Error where Self.isMissingDownload(error) {
+            // AO3 turns EPUB downloads off at times (a link that's still on
+            // the page may 404 or fail): its HTML download is the same text.
+            guard var parts = URLComponents(url: work.epubURL, resolvingAgainstBaseURL: false) else { throw error }
+            parts.path = (parts.path as NSString).deletingPathExtension + ".html"
+            guard let html = parts.url else { throw error }
+            do {
+                return try await epubFromHTMLDownload(work, from: html, priority: priority)
+            } catch {
+                throw error is AO3Error ? error : AO3Error.parseFailed("HTML download")
+            }
+        }
+    }
+
+    private static func isMissingDownload(_ error: AO3Error) -> Bool {
+        switch error {
+        case .notFound: return true
+        case .httpError(let code): return code >= 400
+        default: return false
+        }
+    }
+
+    private func download(_ url: URL, priority: AO3Scheduler.Priority) async throws -> URL {
         let session = session
         return try await scheduler.run(priority) {
-            let (tempURL, response) = try await session.download(for: URLRequest(url: work.epubURL))
+            let (tempURL, response) = try await session.download(for: URLRequest(url: url))
             try Self.check(response)
             let dest = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString)
@@ -82,6 +114,26 @@ public struct AO3Client: Sendable {
             try FileManager.default.moveItem(at: tempURL, to: dest)
             return dest
         }
+    }
+
+    /// AO3's HTML download, read like any AO3 export and written out as an
+    /// EPUB laid out as AO3's own is.
+    private func epubFromHTMLDownload(_ work: WorkInfo, from url: URL,
+                                      priority: AO3Scheduler.Priority) async throws -> URL {
+        let session = session
+        let data = try await scheduler.run(priority) { () -> Data in
+            let (data, response) = try await session.data(for: URLRequest(url: url))
+            try Self.check(response)
+            return data
+        }
+        guard let html = String(data: data, encoding: .utf8) else { throw AO3Error.parseFailed("HTML download encoding") }
+        var page = try AO3ExportParser.parse(html, id: work.id)
+        // The details a work's own EPUB carries but the export has no field for.
+        if page.authors == ["Anonymous"], !work.authors.isEmpty { page.authors = work.authors }
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).appendingPathExtension("epub")
+        try WorkPageEPUB.write(page, source: "Built from AO3's HTML download while its EPUB downloads were unavailable.", to: dest)
+        return dest
     }
 
     /// A tag name as AO3 has it: the canonical tag it's a synonym of (or

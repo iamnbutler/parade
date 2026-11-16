@@ -89,4 +89,10 @@ final class HTMLExtractTests: XCTestCase {
         let html = #"<li class="download"><a href="https://download.archiveofourown.org/downloads/7/W.epub?updated_at=5">EPUB</a></li>"#
         XCTAssertEqual(HTMLExtract.epubPath(in: html), "https://download.archiveofourown.org/downloads/7/W.epub?updated_at=5")
     }
+
+    func testHTMLDownloadLinkWhenEPUBIsOff() {
+        let html = #"<ul class="expandable secondary"><li class="download"><a href="/downloads/9/A_B.html?updated_at=77">HTML</a></li></ul>"#
+        XCTAssertNil(HTMLExtract.epubPath(in: html))
+        XCTAssertEqual(HTMLExtract.htmlDownloadPath(in: html), "/downloads/9/A_B.html?updated_at=77")
+    }
 }

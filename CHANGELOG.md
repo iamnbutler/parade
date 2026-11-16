@@ -7,8 +7,13 @@
   fails with "Couldn't read the AO3 page (EPUB download link)". Parade says
   AO3 isn't serving the work, then looks for a saved copy at ao3saver.com
   and in the Wayback Machine, and saves that if it finds one.
-- A work page whose EPUB link Parade can't find (or finds on another AO3
-  host) still downloads.
+- **AO3 has turned EPUB downloads off** (its HTML download still works).
+  Parade now takes the HTML download and builds the EPUB from it, with the
+  same tags, summary, notes and every chapter, so fics save and read as
+  usual. The preface says it was built from the HTML download; Update on
+  the fic's page fetches AO3's own EPUB once those are back.
+- A work page whose download link Parade can't find (or finds on another
+  AO3 host) still downloads.
 
 ## 0.9.0 — 2026-11-15
 

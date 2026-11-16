@@ -32,6 +32,13 @@ enum HTMLExtract {
             .map { $0.replacingOccurrences(of: "&amp;", with: "&") }
     }
 
+    /// AO3's HTML download link — the one format still offered when its other
+    /// downloads (EPUB, MOBI, PDF) are switched off.
+    static func htmlDownloadPath(in html: String) -> String? {
+        firstMatch(in: html, pattern: #"href="((?:https?://[^/"]*archiveofourown\.org)?/downloads/[^"]+?\.html[^"]*)""#)
+            .map { $0.replacingOccurrences(of: "&amp;", with: "&") }
+    }
+
     /// Work IDs in series order: the series page lists each work as
     /// `<h4 class="heading"> <a href="/works/NNN">Title</a> ...`.
     static func seriesWorkIDs(in html: String) -> [Int] {
