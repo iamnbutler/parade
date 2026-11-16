@@ -65,10 +65,10 @@ const prettyDate = iso => new Date(iso + 'T12:00:00Z')
   .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 
 const releaseHTML = r => `
-<article class="release" id="v${r.version}">
+<section class="release" id="v${r.version}">
   <h2>Version ${r.version} <time datetime="${r.date}">${prettyDate(r.date)}</time></h2>
   ${r.sections.map(s => `<h3>${esc(s.name)}</h3>${s.html}`).join('\n  ')}
-</article>`
+</section>`
 
 // ---- pages -----------------------------------------------------------------
 
@@ -76,15 +76,15 @@ const page = ({ title, description, path, body }) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <meta name="theme-color" content="#241b1e">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:type" content="website">
-<link rel="icon" type="image/png" href="/img/icon.png">
-<link rel="apple-touch-icon" href="/img/icon.png">
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="preload" href="/fonts/CormorantGaramond-Italic.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -97,70 +97,84 @@ const page = ({ title, description, path, body }) => `<!doctype html>
 ${body}
 </div>
 <footer>
-  <span class="fleuron" aria-hidden="true">❦</span>
   <p>Parade is an independent project. It isn't affiliated with or endorsed by the Archive of Our Own or the Organization for Transformative Works.</p>
-  <p>Fonts are Cormorant Garamond and Newsreader, under the SIL Open Font License.</p>
+  <p>Set in Cormorant Garamond and Newsreader, under the SIL Open Font License.</p>
 </footer>
 </body>
 </html>
 `
 
-// The soft-ink drawing, inline so it takes the page's ink color.
-const drawing = readFileSync(join(src, 'img', 'book.svg'), 'utf8')
-  .replace('<svg ', '<svg class="drawing" ').replace(/\s*<title>[^<]*<\/title>/, '')
-  .replace(/ role="img" aria-label="[^"]*"/, ' aria-hidden="true"')
+const roman = n => ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'][n] ?? String(n + 1)
+const contents = (label, items, cls = '') => `
+    <nav class="contents ${cls}" aria-label="${esc(label)}">
+      <p class="label">${esc(label)}</p>
+      <ol>${items.map(([id, name], i) => `<li>${cls ? "" : `<span class="no" aria-hidden="true">${roman(i)}</span>`}<a href="#${id}">${esc(name)}</a></li>`).join('')}</ol>
+    </nav>`
 
 const all = releases()
 const latest = all[0]
 
 const index = page({
-  title: 'Parade: a quiet library for the fics you love',
-  description: 'Parade keeps the fanfiction you love as plain EPUBs, and reads them like a book, on iPhone, iPad and Mac.',
+  title: 'Parade: a library and reader for fanfiction',
+  description: 'Parade saves the fanfiction you love as ordinary EPUB files and reads them like a book, on iPhone, iPad and Mac.',
   path: 'home',
   body: `
   <main>
-    <section class="hero">
-      <span class="taped"><img src="/img/icon-512.png" alt="" width="120" height="120"></span>
-      <h1>Your fics, kept.</h1>
-      <p class="dek">A quiet library and reader for the fanfiction you love, on iPhone, iPad and Mac.</p>
-    </section>
-
-    <section class="answer" id="download" aria-labelledby="get">
-      <p class="label" id="get">Get Parade</p>
-      <div class="get">
-        <a class="door" href="${DMG}">
-          <span class="t">Download for Mac</span>
-          <span class="s">Version ${latest.version} · macOS 14 or later</span>
-        </a>
-        <div class="door soon">
-          <span class="t">iPhone and iPad</span>
-          <span class="s">On TestFlight soon</span>
-        </div>
+    <section class="opener">
+      <div>
+        <p class="kicker">Version ${latest.version} · iPhone, iPad and Mac</p>
+        <h1>Parade</h1>
+        <p class="dek">A library and reader for the fanfiction you save from the Archive of Our Own, kept as ordinary EPUB files.</p>
       </div>
-      <p class="fine">The Mac download is a signed, notarized disk image, and the app updates itself. Older versions are on the <a href="${REPO}/releases">releases page</a>.</p>
+      <figure class="cover"><img src="/img/icon-512.png" alt="The Parade icon: a gold P on stitched leather" width="512" height="512"></figure>
     </section>
 
-    <aside class="letter" aria-label="About Parade">
-      <p class="salute">Dear reader,</p>
-      <p>Parade is where I keep the stories I don't want to lose. Paste a link and it saves the work as an ordinary EPUB, filed by author and title in a folder of your own. Nothing is locked inside the app.</p>
-      <p>Then it reads them the way a book should be read: a warm page, a generous measure, and your place kept across every device.</p>
-      <p class="sign">Parade</p>
-    </aside>
+    <div class="page">
+      ${contents('In this page', [['what', 'What it is'], ['does', 'What it does'], ['caveats', 'Caveats'], ['new', 'What’s new']])}
+      <article class="column">
+        <section class="answer" id="get" aria-labelledby="get-l">
+          <p class="label" id="get-l">Get Parade</p>
+          <div class="get">
+            <a class="door" href="${DMG}">
+              <span class="t">Download for Mac</span>
+              <span class="s">Version ${latest.version} · macOS 14 or later</span>
+            </a>
+            <div class="door soon">
+              <span class="t">iPhone and iPad</span>
+              <span class="s">On TestFlight soon</span>
+            </div>
+          </div>
+          <p class="fine">The Mac download is a signed, notarized disk image, and the app updates itself. Older versions are on the <a href="${REPO}/releases">releases page</a>.</p>
+        </section>
 
-    ${drawing}
+        <h2 id="what">What it is</h2>
+        <p>Parade is an app for iPhone, iPad and Mac that saves fanfiction from the Archive of Our Own and reads it. Paste a link to a work or a series and Parade saves it as an EPUB, filed as <code>ao3/Author/Title.epub</code> in a Parade folder in iCloud Drive. They are ordinary files, so any other reader can open them, and nothing is locked inside the app.</p>
+        <p>I made it to keep the stories I don't want to lose, and to read them somewhere that looks like a book.</p>
 
-    <section class="ways" aria-label="What Parade does">
-      <div class="way"><h3>Save by link</h3><p>Paste a work or a whole series, a batch of links, or search AO3 from inside the app. A copy from the Wayback Machine works when the site is down.</p></div>
-      <div class="way"><h3>Read like a book</h3><p>Turn pages or scroll, change the text size and the paper, and jump by chapter. It remembers where you stopped.</p></div>
-      <div class="way"><h3>Keep it yours</h3><p>Your library is plain EPUBs in iCloud Drive. Organize with collections and favorites, and Parade tells you when a fic has been updated.</p></div>
-    </section>
+        <h2 id="does">What it does</h2>
+        <h3>Saves what you paste</h3>
+        <p>Paste a work or series link, or a batch of them, one per line. Downloads run one after another, a few seconds apart. You can also search AO3 inside the app and save from the results, or put a fic in To Read until you decide it's a keeper. When AO3 is down, links to the Wayback Machine and to ao3saver.com work too.</p>
+        <h3>Reads like a book</h3>
+        <p>Fics open in Parade's own reader, as pages or as one scroll, with a contents list, text size and page color. It keeps your place across your devices. A fic's formatting comes through: tables, images, and chat logs drawn as phone threads.</p>
+        <h3>Keeps the library in order</h3>
+        <p>Browse by fandom, series, relationship, character or tag. Make your own collections and mark favorites. Check AO3 for Updates flags the fics that have new chapters, and updating one is always your tap.</p>
 
-    <section class="notes" aria-labelledby="notes-h">
-      <h2 id="notes-h">What's new</h2>
-      <hr class="rule">
-      ${releaseHTML(latest)}
-      <p class="more"><a href="/notes/">All release notes ❦</a></p>
-    </section>
+        <h2 id="caveats">Caveats</h2>
+        <ul class="hedera">
+          <li>Parade is unofficial. It reads AO3 the way a browser does and has no say in how AO3 runs.</li>
+          <li>It is polite to AO3. Requests go one at a time, a few seconds apart, and back off when AO3 asks, so a large batch takes a while.</li>
+          <li>The library lives in your iCloud Drive. That is how it stays the same on every device.</li>
+          <li>The iPhone and iPad app isn't released yet. It will arrive through TestFlight first.</li>
+          <li>The Mac app needs macOS 14 or later.</li>
+        </ul>
+
+        <h2 id="new">What's new</h2>
+        ${releaseHTML(latest)}
+
+        <span class="fleuron" aria-hidden="true">❦</span>
+        <div class="pager"><a class="next" href="/notes/"><span class="l">Continue reading</span><span class="t">Release notes</span></a></div>
+      </article>
+    </div>
   </main>`,
 })
 
@@ -170,12 +184,19 @@ const notes = page({
   path: 'notes',
   body: `
   <main>
-    <section class="hero" style="padding-bottom:1rem">
-      <h1 class="page-title" style="font-style:italic;font-weight:400">Release notes</h1>
+    <section class="page-head">
+      <p class="kicker">Parade</p>
+      <h1>Release notes</h1>
       <p class="dek">Every version, newest first.</p>
     </section>
-    <hr class="rule">
-    ${all.map(releaseHTML).join('\n')}
+    <div class="page">
+      ${contents('Versions', all.map(r => [`v${r.version}`, r.version]), 'versions')}
+      <article class="column">
+        ${all.map(releaseHTML).join('\n')}
+        <span class="fleuron" aria-hidden="true">❦</span>
+        <div class="pager"><a href="/"><span class="l">The start</span><span class="t">Parade</span></a></div>
+      </article>
+    </div>
   </main>`,
 })
 
@@ -184,7 +205,7 @@ const missing = page({
   description: 'That page doesn\'t exist.',
   path: '404',
   body: `
-  <main><section class="hero"><h1>Not found.</h1>
+  <main><section class="page-head"><h1>Not found</h1>
   <p class="dek">That page doesn't exist. <a href="/">Go to the start.</a></p></section></main>`,
 })
 
