@@ -126,7 +126,7 @@ const index = page({
         <h1>Parade</h1>
         <p class="dek">A library and reader for the fanfiction you save from the Archive of Our Own, kept as ordinary EPUB files.</p>
       </div>
-      <figure class="cover"><img src="/img/icon-512.png" alt="The Parade icon: a gold P on stitched leather" width="512" height="512"></figure>
+      <figure class="cover"><img src="/img/icon-leather-512.png" alt="The Parade icon: a gold P on stitched leather" width="512" height="512"></figure>
     </section>
 
     <div class="page">
@@ -215,5 +215,5 @@ cpSync(src, out, { recursive: true })
 writeFileSync(join(out, 'index.html'), index)
 writeFileSync(join(out, 'notes', 'index.html'), notes)
 writeFileSync(join(out, '404.html'), missing)
-writeFileSync(join(out, '_headers'), `/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n/img/*\n  Cache-Control: public, max-age=604800\n`)
+writeFileSync(join(out, '_headers'), `/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n/img/*\n  Cache-Control: public, max-age=3600\n`)
 console.log(`Built ${all.length} releases (latest ${latest.version}) → ${out}`)
