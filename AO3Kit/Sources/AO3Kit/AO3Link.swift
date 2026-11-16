@@ -15,6 +15,10 @@ public enum AO3Link: Equatable, Sendable {
     /// Ellipsus, which isn't an AO3 work at all.
     case ellipsus(id: String)
 
+    /// AO3's addresses: its domain, the other domains that lead to it, and
+    /// the short ao3.org.
+    static let ao3Hosts = #"(?:archiveofourown\.(?:org|com|net|gay)|ao3\.org)"#
+
     /// Extracts the first AO3 work or series link found in `text`.
     /// Accepts archiveofourown.org URLs (chapter links, collection-scoped
     /// links, query params, missing scheme), Wayback Machine snapshots of
@@ -34,7 +38,7 @@ public enum AO3Link: Equatable, Sendable {
         }
         // A real AO3 URL anywhere in the text, or the string itself is just a path.
         let patterns = [
-            #"archiveofourown\.org/(?:collections/[^/\s]+/)?(works|series)/(\d+)"#,
+            "\(Self.ao3Hosts)/(?:collections/[^/\\s]+/)?(works|series)/(\\d+)",
             #"^\s*/?(works|series)/(\d+)"#,
         ]
         for pattern in patterns {

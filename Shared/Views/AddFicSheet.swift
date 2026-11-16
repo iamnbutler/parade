@@ -30,6 +30,9 @@ struct AddFicSheet: View {
     }
 
     private var footnote: String {
+        if linkCount == 0, !linkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Parade doesn't see an AO3 link here yet. Paste a work or series link, like archiveofourown.org/works/12345."
+        }
         if linkCount > 1 { return "\(linkCount) links — they download one after another." }
         if case .archivedWork? = AO3Link(text: linkText) {
             return "A Wayback Machine copy: Parade saves the work from the archived page, for when AO3 is down. "

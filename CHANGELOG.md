@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+- Links on AO3's other addresses (ao3.org, archiveofourown.com, .net and
+  .gay) are recognized. Before, a pasted ao3.org link left Download
+  greyed out with nothing to say why.
+- The Add fics box now says so when it can't find an AO3 link in what you
+  pasted, instead of just disabling Download.
+
+## Unreleased
+
 ### Added
 - **Mature works are hidden in Search until you say you're 18 or older.**
   A first-launch question asks once; Keep them hidden is the default, and
