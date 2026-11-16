@@ -27,7 +27,7 @@ public enum WorkPageEPUB {
         }
         documents.append(("afterword.xhtml", "Afterword", afterword(page)))
 
-        let uid = "ao3-\(page.id)"
+        let uid = page.source.map { "\($0.name.lowercased())-\(Self.stableHash($0.url))" } ?? "ao3-\(page.id)"
         var out: [(String, String)] = [
             ("META-INF/container.xml", container),
             ("content.opf", opf(page, uid: uid, documents: documents.map(\.href))),
@@ -53,7 +53,21 @@ public enum WorkPageEPUB {
 
     private static func esc(_ s: String) -> String { XHTMLFragment.escape(s) }
 
-    static func workURL(_ page: WorkPage) -> String { "https://archiveofourown.org/works/\(page.id)" }
+    static func workURL(_ page: WorkPage) -> String { page.source?.url ?? "https://archiveofourown.org/works/\(page.id)" }
+
+    /// FNV-1a: the same link always gets the same identifier.
+    private static func stableHash(_ s: String) -> String {
+        var h: UInt64 = 0xcbf29ce484222325
+        for b in s.utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
+        return String(h, radix: 16)
+    }
+
+    private static func originalSite(_ page: WorkPage) -> String {
+        guard let source = page.source else {
+            return "the <a href=\"https://archiveofourown.org/\">Archive of Our Own</a>"
+        }
+        return esc(source.name)
+    }
 
     static func preface(_ page: WorkPage, source: String?) -> String {
         let url = workURL(page)
@@ -62,7 +76,7 @@ public enum WorkPageEPUB {
           <h2 class="toc-heading">Preface</h2>
           <p class="message">
             <b>\(esc(page.title))</b><br/>
-            Posted originally on the <a href="https://archiveofourown.org/">Archive of Our Own</a> at <a href="\(url)">\(url)</a>.
+            Posted originally on \(originalSite(page)) at <a href="\(esc(url))">\(esc(url))</a>.
         """
         if let source { s += "<br/>\n    \(esc(source))" }
         s += "\n  </p>\n  <div>\n    <dl class=\"tags\">\n"
@@ -112,7 +126,10 @@ public enum WorkPageEPUB {
     static func afterword(_ page: WorkPage) -> String {
         var s = "<div id=\"afterword\">\n  <h2 class=\"toc-heading\">Afterword</h2>\n"
         if let end = page.endNotes { s += "  <p>End Notes</p>\n  <blockquote class=\"userstuff\">\(end)</blockquote>\n" }
-        s += "  <p class=\"message\">Please <a href=\"\(workURL(page))/comments/new\">drop by the Archive and comment</a> to let the creator know if you enjoyed their work!</p>\n</div>\n"
+        if page.source == nil {
+            s += "  <p class=\"message\">Please <a href=\"\(workURL(page))/comments/new\">drop by the Archive and comment</a> to let the creator know if you enjoyed their work!</p>\n"
+        }
+        s += "</div>\n"
         return s
     }
 
@@ -167,8 +184,8 @@ public enum WorkPageEPUB {
         }
         meta += "    <dc:identifier id=\"uid\">\(uid)</dc:identifier>\n"
         if let summary = page.summary { meta += "    <dc:description>\(esc(summary))</dc:description>\n" }
-        meta += "    <dc:publisher>Archive of Our Own</dc:publisher>\n"
-        meta += "    <dc:source>\(workURL(page))</dc:source>\n"
+        meta += "    <dc:publisher>\(esc(page.source?.name ?? "Archive of Our Own"))</dc:publisher>\n"
+        meta += "    <dc:source>\(esc(workURL(page)))</dc:source>\n"
         for name in page.tags.flatMap(\.names) { meta += "    <dc:subject>\(esc(name))</dc:subject>\n" }
         if let published = page.published { meta += "    <dc:date>\(esc(published))</dc:date>\n" }
 

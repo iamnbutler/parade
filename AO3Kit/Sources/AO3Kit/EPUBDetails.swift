@@ -13,6 +13,8 @@ public struct WorkDetails: Equatable, Sendable, Codable {
     public var summary: String?
     /// The original work page, e.g. https://archiveofourown.org/works/123
     public var workURL: URL?
+    /// Where a story that isn't from AO3 was posted — an Ellipsus Reader link.
+    public var sourceURL: URL?
 
     public var rating: [String] = []
     public var warnings: [String] = []
@@ -125,6 +127,11 @@ public enum EPUBDetailsParser {
         if let urlString = firstMatch(
             in: preface, pattern: #"<a href="(https?://archiveofourown\.org/works/\d+)">"#) {
             d.workURL = URL(string: urlString)
+        }
+
+        if let urlString = firstMatch(
+            in: preface, pattern: #"<a href="(https?://(?:www\.)?ellipsus\.com/read/[^"]+)">"#) {
+            d.sourceURL = URL(string: urlString)
         }
 
         // The tags block is dt/dd pairs: label → comma-separated tag links.

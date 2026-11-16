@@ -20,7 +20,16 @@ public struct WorkPage: Equatable, Sendable {
         public var endNotes: String?
     }
 
+    /// Where the text came from when it isn't AO3, so the EPUB's preface
+    /// points there instead of at an AO3 work.
+    public struct Source: Equatable, Sendable {
+        public var name: String
+        public var url: String
+        public init(name: String, url: String) { self.name = name; self.url = url }
+    }
+
     public var id: Int
+    public var source: Source?
     public var title: String
     public var authors: [String]
     /// The byline's profile links ("/users/name/pseuds/name"), one per author.

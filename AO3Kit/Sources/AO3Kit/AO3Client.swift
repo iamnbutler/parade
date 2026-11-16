@@ -28,6 +28,8 @@ public struct AO3Client: Sendable {
         switch link {
         case .work(let id), .archivedWork(let id, _, _), .ao3saver(let id, _):
             return [id]
+        case .ellipsus:
+            throw AO3Error.notAnAO3Link
         case .series:
             let (html, _) = try await fetchHTML(link.pageURL, priority: priority)
             let ids = HTMLExtract.seriesWorkIDs(in: html)

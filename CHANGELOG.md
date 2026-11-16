@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Ellipsus Reader links**: paste an `ellipsus.com/read/…` link and Parade
+  saves the story as an EPUB in an `ellipsus` folder of the library, with
+  its author, summary, formatting and a link back to the Reader page. It
+  has no AO3 link until you give it one.
+- **Change an AO3 link.** A fic linked to the wrong AO3 work now has Change
+  Link on its page: paste the right work's link, or search for it.
+
+### Changed
+- The AO3 link box on a fic's page always has a place to paste a link, so
+  you can link a fic without searching AO3 first. ao3saver and Wayback
+  links work there too.
+
 ## 0.8.0 — 2026-11-12
 
 ### Added

@@ -34,6 +34,9 @@ struct AddFicSheet: View {
             return "A Wayback Machine copy: Parade saves the work from the archived page, for when AO3 is down. "
                 + "Snapshots with ?view_full_work=true have every chapter."
         }
+        if case .ellipsus? = AO3Link(text: linkText) {
+            return "An Ellipsus Reader link: Parade saves the story as an EPUB in an ellipsus folder. It has no AO3 link until you link it."
+        }
         if case .ao3saver? = AO3Link(text: linkText) {
             return "An ao3saver.com copy: Parade saves the work from that saved version, no AO3 needed."
         }
