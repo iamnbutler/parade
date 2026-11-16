@@ -163,6 +163,52 @@ final class SearchProfileTests: XCTestCase {
         XCTAssertFalse(p.shows(w, owned: [7]))
     }
 
+    func testMatureGate() {
+        func blurb(_ rating: String?) -> WorkBlurb {
+            var w = WorkBlurb(id: 1, title: "T", authors: ["A"])
+            w.rating = rating
+            return w
+        }
+        var p = SearchProfile()
+        // Allowed (the default for the kit): nothing is held back.
+        for rating in ["General Audiences", "Teen And Up Audiences", "Mature", "Explicit", "Not Rated", nil] {
+            XCTAssertTrue(p.shows(blurb(rating)), rating ?? "none")
+        }
+        // Off: only General and Teen pass; Not Rated and unknown don't.
+        p.allowsMature = false
+        XCTAssertTrue(p.shows(blurb("General Audiences")))
+        XCTAssertTrue(p.shows(blurb("Teen And Up Audiences")))
+        for rating in ["Mature", "Explicit", "Not Rated", nil] {
+            XCTAssertFalse(p.shows(blurb(rating)), rating ?? "none")
+        }
+    }
+
+    func testMatureGateAsksAO3ToLeaveRatingsOut() {
+        var p = SearchProfile()
+        p.fandoms = [TagRef(name: "A", id: 1)]
+        p.explicitOnly = true
+        XCTAssertEqual(items(p.query().url)["work_search[rating_ids]"], "13")
+
+        p.allowsMature = false
+        let q = items(p.query().url)
+        // "Explicit only" is ignored while mature works are off.
+        XCTAssertNil(q["work_search[rating_ids]"])
+        XCTAssertEqual(q["work_search[query]"], "filter_ids:1 NOT filter_ids:9 NOT filter_ids:12 NOT filter_ids:13")
+
+        // With no fandom either, the exclusions stand alone.
+        var bare = SearchProfile()
+        bare.allowsMature = false
+        XCTAssertEqual(items(bare.query().url)["work_search[query]"], "NOT filter_ids:9 NOT filter_ids:12 NOT filter_ids:13")
+    }
+
+    func testTheContentChoiceIsNotSaved() throws {
+        var p = SearchProfile()
+        p.allowsMature = false
+        let json = String(decoding: try JSONEncoder().encode(p), as: UTF8.self)
+        XCTAssertFalse(json.lowercased().contains("mature"))
+        XCTAssertTrue(try JSONDecoder().decode(SearchProfile.self, from: Data(json.utf8)).allowsMature)
+    }
+
     func testProfileRoundTripsAsJSON() throws {
         var p = SearchProfile()
         p.fandoms = [TagRef(name: "A", canonical: "A!", id: 1)]

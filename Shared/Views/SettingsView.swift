@@ -5,6 +5,7 @@ struct SettingsView: View {
     #if os(macOS)
     @State private var showImportPicker = false
     #endif
+    @State private var confirmingAge = false
 
     var body: some View {
         NavigationStack {
@@ -16,6 +17,8 @@ struct SettingsView: View {
                 updatesSection
                 linkSection
                 searchSection
+                matureSection
+                aboutSection
                 #if os(macOS)
                 folderImportSection
                 #endif
@@ -128,6 +131,35 @@ struct SettingsView: View {
                 .disabled(model.recentSearches.isEmpty)
         } footer: {
             Text("Recent searches show when you tap a search field. They stay on this device.")
+        }
+    }
+
+    private var matureSection: some View {
+        LeatherSection(title: "Mature works") {
+            Toggle("Show mature and explicit works", isOn: Binding(
+                get: { model.matureContentAllowed },
+                set: { on in
+                    if on { confirmingAge = true } else { model.setMatureContent(false) }
+                }
+            ))
+        } footer: {
+            Text("Off, Search leaves out works AO3 rates Mature, Explicit or Not Rated. Authors choose their own ratings. Turning this on means you are 18 or older. It only changes Search: fics you save yourself are always in your library.")
+        }
+        .confirmationDialog("Show mature and explicit works?", isPresented: $confirmingAge, titleVisibility: .visible) {
+            Button("I'm 18 or older") { model.setMatureContent(true) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Works rated Mature or Explicit contain adult themes. Only turn this on if you are 18 or older.")
+        }
+    }
+
+    private var aboutSection: some View {
+        LeatherSection(title: "About Parade") {
+            Link("Privacy Policy", destination: ParadeLinks.privacy)
+            Link("Support", destination: ParadeLinks.support)
+            Link("Report a Work on AO3", destination: ParadeLinks.ao3Report())
+        } footer: {
+            Text("Parade is unofficial. It isn't affiliated with or endorsed by the Archive of Our Own or the Organization for Transformative Works. It only saves works you choose, to your own device.")
         }
     }
 

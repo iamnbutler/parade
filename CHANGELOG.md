@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Mature works are hidden in Search until you say you're 18 or older.**
+  A first-launch question asks once; Keep them hidden is the default, and
+  closing it also keeps them hidden. Settings › Mature works turns them on
+  or off, per device. While they're off, Search leaves out works AO3 rates
+  Mature, Explicit or Not Rated, and "Explicit only" is hidden. Fics you
+  save yourself are never hidden.
+- **Report on AO3**: in the More menu of a search result, and in Settings
+  › About Parade, which also links the privacy policy and support page.
+
 ## 0.9.1 — 2026-11-15
 
 ### Fixed
