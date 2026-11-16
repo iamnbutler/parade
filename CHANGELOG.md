@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.1 — 2026-11-15
 
 ### Fixed
 - **AO3's waiting room.** While AO3 recovers it queues visitors behind a
