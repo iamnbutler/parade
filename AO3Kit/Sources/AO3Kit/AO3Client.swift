@@ -51,12 +51,14 @@ public struct AO3Client: Sendable {
         if HTMLExtract.isLoginPage(html, finalURL: response.url) {
             throw AO3Error.restricted
         }
-        guard let epubPath = HTMLExtract.epubPath(in: html) else {
-            throw AO3Error.parseFailed("EPUB download link")
-        }
         guard let title = HTMLExtract.title(in: html) else {
-            throw AO3Error.parseFailed("title")
+            // No work heading at all: not a work page. AO3 serves a plain
+            // 200 maintenance or overload page when it's down.
+            throw AO3Error.unavailable
         }
+        // AO3 serves /downloads/<id>/<anything>.epub, so a work page whose
+        // download link can't be found still has one.
+        let epubPath = HTMLExtract.epubPath(in: html) ?? "/downloads/\(id)/\(id).epub"
         var authors = HTMLExtract.authors(in: html)
         if authors.isEmpty { authors = ["Anonymous"] }
 

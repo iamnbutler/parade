@@ -84,4 +84,9 @@ final class HTMLExtractTests: XCTestCase {
         XCTAssertEqual(HTMLExtract.authors(in: "<html></html>"), [])
         XCTAssertEqual(HTMLExtract.seriesWorkIDs(in: "<html></html>"), [])
     }
+
+    func testEPUBPathAbsoluteURL() {
+        let html = #"<li class="download"><a href="https://download.archiveofourown.org/downloads/7/W.epub?updated_at=5">EPUB</a></li>"#
+        XCTAssertEqual(HTMLExtract.epubPath(in: html), "https://download.archiveofourown.org/downloads/7/W.epub?updated_at=5")
+    }
 }

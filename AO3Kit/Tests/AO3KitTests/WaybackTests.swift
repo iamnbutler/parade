@@ -356,3 +356,16 @@ final class AO3SaverTests: XCTestCase {
         XCTAssertNotNil(page.endNotes)
     }
 }
+
+final class AO3DownTests: XCTestCase {
+    func testWhichErrorsSuggestAO3IsDown() {
+        XCTAssertTrue(AO3Error.unavailable.suggestsAO3IsDown)
+        XCTAssertTrue(AO3Error.parseFailed("EPUB download link").suggestsAO3IsDown)
+        XCTAssertTrue(AO3Error.httpError(502).suggestsAO3IsDown)
+        XCTAssertTrue(AO3Error.rateLimited(retryAfter: nil).suggestsAO3IsDown)
+        // A deleted, restricted or unreadable-for-other-reasons work has no copy to find.
+        XCTAssertFalse(AO3Error.notFound.suggestsAO3IsDown)
+        XCTAssertFalse(AO3Error.restricted.suggestsAO3IsDown)
+        XCTAssertFalse(AO3Error.httpError(403).suggestsAO3IsDown)
+    }
+}

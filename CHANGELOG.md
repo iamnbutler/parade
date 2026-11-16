@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- When AO3 is down or overloaded, saving by link or from search no longer
+  fails with "Couldn't read the AO3 page (EPUB download link)". Parade says
+  AO3 isn't serving the work, then looks for a saved copy at ao3saver.com
+  and in the Wayback Machine, and saves that if it finds one.
+- A work page whose EPUB link Parade can't find (or finds on another AO3
+  host) still downloads.
+
 ## 0.9.0 — 2026-11-15
 
 ### Added

@@ -1301,7 +1301,7 @@ final class AppModel: ObservableObject {
                 }
                 for id in ids {
                     do {
-                        try await downloadWork(id: id, toRead: toRead)
+                        try await downloadWork(id: id, toRead: toRead, fallback: true)
                         saved += 1
                     } catch AO3Error.rateLimited(let retry) {
                         throw AO3Error.rateLimited(retryAfter: retry)
@@ -1342,7 +1342,7 @@ final class AppModel: ObservableObject {
         isWorking = true
         defer { isWorking = false }
         do {
-            try await downloadWork(id: workID, toRead: toRead)
+            try await downloadWork(id: workID, toRead: toRead, fallback: true)
             showToast("Saved \(title.quoted) to \(toRead ? "To Read" : "your library")")
         } catch {
             showToast("Couldn't save \(title.quoted): \(error.localizedDescription)")
@@ -1353,9 +1353,34 @@ final class AppModel: ObservableObject {
         return true
     }
 
-    private func downloadWork(id: Int, toRead: Bool = false) async throws {
+    /// With `fallback`, a work AO3 isn't serving (it's down, busy or failing)
+    /// is looked for at ao3saver.com and then in the Wayback Machine.
+    private func downloadWork(id: Int, toRead: Bool = false, fallback: Bool = false) async throws {
         status("Fetching work \(id)…")
-        try await save(client.fetchWork(id: id), toRead: toRead)
+        do {
+            try await save(client.fetchWork(id: id), toRead: toRead)
+        } catch let ao3Error as AO3Error where fallback && ao3Error.suggestsAO3IsDown {
+            status("AO3 isn't serving work \(id) right now. Looking for a saved copy…")
+            do {
+                try await downloadAO3SaverWork(id: id, version: nil, toRead: toRead)
+                return
+            } catch {
+                status("ao3saver.com: \(error.localizedDescription)")
+            }
+            do {
+                let stamp = DateFormatter()
+                stamp.locale = Locale(identifier: "en_US_POSIX")
+                stamp.timeZone = TimeZone(identifier: "UTC")
+                stamp.dateFormat = "yyyyMMddHHmmss"
+                try await downloadArchivedWork(
+                    id: id, timestamp: stamp.string(from: Date()),
+                    original: "https://archiveofourown.org/works/\(id)", toRead: toRead)
+                return
+            } catch {
+                status("Wayback Machine: \(error.localizedDescription)")
+            }
+            throw ao3Error
+        }
     }
 
     /// Saves a work from the Wayback Machine's copy of its page: AO3's own
