@@ -1,0 +1,120 @@
+/* Leather & Ink, from docs/design-system.md. */
+@font-face { font-family: "Cormorant Garamond"; font-style: italic; font-weight: 400; font-display: swap; src: url(fonts/CormorantGaramond-Italic.woff2) format("woff2"); }
+@font-face { font-family: "Cormorant Garamond"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/CormorantGaramond-Medium.woff2) format("woff2"); }
+@font-face { font-family: "Newsreader"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/Newsreader-Regular.woff2) format("woff2"); }
+@font-face { font-family: "Newsreader"; font-style: italic; font-weight: 400; font-display: swap; src: url(fonts/Newsreader-Italic.woff2) format("woff2"); }
+@font-face { font-family: "Newsreader"; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/Newsreader-SemiBold.woff2) format("woff2"); }
+
+:root {
+  --leather: #241b1e; --leather-deep: #1b1416; --raised: #2d2226; --raised-2: #34282c;
+  --ink: #efe3d3; --ink-soft: #b9a89a; --ink-faint: #8a7a70;
+  --rose: #d8a39b; --rose-soft: rgba(216,163,155,.14);
+  --gold: #c8a46a; --gold-faint: rgba(200,164,106,.35); --rule: rgba(239,227,211,.12);
+  --display: "Cormorant Garamond", Garamond, "Times New Roman", serif;
+  --serif: "Newsreader", Georgia, serif;
+  --emboss: inset 0 1px 0 rgba(255,240,225,.05), inset 0 -1px 0 rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.35);
+  --deboss: inset 0 1px 2px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,240,225,.04);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--leather-deep); -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; color: var(--ink); font: 400 1.075rem/1.7 var(--serif);
+  background:
+    radial-gradient(ellipse 120% 80% at 30% 0%, rgba(255,225,205,.045), transparent 60%),
+    radial-gradient(ellipse 100% 100% at 50% 120%, rgba(0,0,0,.35), transparent 70%),
+    var(--leather);
+  background-attachment: fixed;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  opacity: .55; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.42 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+a { color: var(--rose); text-decoration-color: rgba(216,163,155,.45); text-underline-offset: .2em; }
+a:hover { color: #ecc3bb; }
+:focus-visible { outline: 2px solid var(--rose); outline-offset: 3px; border-radius: 3px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 500; text-wrap: balance; margin: 0; }
+strong { color: #f7ecdf; font-weight: 600; }
+code { font-size: .92em; padding: .05em .35em; border-radius: .3em; background: rgba(0,0,0,.22); box-shadow: var(--deboss); }
+.wrap { position: relative; z-index: 1; max-width: 46rem; margin: 0 auto; padding: 0 16px; }
+
+/* Running head */
+.head { display: flex; justify-content: space-between; align-items: baseline; padding: 1.6rem 0 0; font-style: italic; color: var(--ink-faint); font-size: .98rem; }
+.head a { color: var(--ink-soft); text-decoration: none; }
+.head a:hover { color: var(--rose); }
+.head .name { font-family: var(--display); font-size: 1.5rem; color: var(--ink); font-style: italic; }
+.head nav { display: flex; gap: 1.4rem; }
+
+/* Hero */
+.hero { text-align: center; padding: 3.2rem 0 2.2rem; }
+.taped { position: relative; display: inline-block; padding: 1.1rem; border-radius: .4rem; line-height: 0;
+  background: linear-gradient(180deg, var(--raised-2), var(--raised));
+  box-shadow: var(--emboss), 0 14px 30px rgba(0,0,0,.32); transform: rotate(-2deg); }
+.taped::before { content: ""; position: absolute; top: -.55rem; left: 50%; width: 4rem; height: 1.15rem;
+  transform: translateX(-50%) rotate(-4deg); background: rgba(200,164,106,.42); }
+.taped img { width: 7.5rem; height: 7.5rem; border-radius: 1.65rem; display: block; }
+.hero h1 { margin-top: 1.8rem; font-style: italic; font-weight: 400; line-height: .98; font-size: clamp(3rem, 9vw, 5.4rem); }
+.dek { margin: 1.1rem auto 0; max-width: 31rem; font-size: 1.25rem; font-style: italic; color: var(--ink-soft); }
+
+/* Stitched card */
+.answer { position: relative; margin: 2.4rem 0; padding: 1.5rem 1.7rem 1.6rem; border-radius: .9rem;
+  background: linear-gradient(180deg, var(--raised-2), var(--raised));
+  box-shadow: var(--emboss), 0 10px 30px rgba(0,0,0,.25); }
+.answer::after { content: ""; position: absolute; inset: 7px; border: 1px dashed var(--gold-faint); border-radius: .6rem; pointer-events: none; }
+.label { font-family: var(--display); font-style: italic; color: var(--gold); font-size: 1.2rem; margin: 0 0 .7rem; }
+.get { display: grid; gap: .9rem; grid-template-columns: 1fr 1fr; }
+.door { display: block; padding: 1rem 1.15rem 1.05rem; border-radius: .7rem; text-decoration: none; color: var(--ink);
+  background: linear-gradient(180deg, var(--raised-2), var(--raised)); box-shadow: var(--emboss); }
+.door .t { display: block; font-family: var(--display); font-size: 1.6rem; line-height: 1.1; }
+.door .s { display: block; margin-top: .25rem; font-style: italic; color: var(--ink-soft); font-size: .98rem; }
+a.door:hover { color: var(--ink); box-shadow: var(--emboss), 0 0 0 1px var(--gold-faint); }
+a.door:hover .t { color: var(--rose); }
+.door.soon { background: rgba(0,0,0,.18); box-shadow: var(--deboss); color: var(--ink-soft); }
+.fine { margin: 1rem 0 0; font-size: .95rem; font-style: italic; color: var(--ink-faint); }
+
+/* Paper clipping letter */
+.letter { position: relative; margin: 3rem auto; padding: 2.4rem 2.8rem; border-radius: .2rem; max-width: 38rem;
+  background: linear-gradient(180deg, #efe4d3, #e3d4bf); color: #2e211f; transform: rotate(-.8deg);
+  box-shadow: 0 18px 40px rgba(0,0,0,.4); }
+.letter::before, .letter::after { content: ""; position: absolute; width: 4.2rem; height: 1.2rem; }
+.letter::before { top: -.5rem; left: -1rem; transform: rotate(-30deg); background: rgba(216,163,155,.7); }
+.letter::after { bottom: -.4rem; right: -1rem; transform: rotate(-28deg); background: rgba(200,164,106,.7); }
+.letter .salute { font-family: var(--display); font-style: italic; font-size: 1.5rem; margin: 0 0 .6rem; color: #2e211f; }
+.letter p { margin: 0 0 1rem; }
+.letter .sign { text-align: right; font-family: var(--display); font-style: italic; font-size: 1.4rem; margin: 1.2rem 0 0; }
+.letter a { color: #8b3a46; }
+
+/* Things Parade does */
+.ways { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); margin: 3rem 0; }
+.way { padding: 1.2rem 1.2rem 1.3rem; border-radius: .7rem; background: rgba(0,0,0,.18); box-shadow: var(--deboss); }
+.way h3 { font-style: italic; font-weight: 400; color: var(--gold); font-size: 1.35rem; margin-bottom: .35rem; }
+.way p { margin: 0; color: var(--ink-soft); font-size: 1rem; line-height: 1.6; }
+.drawing { display: block; margin: 0 auto; width: min(15rem, 60%); color: var(--ink); opacity: .92; }
+
+/* Release notes */
+.notes { margin: 3.2rem 0 0; }
+.notes > h2, .page-title { font-size: clamp(2.2rem, 5.5vw, 3.2rem); font-weight: 500; }
+.rule { border: 0; border-top: 1px solid var(--rule); margin: 1.2rem 0 1.8rem; }
+.release { margin: 0 0 2.6rem; }
+.release h2 { font-size: 1.85rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1rem; }
+.release h2 time { font-family: var(--serif); font-style: italic; font-size: 1rem; color: var(--ink-faint); font-weight: 400; }
+.release h3 { font-family: var(--display); font-style: italic; font-weight: 400; color: var(--gold); font-size: 1.3rem; margin: 1.3rem 0 .3rem; }
+.release ul { margin: 0; padding-left: 1.3rem; }
+.release li { margin: .45rem 0; padding-left: .2rem; }
+.release li::marker { color: var(--gold); content: "· "; }
+.release ul ul { margin-top: .3rem; }
+.more { font-style: italic; }
+.lede { font-size: 1.25rem; font-style: italic; color: var(--ink-soft); margin: .6rem 0 0; }
+
+footer { position: relative; z-index: 1; text-align: center; padding: 3rem 16px 3.5rem; color: var(--ink-faint); font-style: italic; font-size: .95rem; }
+footer .fleuron { display: block; color: var(--gold); font-size: 1.6rem; font-style: normal; margin-bottom: .6rem; }
+footer a { color: var(--ink-soft); }
+footer p { margin: .35rem auto; max-width: 34rem; }
+
+@media (max-width: 640px) {
+  .get, .ways { grid-template-columns: 1fr; }
+  .letter { padding: 1.8rem 1.5rem; }
+  .head nav { gap: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { .taped, .letter { transform: none; } }
