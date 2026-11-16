@@ -95,4 +95,10 @@ final class HTMLExtractTests: XCTestCase {
         XCTAssertNil(HTMLExtract.epubPath(in: html))
         XCTAssertEqual(HTMLExtract.htmlDownloadPath(in: html), "/downloads/9/A_B.html?updated_at=77")
     }
+
+    func testWorkOfAChapterPage() {
+        let html = #"<a href="/works/search">Search</a><li><a href="/works/95728941/share">Share</a></li><a href="/works/95728941/chapters/255720726">Chapter</a>"#
+        XCTAssertEqual(HTMLExtract.workID(inChapterPage: html), "95728941")
+        XCTAssertNil(HTMLExtract.workID(inChapterPage: "<html></html>"))
+    }
 }

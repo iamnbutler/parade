@@ -32,6 +32,12 @@ enum HTMLExtract {
             .map { $0.replacingOccurrences(of: "&amp;", with: "&") }
     }
 
+    /// The work a chapter page belongs to, from its own links
+    /// (/works/<id>/chapters/…, /share, /bookmarks, /kudos).
+    static func workID(inChapterPage html: String) -> String? {
+        firstMatch(in: html, pattern: #"href="/works/(\d+)/(?:chapters|share|bookmarks|kudos)"#)
+    }
+
     /// AO3's HTML download link — the one format still offered when its other
     /// downloads (EPUB, MOBI, PDF) are switched off.
     static func htmlDownloadPath(in html: String) -> String? {

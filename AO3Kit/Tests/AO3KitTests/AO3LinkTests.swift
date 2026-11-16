@@ -67,4 +67,21 @@ final class AO3LinkTests: XCTestCase {
         XCTAssertEqual(AO3Link.all(in: text), [.work(id: 7)])
         XCTAssertEqual(AO3Link.all(in: "nothing here"), [])
     }
+
+    func testOtherAO3Domains() {
+        XCTAssertEqual(AO3Link(text: "https://ao3.org/works/123"), .work(id: 123))
+        XCTAssertEqual(AO3Link(text: "http://archiveofourown.gay/works/5/chapters/9"), .work(id: 5))
+        XCTAssertEqual(AO3Link(text: "archiveofourown.net/collections/x/works/6"), .work(id: 6))
+        XCTAssertEqual(AO3Link(text: "https://archiveofourown.com/series/7"), .series(id: 7))
+        XCTAssertEqual(AO3Link.all(in: "https://ao3.org/works/1 https://archiveofourown.org/works/2").map(\.workID), [1, 2])
+        XCTAssertNil(AO3Link(text: "https://example.org/works/123"))
+    }
+
+    func testChapterOnlyLink() {
+        XCTAssertEqual(AO3Link(text: "https://archiveofourown.org/chapters/255720726"), .chapter(id: 255720726))
+        XCTAssertEqual(AO3Link(text: "ao3.org/chapters/9?view_adult=true"), .chapter(id: 9))
+        // With the work in it, the work link is what counts.
+        XCTAssertEqual(AO3Link(text: "https://archiveofourown.org/works/63050794/chapters/161473429"), .work(id: 63050794))
+        XCTAssertNil(AO3Link(text: "https://archiveofourown.org/chapters/255720726")?.workID)
+    }
 }

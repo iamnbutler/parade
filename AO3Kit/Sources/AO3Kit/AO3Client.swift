@@ -33,6 +33,14 @@ public struct AO3Client: Sendable {
             return [id]
         case .ellipsus:
             throw AO3Error.notAnAO3Link
+        case .chapter:
+            // AO3 shows the chapter at /chapters/<id> (or redirects it to the
+            // work's own address); the page says which work it belongs to.
+            let (html, response) = try await fetchHTML(link.pageURL, priority: priority)
+            let landed = response.url.flatMap { HTMLExtract.firstMatch(in: $0.path, pattern: #"/works/(\d+)"#) }
+                ?? HTMLExtract.workID(inChapterPage: html)
+            guard let id = landed.flatMap(Int.init) else { throw AO3Error.notFound }
+            return [id]
         case .series:
             let (html, _) = try await fetchHTML(link.pageURL, priority: priority)
             let ids = HTMLExtract.seriesWorkIDs(in: html)

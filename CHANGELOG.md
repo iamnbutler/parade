@@ -12,6 +12,18 @@
 - **Report on AO3**: in the More menu of a search result, and in Settings
   › About Parade, which also links the privacy policy and support page.
 
+### Fixed
+- Links on AO3's other addresses (ao3.org, archiveofourown.com, .net and
+  .gay) are recognized. Before, a pasted ao3.org link left Download
+  greyed out with nothing to say why.
+- Chapter-only links (`archiveofourown.org/chapters/<id>`, with no
+  `/works/` in them) work: Parade asks AO3 which work the chapter is in.
+  Before, they left Download greyed out.
+- The Add fics box says so when it can't find an AO3 link in what you
+  pasted, in rose, and Download stays tappable instead of going quietly
+  grey (on iPhone a greyed-out button still flashes when tapped, which
+  looked like it was working).
+
 ## 0.9.1 — 2026-11-15
 
 ### Fixed
