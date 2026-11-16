@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.0 — 2026-11-15
 
 ### Added
 - **Mature works are hidden in Search until you say you're 18 or older.**
