@@ -11,3 +11,4 @@ dist/
 build-sim/
 build-mac/
 scripts/app-icon/build/
+/site/dist
