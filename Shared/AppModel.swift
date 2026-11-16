@@ -191,6 +191,8 @@ final class AppModel: ObservableObject {
         static let retired = ["autoImport.v1", "importedFiles.v1", "baselinedFolder.v1"]
         static let updatesAvailable = "updatesAvailable.v1"
         static let recentSearches = "recentSearches.v1"
+        static let matureContent = "matureContentAllowed.v1"
+        static let contentChoice = "contentChoiceMade.v1"
         static let lastUpdateCheck = "lastUpdateCheck.v1"
     }
 
@@ -199,6 +201,8 @@ final class AppModel: ObservableObject {
         Keys.retired.forEach(defaults.removeObject(forKey:))
         updatesAvailable = Set(defaults.stringArray(forKey: Keys.updatesAvailable) ?? [])
         recentSearches = defaults.stringArray(forKey: Keys.recentSearches) ?? []
+        matureContentAllowed = defaults.bool(forKey: Keys.matureContent)
+        contentChoiceMade = defaults.bool(forKey: Keys.contentChoice)
         destinationRoot = Self.testLibrary ?? Self.localRoot()
         database = LibraryDatabase.openDefault(testLibrary: Self.testLibrary != nil)
         adoptPendingPositions()
@@ -996,6 +1000,29 @@ final class AppModel: ObservableObject {
         }
         invalidateDerived()
         refreshLibrary()
+    }
+
+    // MARK: - mature content
+
+    /// Whether Mature, Explicit and Not Rated works from AO3 may show in
+    /// search. Off until the person says they are 18 or older and turns it
+    /// on. A choice about this device, kept here and never synced.
+    @Published private(set) var matureContentAllowed = false
+    /// The first-run question has been answered, or closed without an
+    /// answer (which leaves mature works hidden).
+    @Published private(set) var contentChoiceMade = false
+
+    func setMatureContent(_ allowed: Bool) {
+        matureContentAllowed = allowed
+        defaults.set(allowed, forKey: Keys.matureContent)
+        finishContentChoice()
+    }
+
+    /// Records that the question was seen, whatever the answer.
+    func finishContentChoice() {
+        guard !contentChoiceMade else { return }
+        contentChoiceMade = true
+        defaults.set(true, forKey: Keys.contentChoice)
     }
 
     // MARK: - search history

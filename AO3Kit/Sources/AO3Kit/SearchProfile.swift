@@ -142,10 +142,27 @@ public struct SearchProfile: Codable, Hashable, Sendable {
     /// True once filled from the library; seeding never happens again.
     public var seeded = false
 
+    /// Whether Mature, Explicit and Not Rated works may show. Not part of
+    /// the saved search: it is the device's own content choice (set at the
+    /// moment of searching), so it never syncs from one device to another.
+    /// Off, the search asks AO3 to leave those ratings out and the results
+    /// are filtered again here, since a rating is the author's own call.
+    public var allowsMature = true
+
     public init() {}
 
     /// AO3's rating id for Explicit.
     static let explicitRatingID = 13
+    /// AO3's rating ids for Not Rated, Mature and Explicit: everything but
+    /// General Audiences and Teen And Up.
+    static let matureRatingIDs = [9, 12, 13]
+
+    /// Whether a rating is General Audiences or Teen And Up. A work with no
+    /// rating on its listing doesn't pass: it isn't known to be all ages.
+    public static func isAllAges(_ rating: String?) -> Bool {
+        guard let rating = rating?.lowercased() else { return false }
+        return rating.hasPrefix("general") || rating.hasPrefix("teen")
+    }
 
     /// The sort a search actually uses: best match means nothing without words.
     public var effectiveSort: AO3WorkQuery.Sort {
@@ -237,6 +254,7 @@ public struct SearchProfile: Codable, Hashable, Sendable {
         }
         var excluded = FixedTag.all.filter { warnings[$0.id] == .exclude || categories[$0.id] == .exclude }.map(\.id)
         excluded += excludedTags.compactMap(\.id)
+        if !allowsMature { excluded += Self.matureRatingIDs }
         var text = clauses.joined(separator: " AND ")
         for id in excluded {
             text += text.isEmpty ? "NOT filter_ids:\(id)" : " NOT filter_ids:\(id)"
@@ -264,7 +282,7 @@ public struct SearchProfile: Codable, Hashable, Sendable {
         add("freeform_names", Self.names(freeforms.include))
         // Excluded tags AO3 has no id for go by name.
         add("excluded_tag_names", Self.names(excludedTags.filter { $0.id == nil }))
-        if explicitOnly { add("rating_ids", String(Self.explicitRatingID)) }
+        if explicitOnly, allowsMature { add("rating_ids", String(Self.explicitRatingID)) }
         switch completion {
         case .any: break
         case .complete: add("complete", "T")
@@ -313,6 +331,7 @@ public struct SearchProfile: Codable, Hashable, Sendable {
     /// leaves hidden tags out; this catches what it can't (authors) and
     /// what arrives before a tag is looked up.
     public func shows(_ work: WorkBlurb, owned: Set<Int> = []) -> Bool {
+        if !allowsMature, !Self.isAllAges(work.rating) { return false }
         if hideOwned, owned.contains(work.id) { return false }
         let authors = Set(work.authors.map { $0.lowercased() })
         if hiddenAuthors.contains(where: { authors.contains($0.lowercased()) }) { return false }

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import AO3Kit
 
 /// AO3 search: the sticky profile, and the pages of results it finds.
@@ -45,6 +46,9 @@ final class SearchModel: ObservableObject {
     private let resolver: TagResolver
     private weak var app: AppModel?
     private var loaded = false
+    /// This device's content choice, which `profile` (synced) never holds.
+    private var matureAllowed = false
+    private var matureWatch: AnyCancellable?
     private var loadedFrom: URL?
     private var nextPage = 1
     private var searchTask: Task<Void, Never>?
@@ -79,6 +83,12 @@ final class SearchModel: ObservableObject {
     /// appearance: it reloads only when the library folder moved.
     func start(with app: AppModel) {
         self.app = app
+        matureAllowed = app.matureContentAllowed
+        if matureWatch == nil {
+            matureWatch = app.$matureContentAllowed.dropFirst().removeDuplicates().sink { [weak self] allowed in
+                self?.matureChanged(to: allowed)
+            }
+        }
         // Still in iCloud, not yet on this device: wait for it rather than
         // seeding a fresh profile over the one that's syncing.
         if let file, Self.isPlaceholder(file) {
@@ -246,12 +256,31 @@ final class SearchModel: ObservableObject {
         }
     }
 
+    /// The profile as this device searches with it: the saved search, plus
+    /// whether mature works may show.
+    private var queryProfile: SearchProfile {
+        var p = profile
+        p.allowsMature = matureAllowed
+        return p
+    }
+
+    /// Turning mature works off hides them at once, then searches again so
+    /// the pages hold what's left; turning them on searches again to bring
+    /// them in.
+    private func matureChanged(to allowed: Bool) {
+        matureAllowed = allowed
+        pageCache = [:]
+        applyLocalFilters()
+        if profile.seeded || phase != .idle { restart() }
+    }
+
     private func page(_ number: Int) async throws -> WorkResults {
-        let url = profile.query(page: number).url
+        let query = queryProfile.query(page: number)
+        let url = query.url
         if let hit = pageCache[url], Date().timeIntervalSince(hit.at) < Self.pageCacheLife {
             return hit.results
         }
-        let results = try await client.works(profile.query(page: number))
+        let results = try await client.works(query)
         pageCache = pageCache.filter { Date().timeIntervalSince($0.value.at) < Self.pageCacheLife }
         pageCache[url] = (results, Date())
         return results
@@ -318,7 +347,8 @@ final class SearchModel: ObservableObject {
 
     private func applyLocalFilters() {
         let ownedIDs = Set(owned.keys)
-        let shown = fetched.filter { profile.shows($0, owned: ownedIDs) }
+        let gate = queryProfile
+        let shown = fetched.filter { gate.shows($0, owned: ownedIDs) }
         if shown != works { works = shown }
     }
 

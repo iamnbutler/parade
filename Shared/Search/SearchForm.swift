@@ -176,7 +176,12 @@ struct SearchForm: View {
 
     private var ratingSection: some View {
         LeatherSection("Rating") {
-            Toggle("Explicit only", isOn: $draft.explicitOnly)
+            if model.matureContentAllowed {
+                Toggle("Explicit only", isOn: $draft.explicitOnly)
+            } else {
+                Text("Mature and explicit works are hidden. You can turn them on in Settings.")
+                    .textRole(.meta)
+            }
         }
     }
 

@@ -324,6 +324,9 @@ struct BlurbActions: View {
         Link(destination: work.url) {
             Label("Open on AO3", systemImage: "safari")
         }
+        Link(destination: ParadeLinks.ao3Report(for: work.url)) {
+            Label("Report on AO3", systemImage: "flag")
+        }
         Divider()
         ForEach(work.authors.filter { $0 != "Anonymous" }, id: \.self) { author in
             Button { search.hide(author: author) } label: {

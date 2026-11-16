@@ -42,6 +42,12 @@ struct ContentView: View {
                 }
             }
             .animation(.snappy, value: model.toast)
+            .sheet(isPresented: Binding(
+                get: { !model.contentChoiceMade },
+                set: { if !$0 { model.finishContentChoice() } }
+            )) {
+                ContentChoiceView()
+            }
     }
 
     @ViewBuilder
