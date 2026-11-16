@@ -14,6 +14,10 @@ public enum AO3Link: Equatable, Sendable {
     /// `https://ellipsus.com/read/<id>`: a story shared by Reader link on
     /// Ellipsus, which isn't an AO3 work at all.
     case ellipsus(id: String)
+    /// `archiveofourown.org/chapters/<id>`: one chapter by its own id, which
+    /// AO3 redirects to the work's `/works/<id>/chapters/<id>`. Which work
+    /// that is takes a request (`AO3Client.workIDs`).
+    case chapter(id: Int)
 
     /// AO3's addresses: its domain, the other domains that lead to it, and
     /// the short ao3.org.
@@ -38,7 +42,7 @@ public enum AO3Link: Equatable, Sendable {
         }
         // A real AO3 URL anywhere in the text, or the string itself is just a path.
         let patterns = [
-            "\(Self.ao3Hosts)/(?:collections/[^/\\s]+/)?(works|series)/(\\d+)",
+            "\(Self.ao3Hosts)/(?:collections/[^/\\s]+/)?(works|series|chapters)/(\\d+)",
             #"^\s*/?(works|series)/(\d+)"#,
         ]
         for pattern in patterns {
@@ -51,6 +55,7 @@ public enum AO3Link: Equatable, Sendable {
             switch text[kindRange] {
             case "works": self = .work(id: id)
             case "series": self = .series(id: id)
+            case "chapters": self = .chapter(id: id)
             default: continue
             }
             return
@@ -77,7 +82,7 @@ public enum AO3Link: Equatable, Sendable {
     public var workID: Int? {
         switch self {
         case .work(let id), .archivedWork(let id, _, _), .ao3saver(let id, _): return id
-        case .series, .ellipsus: return nil
+        case .series, .ellipsus, .chapter: return nil
         }
     }
 
@@ -123,6 +128,8 @@ public enum AO3Link: Equatable, Sendable {
             return URL(string: "https://archiveofourown.org/series/\(id)?view_adult=true")!
         case .ellipsus(let id):
             return URL(string: "https://ellipsus.com/read/\(id)")!
+        case .chapter(let id):
+            return URL(string: "https://archiveofourown.org/chapters/\(id)?view_adult=true")!
         }
     }
 }

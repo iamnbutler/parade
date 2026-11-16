@@ -6,6 +6,9 @@
 - Links on AO3's other addresses (ao3.org, archiveofourown.com, .net and
   .gay) are recognized. Before, a pasted ao3.org link left Download
   greyed out with nothing to say why.
+- Chapter-only links (`archiveofourown.org/chapters/<id>`, with no
+  `/works/` in them) work: Parade asks AO3 which work the chapter is in.
+  Before, they left Download greyed out.
 - The Add fics box now says so when it can't find an AO3 link in what you
   pasted, instead of just disabling Download.
 
