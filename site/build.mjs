@@ -92,11 +92,12 @@ const page = ({ title, description, path, body }) => `<!doctype html>
 <div class="wrap">
   <header class="head">
     <a class="name" href="/">Parade</a>
-    <nav><a href="/notes/"${path === 'notes' ? ' aria-current="page"' : ''}>Release notes</a><a href="${REPO}">Source</a></nav>
+    <nav><a href="/notes/"${path === 'notes' ? ' aria-current="page"' : ''}>Release notes</a><a href="/support/"${path === 'support' ? ' aria-current="page"' : ''}>Support</a><a href="${REPO}">Source</a></nav>
   </header>
 ${body}
 </div>
 <footer>
+  <p class="foot-links"><a href="/privacy/">Privacy</a> · <a href="/support/">Support</a> · <a href="${REPO}">Source</a></p>
   <p>Parade is an independent project. It isn't affiliated with or endorsed by the Archive of Our Own or the Organization for Transformative Works.</p>
   <p>Set in Cormorant Garamond and Newsreader, under the SIL Open Font License.</p>
 </footer>
@@ -200,6 +201,99 @@ const notes = page({
   </main>`,
 })
 
+
+const ISSUES = `${REPO}/issues`
+const AO3_REPORT = 'https://archiveofourown.org/abuse_reports/new'
+
+const privacy = page({
+  title: 'Privacy · Parade',
+  description: 'Parade collects nothing about you. What stays on your device, and which sites it talks to.',
+  path: 'privacy',
+  body: `
+  <main>
+    <section class="page-head">
+      <p class="kicker">Parade</p>
+      <h1>Privacy</h1>
+      <p class="dek">Parade collects nothing about you. Updated November 15, 2026.</p>
+    </section>
+    <div class="page">
+      ${contents('In this page', [['short', 'The short answer'], ['device', 'On your device'], ['network', 'On the network'], ['mac', 'Mac updates'], ['reports', 'Crash reports'], ['changes', 'Changes and contact']])}
+      <article class="column">
+        <h2 id="short" style="margin-top:0">The short answer</h2>
+        <p>Parade has no accounts, no analytics, no ads and no tracking, and it sends nothing about you to me. I don't receive your library, your searches or your reading history. Parade's privacy manifest declares no data collected and no tracking.</p>
+
+        <h2 id="device">On your device</h2>
+        <p>Everything Parade keeps is yours and stays in your own storage:</p>
+        <ul class="hedera">
+          <li>Your library: the EPUB files, in a Parade folder in iCloud Drive (or the folder you choose on a Mac).</li>
+          <li>Your collections, favorites, saved searches and reading position, stored beside the library.</li>
+          <li>A small database on each device, built from the library so that it opens and searches quickly.</li>
+          <li>Preferences such as sort order and text size.</li>
+        </ul>
+        <p>If you use iCloud Drive, Apple syncs these files between your devices under Apple's privacy policy. I can't see them.</p>
+
+        <h2 id="network">On the network</h2>
+        <p>Parade contacts a site only when you ask it to save, search or check for updates:</p>
+        <ul class="hedera">
+          <li>The Archive of Our Own (archiveofourown.org), for works, search and update checks.</li>
+          <li>web.archive.org, ao3saver.com and ellipsus.com, only when you paste a link to one of them.</li>
+        </ul>
+        <p>Those sites can see your IP address and which pages you request, and their own policies apply. Parade doesn't log in to any of them and never asks for a password, so it only reads works that are public. Each request carries a User-Agent that names Parade and my contact address. It holds nothing about you.</p>
+
+        <h2 id="mac">Mac updates</h2>
+        <p>The Mac app checks GitHub for new versions, using the Sparkle update framework. GitHub sees your IP address, as it does for any download. Parade doesn't send details about your Mac with that check.</p>
+
+        <h2 id="reports">Crash reports</h2>
+        <p>Parade has no crash reporter of its own. If you've chosen to share analytics or crash data with developers in your device's settings, Apple may pass me anonymous crash reports through TestFlight or App Store Connect.</p>
+
+        <h2 id="changes">Changes and contact</h2>
+        <p>If this policy changes, the new version goes on this page with a new date. Questions about it go to <a href="${ISSUES}">Parade's issue tracker on GitHub</a>.</p>
+        <span class="fleuron" aria-hidden="true">❦</span>
+        <div class="pager"><a href="/support/"><span class="l">Continue reading</span><span class="t">Support</span></a></div>
+      </article>
+    </div>
+  </main>`,
+})
+
+const support = page({
+  title: 'Support · Parade',
+  description: 'Help with Parade, how to report a work on AO3, and who to contact about anything else.',
+  path: 'support',
+  body: `
+  <main>
+    <section class="page-head">
+      <p class="kicker">Parade</p>
+      <h1>Support</h1>
+      <p class="dek">Where to ask for help, and where to send a complaint about a work.</p>
+    </section>
+    <div class="page">
+      ${contents('In this page', [['help', 'Getting help'], ['problems', 'Common problems'], ['works', 'Reporting a work'], ['rights', 'Authors and rights holders']])}
+      <article class="column">
+        <h2 id="help" style="margin-top:0">Getting help</h2>
+        <p>The best place is <a href="${ISSUES}">Parade's issue tracker on GitHub</a>. Say which device you use, which version of Parade, and what you were doing. Please don't paste anything private from your library.</p>
+
+        <h2 id="problems">Common problems</h2>
+        <h3>A download is slow, or stops with a rate-limit message</h3>
+        <p>Parade asks AO3 for one thing at a time, a few seconds apart, and backs off when AO3 asks it to. A long batch takes a while. Leave it running, or try again later.</p>
+        <h3>AO3 is down</h3>
+        <p>Paste a link to the work's copy on the Wayback Machine (web.archive.org) or on ao3saver.com instead. Parade builds the same kind of EPUB from either.</p>
+        <h3>A work won't save</h3>
+        <p>Parade only reads public works. If a work is restricted to AO3 members, or an Ellipsus story needs a login, it can't be saved.</p>
+        <h3>Where my files are</h3>
+        <p>In a folder named Parade in iCloud Drive, filed as <code>ao3/Author/Title.epub</code>. Settings shows the exact folder. They are ordinary EPUB files that any reader can open.</p>
+
+        <h2 id="works">Reporting a work</h2>
+        <p>Parade doesn't host, publish or recommend any work. It fetches works you choose from the site that hosts them and saves them to your own device. To report a work, use the site that hosts it. For AO3, that is its <a href="${AO3_REPORT}">Policy &amp; Abuse form</a>; include the link to the work.</p>
+
+        <h2 id="rights">Authors and rights holders</h2>
+        <p>If you wrote a work and don't want it saved by readers, AO3 and its owner, the Organization for Transformative Works, are the ones who can act on it: Parade only saves what AO3 serves to the public. For anything about Parade itself, including a legal notice addressed to it, open an issue on <a href="${ISSUES}">GitHub</a>, or write that you need a private channel and I'll set one up. Parade stores nothing on a server of mine, so there is nothing for me to take down. I will answer any notice.</p>
+        <span class="fleuron" aria-hidden="true">❦</span>
+        <div class="pager"><a href="/privacy/"><span class="l">Continue reading</span><span class="t">Privacy</span></a></div>
+      </article>
+    </div>
+  </main>`,
+})
+
 const missing = page({
   title: 'Not found · Parade',
   description: 'That page doesn\'t exist.',
@@ -211,9 +305,13 @@ const missing = page({
 
 rmSync(out, { recursive: true, force: true })
 mkdirSync(join(out, 'notes'), { recursive: true })
+mkdirSync(join(out, 'privacy'), { recursive: true })
+mkdirSync(join(out, 'support'), { recursive: true })
 cpSync(src, out, { recursive: true })
 writeFileSync(join(out, 'index.html'), index)
 writeFileSync(join(out, 'notes', 'index.html'), notes)
+writeFileSync(join(out, 'privacy', 'index.html'), privacy)
+writeFileSync(join(out, 'support', 'index.html'), support)
 writeFileSync(join(out, '404.html'), missing)
 writeFileSync(join(out, '_headers'), `/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n/img/*\n  Cache-Control: public, max-age=3600\n`)
 console.log(`Built ${all.length} releases (latest ${latest.version}) → ${out}`)

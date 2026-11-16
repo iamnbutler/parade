@@ -134,6 +134,7 @@ a.door:hover .t { color: color-mix(in oklab, var(--accent), var(--ink) 30%); }
 footer { position: relative; z-index: 1; padding: 3rem 16px 3.5rem; text-align: center; color: var(--ink-faint); font-style: italic; font-size: .95rem; }
 footer p { margin: .35rem auto; max-width: 36rem; }
 footer a { color: var(--ink-soft); }
+footer .foot-links { margin-bottom: 1rem; }
 
 @media (max-width: 62rem) {
   .page { grid-template-columns: minmax(0, 40rem); gap: 0; }
