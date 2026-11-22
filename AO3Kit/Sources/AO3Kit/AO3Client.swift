@@ -82,7 +82,8 @@ public struct AO3Client: Sendable {
         }
         let updatedAt = epubPath.components(separatedBy: "updated_at=").dropFirst().first.flatMap { Int($0.prefix(while: \.isNumber)) }
 
-        return WorkInfo(id: id, title: title, authors: authors, epubURL: epubURL, updatedAt: updatedAt)
+        return WorkInfo(id: id, title: title, authors: authors, epubURL: epubURL, updatedAt: updatedAt,
+                        postedChapters: HTMLExtract.postedChapters(in: html))
     }
 
     /// Downloads the work's EPUB to a temporary file and returns its URL.
@@ -149,6 +150,12 @@ public struct AO3Client: Sendable {
         }
         guard let html = String(data: data, encoding: .utf8) else { throw AO3Error.parseFailed("HTML download encoding") }
         var page = try AO3ExportParser.parse(html, id: work.id)
+        // The export carries every posted chapter; fewer means it wasn't
+        // read right, and a copy missing chapters is never worth saving.
+        let expected = max(page.postedChapters ?? 0, work.postedChapters ?? 0)
+        if page.chapters.count < expected {
+            throw AO3Error.missingChapters(got: page.chapters.count, expected: expected, keptSaved: false)
+        }
         // The details a work's own EPUB carries but the export has no field for.
         if page.authors == ["Anonymous"], !work.authors.isEmpty { page.authors = work.authors }
         let dest = FileManager.default.temporaryDirectory

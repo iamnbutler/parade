@@ -1414,10 +1414,13 @@ final class AppModel: ObservableObject {
 
     /// With `fallback`, a work AO3 isn't serving (it's down, busy or failing)
     /// is looked for at ao3saver.com and then in the Wayback Machine.
-    private func downloadWork(id: Int, toRead: Bool = false, fallback: Bool = false) async throws {
+    /// With `replacing`, a saved copy the download is to take the place of:
+    /// a download with fewer chapters than it leaves it as it was.
+    private func downloadWork(id: Int, toRead: Bool = false, fallback: Bool = false,
+                              replacing: URL? = nil) async throws {
         status("Fetching work \(id)…")
         do {
-            try await save(client.fetchWork(id: id), toRead: toRead)
+            try await save(client.fetchWork(id: id), toRead: toRead, replacing: replacing)
         } catch let ao3Error as AO3Error where fallback && ao3Error.suggestsAO3IsDown {
             status("AO3 isn't serving work \(id) right now. Looking for a saved copy…")
             do {
@@ -1476,9 +1479,17 @@ final class AppModel: ObservableObject {
         status("✓ Saved \(relativePath(of: dest)) from ao3saver.com")
     }
 
-    private func save(_ work: WorkInfo, toRead: Bool = false) async throws {
+    private func save(_ work: WorkInfo, toRead: Bool = false, replacing: URL? = nil) async throws {
         status("Downloading \(work.title.quoted) by \(work.authorLabel)…")
         let temp = try await client.downloadEPUB(work)
+        // The copy at the download's own path is checked when it's placed;
+        // this is for one saved under another title or author.
+        do {
+            try ChapterGuard.check(temp, replacing: replacing, stated: work.postedChapters)
+        } catch {
+            try? FileManager.default.removeItem(at: temp)
+            throw error
+        }
         let dest = try Organizer(root: toRead ? toReadRoot : destinationRoot).place(temp, for: work)
         status("✓ Saved \(relativePath(of: dest))")
     }
@@ -1547,7 +1558,9 @@ final class AppModel: ObservableObject {
             // AO3's export of a story first saved from Ellipsus is an AO3 fic.
             let provider = item.provider == EllipsusClient.provider ? Organizer.ao3 : item.provider
             let organizer = Organizer(root: isToRead(item) ? toReadRoot : destinationRoot, provider: provider)
-            let dest = try organizer.place(temp, for: work)
+            // The fic being linked may not be AO3's text at all, so its
+            // chapters aren't held against AO3's; the work page's still are.
+            let dest = try organizer.place(temp, for: work, keepFullerCopy: false)
             if dest.standardizedFileURL.path != item.url.standardizedFileURL.path,
                FileManager.default.fileExists(atPath: item.url.path) {
                 try? organizer.backUp(item.url)
@@ -1724,8 +1737,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var updating: Set<String> = []
 
     /// Re-downloads one fic from AO3, whenever the user asks — it never
-    /// second-guesses them or runs on its own. The old EPUB is kept in
-    /// Backups/.
+    /// runs on its own. The old EPUB is kept in Backups/; a download with
+    /// fewer chapters than it (or than AO3 says are posted) isn't saved.
     func update(_ item: LibraryItem) async {
         guard !isWorking else {
             showToast("Busy — try again when the current download finishes")
@@ -1745,7 +1758,7 @@ final class AppModel: ObservableObject {
             updating.remove(item.id)
         }
         do {
-            try await downloadWork(id: workID, toRead: isToRead(item))
+            try await downloadWork(id: workID, toRead: isToRead(item), replacing: item.url)
             updatesAvailable.remove(item.id)
             saveUpdatesAvailable()
             showToast("Updated \(item.title.quoted)")

@@ -100,10 +100,13 @@ public enum AO3ExportParser {
         return page
     }
 
-    /// One chapter per heading in #chapters; a one-chapter work has the one
-    /// heading, its own title, and no chapter title of its own.
+    /// One chapter per heading in #chapters; a one-chapter work has no
+    /// heading (or one with the work's own title) and no chapter title of
+    /// its own. AO3's export heads each chapter `<h2 class="heading">`
+    /// inside its "meta group"; "toc-heading" is only for the preface and
+    /// afterword, outside #chapters (and in older copies' chapters).
     private static func chapters(in body: String, workTitle: String) -> [WorkPage.Chapter] {
-        let heading = #"<h2 class="toc-heading">([\s\S]*?)</h2>"#
+        let heading = #"<h2 class="(?:toc-)?heading">([\s\S]*?)</h2>"#
         guard let regex = try? NSRegularExpression(pattern: heading) else { return [] }
         let ns = body as NSString
         let matches = regex.matches(in: body, range: NSRange(location: 0, length: ns.length))

@@ -10,13 +10,18 @@ public struct WorkInfo: Equatable, Sendable, Codable {
     /// AO3's updated_at stamp from the download URL, if present.
     /// Changes when the work is edited — useful for update detection.
     public let updatedAt: Int?
+    /// Chapters posted, as the work page's stats say ("19" of "19/20");
+    /// nil when it wasn't read from AO3's own page.
+    public var postedChapters: Int?
 
-    public init(id: Int, title: String, authors: [String], epubURL: URL, updatedAt: Int?) {
+    public init(id: Int, title: String, authors: [String], epubURL: URL, updatedAt: Int?,
+                postedChapters: Int? = nil) {
         self.id = id
         self.title = title
         self.authors = authors
         self.epubURL = epubURL
         self.updatedAt = updatedAt
+        self.postedChapters = postedChapters
     }
 
     /// "Author" or "Author & Other" — display/folder form.
@@ -44,6 +49,10 @@ public enum AO3Error: Error, LocalizedError, Equatable {
     /// AO3 is letting people in through a Cloudflare Waiting Room, a queue,
     /// and this request is still in it.
     case waitingRoom
+    /// A download had fewer chapters than it should: `expected` is the
+    /// work's stated count or the saved copy's, whichever is more. With
+    /// `keptSaved`, a saved copy was there and was left as it was.
+    case missingChapters(got: Int, expected: Int, keptSaved: Bool)
 
     public var errorDescription: String? {
         switch self {
@@ -59,6 +68,11 @@ public enum AO3Error: Error, LocalizedError, Equatable {
         case .archive(let message): return message
         case .waitingRoom:
             return "AO3 has a waiting room up while it recovers, and you're still in line. Parade keeps your place; try again in a few minutes."
+        case .missingChapters(let got, let expected, let keptSaved):
+            let what = "The download had only \(got) of \(expected) chapter\(expected == 1 ? "" : "s")"
+            return keptSaved
+                ? what + ", so Parade kept the copy you already had. Try again later."
+                : what + ", so Parade didn't save it. Try again later."
         case .unavailable:
             return "AO3 isn't serving work pages right now (it may be down or overloaded). Try again later, or paste an ao3saver.com or Wayback Machine link."
         }

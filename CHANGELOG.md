@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **Fics saved with only their first chapter.** While AO3's EPUB downloads
+  are off, Parade builds the EPUB from AO3's HTML download, and it was
+  reading every chapter after the first as missing, so multi-chapter fics
+  (by work or chapter link, from search, or from ao3saver.com) saved with
+  chapter one alone. They save whole again. Update a fic that came out
+  short and it comes back complete.
+- **An update never leaves you with less.** If a download has fewer
+  chapters than the copy you have, or than AO3 says are posted, Parade
+  keeps your copy as it was and says how many chapters were missing,
+  instead of replacing it.
+
 ## 0.10.0 — 2026-11-15
 
 ### Added
