@@ -79,7 +79,17 @@ struct KeptCopyRow: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(copy.title).textRole(.rowTitle).lineLimit(2)
-                Text(KeptCopyRow.details(copy, when: when)).textRole(.meta)
+                // One line where it fits (the Mac); on a phone, the author
+                // on one line and the rest on the next, rather than a wrap
+                // that strands "· 2 kB" on a line of its own.
+                ViewThatFits(in: .horizontal) {
+                    Text(KeptCopyRow.details(copy, when: when)).lineLimit(1)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(KeptCopyRow.byline(copy))
+                        Text(KeptCopyRow.facts(copy, when: when))
+                    }
+                }
+                .textRole(.meta)
             }
             Spacer(minLength: 8)
             Button("Restore", action: restore)
@@ -93,7 +103,14 @@ struct KeptCopyRow: View {
     }
 
     static func details(_ copy: KeptCopy, when: String) -> String {
-        var parts = ["by \(copy.author)", "\(when) \(copy.date.formatted(.relative(presentation: .named)))"]
+        byline(copy) + " · " + facts(copy, when: when)
+    }
+
+    static func byline(_ copy: KeptCopy) -> String { "by \(copy.author)" }
+
+    /// "Backed up 3 days ago · 152 KB · To Read".
+    static func facts(_ copy: KeptCopy, when: String) -> String {
+        var parts = ["\(when) \(copy.date.formatted(.relative(presentation: .named)))"]
         if let size = copy.size {
             parts.append(Int64(size).formatted(.byteCount(style: .file)))
         } else if !copy.isDownloaded {

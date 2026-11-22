@@ -134,7 +134,7 @@ struct SettingsView: View {
             }
             .disabled(count == 0)
         } footer: {
-            Text("Fics downloaded outside Parade have no AO3 link, tags or series. This finds them on AO3 by title and author, 20 at a time and gently paced, and swaps in AO3's own copy where there's exactly one sure match, keeping the old file in Backups. The rest can be matched by hand on their own page.")
+            Text("Fics downloaded outside Parade have no AO3 link, tags or series. This finds them on AO3 by title and author, 20 at a time and gently paced, and swaps in AO3's own copy where there's exactly one sure match, keeping the old file for 30 days, under Restore. The rest can be matched by hand on their own page.")
         }
     }
 
