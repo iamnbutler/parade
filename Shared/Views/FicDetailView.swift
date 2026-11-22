@@ -40,6 +40,7 @@ struct FicDetailView: View {
                 if let details {
                     AO3LinkFinder(item: item, linkedWorkID: details.workID)
                 }
+                EarlierVersion(item: item)
                 if let details {
                     statsRow(details)
                     Hairline()
@@ -255,6 +256,46 @@ struct FicDetailView: View {
         var style = Date.FormatStyle(date: .abbreviated, time: .omitted)
         style.timeZone = TimeZone(identifier: "UTC")!
         return date.formatted(style)
+    }
+}
+
+/// The version an update replaced, when there's one from the last 30 days:
+/// a shortcut to the same restore as Settings › Restore.
+private struct EarlierVersion: View {
+    let item: LibraryItem
+    @EnvironmentObject private var model: AppModel
+    @State private var backup: KeptCopy?
+    @State private var confirming = false
+
+    var body: some View {
+        Group {
+            if let backup {
+                HStack(spacing: 12) {
+                    Text("Earlier version backed up \(backup.date.formatted(.relative(presentation: .named)))"
+                         + (backup.size.map { " · " + Int64($0).formatted(.byteCount(style: .file)) } ?? ""))
+                        .textRole(.meta)
+                    Spacer()
+                    Button("Restore") { confirming = true }
+                        .buttonStyle(.leather)
+                        .disabled(model.isWorking)
+                        .help("Put the earlier version back; this one is kept as a backup")
+                }
+            }
+        }
+        // Again after a restore or update (the file's date changes), and
+        // when the Restore page's lists change.
+        .task(id: "\(item.id)|\(item.date.timeIntervalSince1970)|\(model.recentBackups.count)") {
+            backup = await model.backups(of: item).first
+        }
+        .confirmationDialog("Restore the earlier version of \(item.title.quoted)?",
+                            isPresented: $confirming, titleVisibility: .visible) {
+            Button("Restore") {
+                if let backup { Task { await model.restore(backup) } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The copy here now is kept as a backup, so you can switch back. Earlier versions are listed in Settings › Restore.")
+        }
     }
 }
 

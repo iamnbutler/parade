@@ -275,6 +275,7 @@ final class AppModel: ObservableObject {
             await refreshLibraryNow()
             buildDetailsIndex()
             pullReadingPositions()
+            pruneKeptCopies()
             return
         }
         let container = await Task.detached(priority: .userInitiated) {
@@ -299,6 +300,7 @@ final class AppModel: ObservableObject {
         await refreshLibraryNow()
         buildDetailsIndex()
         pullReadingPositions()
+        pruneKeptCopies()
     }
 
     /// Every place a previous version kept the library, merged into the
@@ -388,7 +390,10 @@ final class AppModel: ObservableObject {
         var error: String?
     }
 
-    private var refreshTask: Task<Void, Never>?
+    /// One scan at a time. A refresh asked for mid-scan gets a scan that
+    /// starts after it: the running one may have read the folder before a
+    /// delete or add, and republishing that brought deleted fics back.
+    private lazy var refresher = RefreshCoalescer { [weak self] in await self?.performRefresh() }
     /// Placeholders whose download has already been requested this run, so a
     /// large still-syncing library isn't re-requested on every refresh.
     private var requestedDownloads: Set<String> = []
@@ -403,14 +408,7 @@ final class AppModel: ObservableObject {
 
     func refreshLibraryNow() async {
         refreshLastRead()
-        if let running = refreshTask {
-            await running.value
-            return
-        }
-        let task = Task { await self.performRefresh() }
-        refreshTask = task
-        await task.value
-        refreshTask = nil
+        await refresher.run()
     }
 
     /// Bumped per scan (and on completion) so partial results from a
@@ -521,6 +519,7 @@ final class AppModel: ObservableObject {
         for providerDir in providerDirs {
             guard (try? providerDir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
                   providerDir.lastPathComponent != Organizer.backupsFolder,
+                  providerDir.lastPathComponent != Organizer.trashFolder,
                   providerDir.lastPathComponent != Organizer.toReadFolder else { continue }
             let provider = providerDir.lastPathComponent
             let authorDirs = (try? fm.contentsOfDirectory(
@@ -528,7 +527,8 @@ final class AppModel: ObservableObject {
                 options: [.skipsHiddenFiles])) ?? []
             for dir in authorDirs {
                 guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
-                      dir.lastPathComponent != Organizer.backupsFolder else { continue }
+                      dir.lastPathComponent != Organizer.backupsFolder,
+                      dir.lastPathComponent != Organizer.trashFolder else { continue }
                 let files = (try? fm.contentsOfDirectory(
                     at: dir, includingPropertiesForKeys: [.contentModificationDateKey, .creationDateKey],
                     options: [])) ?? []
@@ -979,9 +979,18 @@ final class AppModel: ObservableObject {
         return ids
     }
 
+    /// Moves a fic to Trash (`Trash/…`, or `To Read/Trash/…` for To Read),
+    /// where it stays about a month and can be restored from Settings ›
+    /// Restore. Its favorite, collections and update dot go with it now.
     func delete(_ item: LibraryItem) {
         let fm = FileManager.default
-        try? fm.removeItem(at: item.url)
+        do {
+            try KeptCopies.trash(item.url, libraryRoot: isToRead(item) ? toReadRoot : destinationRoot,
+                                 provider: item.provider)
+        } catch {
+            showToast("Couldn't delete \(item.title.quoted): \(error.localizedDescription)")
+            return
+        }
         let dir = item.url.deletingLastPathComponent()
         if let remaining = try? fm.contentsOfDirectory(atPath: dir.path), remaining.isEmpty {
             try? fm.removeItem(at: dir)
@@ -992,14 +1001,19 @@ final class AppModel: ObservableObject {
             saveCollections()
         }
         if updatesAvailable.remove(item.id) != nil { saveUpdatesAvailable() }
-        // Drop it from the visible list immediately; the background rescan
-        // confirms.
-        library = library.compactMap { group in
-            let items = group.items.filter { $0.id != item.id }
-            return items.isEmpty ? nil : (author: group.author, items: items)
+        // Drop it from the visible list immediately — the library or To
+        // Read, whichever it was in; the background rescan confirms.
+        if isToRead(item) {
+            toRead.removeAll { $0.url == item.url }
+        } else {
+            library = library.compactMap { group in
+                let items = group.items.filter { $0.id != item.id }
+                return items.isEmpty ? nil : (author: group.author, items: items)
+            }
         }
         invalidateDerived()
         refreshLibrary()
+        refreshKeptCopies()
     }
 
     // MARK: - mature content
@@ -1651,6 +1665,78 @@ final class AppModel: ObservableObject {
     /// Fics a batch couldn't link for sure, skipped by later batches.
     private var linkSkipped: Set<String> = []
 
+    // MARK: - kept copies (Backups and Trash)
+
+    /// Versions an update replaced, newest first, for Settings › Restore.
+    /// Refreshed when that page opens and after anything that changes them.
+    @Published private(set) var recentBackups: [KeptCopy] = []
+    /// Deleted fics in Trash, newest first.
+    @Published private(set) var recentlyDeleted: [KeptCopy] = []
+
+    func refreshKeptCopies() {
+        let root = destinationRoot
+        Task {
+            let (backups, trash) = await Task.detached(priority: .utility) {
+                (KeptCopies.list(.backup, root: root), KeptCopies.list(.trash, root: root))
+            }.value
+            guard root.path == destinationRoot.path else { return }
+            if recentBackups != backups { recentBackups = backups }
+            if recentlyDeleted != trash { recentlyDeleted = trash }
+        }
+    }
+
+    /// Earlier versions of one fic, newest first. One folder listing.
+    func backups(of item: LibraryItem) async -> [KeptCopy] {
+        let root = isToRead(item) ? toReadRoot : destinationRoot
+        let (provider, author, title) = (item.provider, item.author, item.title)
+        return await Task.detached(priority: .utility) {
+            KeptCopies.backups(libraryRoot: root, provider: provider, author: author, title: title)
+        }.value
+    }
+
+    /// Puts a kept copy back where it came from (library or To Read). The
+    /// copy there now becomes a backup, so this can be undone the same way.
+    @discardableResult
+    func restore(_ copy: KeptCopy) async -> Bool {
+        guard !isWorking else {
+            showToast("Busy — try again when the current download finishes")
+            return false
+        }
+        guard copy.isDownloaded else {
+            try? FileManager.default.startDownloadingUbiquitousItem(at: copy.url)
+            showToast("\(copy.title.quoted) is downloading from iCloud — try again in a moment")
+            return false
+        }
+        do {
+            try KeptCopies.restore(copy)
+        } catch {
+            showToast("Couldn't restore \(copy.title.quoted): \(error.localizedDescription)")
+            return false
+        }
+        let done = copy.kind == .trash
+            ? "Restored \(copy.title.quoted) to \(copy.isToRead ? "To Read" : "your library")"
+            : "Restored the earlier version of \(copy.title.quoted)"
+        status("✓ \(done)")
+        showToast(done)
+        await refreshLibraryNow()
+        buildDetailsIndex()
+        refreshKeptCopies()
+        return true
+    }
+
+    /// Drops kept copies past their month (see KeptCopies.prune), off the
+    /// main actor. Cheap: it lists the Backups and Trash folders only.
+    private func pruneKeptCopies() {
+        let root = destinationRoot
+        Task {
+            let removed = await Task.detached(priority: .utility) { KeptCopies.prune(root: root) }.value
+            if removed > 0 {
+                status("Cleared \(removed) item\(removed == 1 ? "" : "s") older than 30 days from Backups and Trash")
+            }
+            refreshKeptCopies()
+        }
+    }
+
     // MARK: - fic updates (against AO3)
 
     /// Item ids whose work changed on AO3 since the local EPUB. Filled by
@@ -1737,8 +1823,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var updating: Set<String> = []
 
     /// Re-downloads one fic from AO3, whenever the user asks — it never
-    /// runs on its own. The old EPUB is kept in Backups/; a download with
-    /// fewer chapters than it (or than AO3 says are posted) isn't saved.
+    /// runs on its own. The old EPUB is kept in Backups/ for about a month
+    /// (Settings › Restore); a download with fewer chapters than it (or than
+    /// AO3 says are posted) isn't saved.
     func update(_ item: LibraryItem) async {
         guard !isWorking else {
             showToast("Busy — try again when the current download finishes")
@@ -1762,6 +1849,7 @@ final class AppModel: ObservableObject {
             updatesAvailable.remove(item.id)
             saveUpdatesAvailable()
             showToast("Updated \(item.title.quoted)")
+            pruneKeptCopies()
         } catch {
             status("⚠️ \(error.localizedDescription)")
             showToast("Couldn't update \(item.title.quoted): \(error.localizedDescription)")
@@ -1827,7 +1915,7 @@ final class AppModel: ObservableObject {
                 .replacingOccurrences(of: folder.path + "/", with: "")
                 .components(separatedBy: "/")
             let author = relParts.count > 1 ? relParts[0] : "Unknown Author"
-            if author == Organizer.backupsFolder { skipped += 1; continue }
+            if author == Organizer.backupsFolder || author == Organizer.trashFolder { skipped += 1; continue }
             let authorDir = destinationRoot
                 .appendingPathComponent(Organizer.ao3, isDirectory: true)
                 .appendingPathComponent(Organizer.sanitize(author), isDirectory: true)

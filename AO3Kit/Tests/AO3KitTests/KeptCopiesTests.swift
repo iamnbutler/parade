@@ -186,9 +186,12 @@ final class KeptCopiesTests: XCTestCase {
     // MARK: - pruning
 
     func testPruneDropsCopiesOlderThanThirtyDays() throws {
+        try write("x", at: "ao3/a/Fic.epub")
         try write("x", at: "Backups/ao3/a/Fic (\(Self.stamp(daysAgo: 31))).epub")
         try write("x", at: "Backups/ao3/a/Fic (\(Self.stamp(daysAgo: 29))).epub")
+        try write("x", at: "ao3/b/Other.epub")
         try write("x", at: "Backups/ao3/b/Other (\(Self.stamp(daysAgo: 45))) 2.epub")
+        try write("x", at: "To Read/ao3/c/Later.epub")
         try write("x", at: "To Read/Backups/ao3/c/Later (\(Self.stamp(daysAgo: 40))).epub")
         try write("x", at: "Trash/ao3/d/Gone (\(Self.stamp(daysAgo: 31))).epub")
         try write("", at: "Trash/ao3/d/.Evicted (\(Self.stamp(daysAgo: 60))).epub.icloud")
@@ -218,6 +221,14 @@ final class KeptCopiesTests: XCTestCase {
         try write("all nineteen chapters", at: "ao3/a/Fic.epub")
         XCTAssertEqual(KeptCopies.prune(root: root), 1)
         XCTAssertTrue(KeptCopies.list(.backup, root: root).isEmpty)
+    }
+
+    func testABackupWhoseFicIsMissingGetsThreeWindows() throws {
+        // Gone, or not synced to this device yet: the two look the same.
+        try write("x", at: "Backups/ao3/a/Fic (\(Self.stamp(daysAgo: 45))).epub")
+        try write("x", at: "Backups/ao3/a/Fic (\(Self.stamp(daysAgo: 95))).epub")
+        XCTAssertEqual(KeptCopies.prune(root: root), 1)
+        XCTAssertEqual(KeptCopies.list(.backup, root: root).count, 1)
     }
 
     func testPruneKeepsBackupsItCannotSize() throws {

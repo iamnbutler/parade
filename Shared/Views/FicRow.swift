@@ -83,8 +83,8 @@ struct FicRow: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(model.inCloud
-                ? "Removes the file from your library folder — and, via iCloud, from your other devices."
-                : "Removes the file from your library folder.")
+                ? "Moves it to Trash on all your devices. It stays there for 30 days; Settings › Restore puts it back."
+                : "Moves it to Trash. It stays there for 30 days; Settings › Restore puts it back.")
         }
         .contextMenu {
             if model.isToRead(item) {

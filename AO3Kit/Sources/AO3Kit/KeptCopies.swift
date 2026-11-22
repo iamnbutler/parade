@@ -43,7 +43,8 @@ public struct KeptCopy: Sendable, Hashable, Identifiable {
 ///
 /// Copies are kept for `retention` (about a month), then `prune` removes
 /// them, except a backup that is bigger than the fic now in the library:
-/// that one may hold chapters a bad download lost, so it stays.
+/// that one may hold chapters a bad download lost, so it stays. A backup
+/// whose fic isn't there gets three windows (see `outgrown`).
 public enum KeptCopies {
     /// How long a copy is kept: about a month.
     public static let retention: TimeInterval = 30 * 86_400
@@ -221,8 +222,9 @@ public enum KeptCopies {
                              now: Date = Date()) -> Int {
         let cutoff = now.addingTimeInterval(-retention)
         var removed = 0
+        let orphanCutoff = now.addingTimeInterval(-3 * retention)
         for copy in list(.backup, root: root) + list(.trash, root: root) where copy.date < cutoff {
-            if copy.kind == .backup, !outgrown(copy) { continue }
+            if copy.kind == .backup, !outgrown(copy, orphanedBefore: orphanCutoff) { continue }
             let fm = FileManager.default
             let target = copy.isDownloaded
                 ? copy.url
@@ -238,15 +240,18 @@ public enum KeptCopies {
 
     /// True when the fic in the library now is at least as big as this
     /// backup, so the backup holds nothing the fic lacks. A fic that's gone
-    /// from its old place (renamed by a relink, or deleted to Trash) leaves
-    /// its backups to the date rule alone.
-    static func outgrown(_ backup: KeptCopy) -> Bool {
+    /// from its old place (renamed by a relink, deleted to Trash, or not yet
+    /// synced to a new device) lets its backup go only once it's older than
+    /// `orphanedBefore`: three windows, not one, since "not yet synced"
+    /// looks the same as "gone".
+    static func outgrown(_ backup: KeptCopy, orphanedBefore: Date) -> Bool {
         let home = backup.home
         let fm = FileManager.default
         guard fm.fileExists(atPath: home.path) else {
             let placeholder = home.deletingLastPathComponent().appendingPathComponent("." + home.lastPathComponent + ".icloud")
             // Only a placeholder: its size is unknown, so keep the backup.
-            return !fm.fileExists(atPath: placeholder.path)
+            if fm.fileExists(atPath: placeholder.path) { return false }
+            return backup.date < orphanedBefore
         }
         guard let backupSize = backup.size, let current = fileSize(home) else { return false }
         return backupSize <= current

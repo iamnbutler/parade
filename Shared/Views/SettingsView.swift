@@ -15,6 +15,7 @@ struct SettingsView: View {
                 #endif
                 folderSection
                 updatesSection
+                restoreSection
                 linkSection
                 searchSection
                 matureSection
@@ -95,10 +96,22 @@ struct SettingsView: View {
             .disabled(model.isCheckingUpdates)
         } footer: {
             #if os(iOS)
-            Text("Asks AO3 which of your fics changed since the last check, a few hundred per request (the first check of a big library takes a while). Only runs when you tap it. Fics with an update get a gold dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version in the Backups folder.")
+            Text("Asks AO3 which of your fics changed since the last check, a few hundred per request (the first check of a big library takes a while). Only runs when you tap it. Fics with an update get a gold dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version for 30 days, under Restore.")
             #else
-            Text("Asks AO3 which of your fics changed since the last check, a few hundred per request (the first check of a big library takes a while). Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version in the Backups folder.")
+            Text("Asks AO3 which of your fics changed since the last check, a few hundred per request (the first check of a big library takes a while). Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version for 30 days, under Restore.")
             #endif
+        }
+    }
+
+    private var restoreSection: some View {
+        LeatherSection(title: "Restore") {
+            NavigationLink {
+                RestoreView()
+            } label: {
+                Text("Earlier Versions and Deleted Fics")
+            }
+        } footer: {
+            Text("Versions an update replaced, and fics you delete, are kept for 30 days and then removed automatically. They sync with your library through iCloud.")
         }
     }
 
