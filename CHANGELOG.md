@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **A fic's page shows its earlier version again.** The "Earlier version
+  backed up … · Restore" line never appeared on a fic's page, even when
+  Settings › Restore listed a backup of it. It shows now.
+- On iPhone, Settings › Restore and a fic's earlier-version line split
+  into two tidy lines (who, then when and how big) instead of wrapping
+  the size onto a line of its own.
+- Settings › AO3 links and a fic's Change Link box say the copy they
+  replace is kept for 30 days under Restore, matching the rest of the app.
+
 ## 0.11.0 — 2026-11-22
 
 ### Added

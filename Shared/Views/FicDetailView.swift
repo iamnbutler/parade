@@ -22,6 +22,8 @@ struct FicDetailView: View {
         model.cachedDetails(for: item) ?? (loadedID == item.id ? loaded : nil)
     }
     @State private var showNewCollection = false
+    /// The latest earlier version of this fic, if one is kept.
+    @State private var earlier: KeptCopy?
 
     var body: some View {
         ScrollView {
@@ -40,7 +42,9 @@ struct FicDetailView: View {
                 if let details {
                     AO3LinkFinder(item: item, linkedWorkID: details.workID)
                 }
-                EarlierVersion(item: item)
+                if let earlier, earlier.home.standardizedFileURL.path == item.url.standardizedFileURL.path {
+                    EarlierVersion(item: item, backup: earlier)
+                }
                 if let details {
                     statsRow(details)
                     Hairline()
@@ -65,6 +69,13 @@ struct FicDetailView: View {
             let parsed = await model.details(for: item)
             loaded = parsed
             loadedID = item.id
+        }
+        // On the page, which is always there: a .task on a view that may
+        // render nothing (the row before its backup loads) never runs.
+        // Again after a restore or update (the file's date changes), and
+        // when the Restore page's lists change.
+        .task(id: "\(item.id)|\(item.date.timeIntervalSince1970)|\(model.recentBackups.count)") {
+            earlier = await model.backups(of: item).first
         }
         .newCollectionAlert(isPresented: $showNewCollection, adding: item, model: model)
     }
@@ -263,35 +274,37 @@ struct FicDetailView: View {
 /// a shortcut to the same restore as Settings › Restore.
 private struct EarlierVersion: View {
     let item: LibraryItem
+    let backup: KeptCopy
     @EnvironmentObject private var model: AppModel
-    @State private var backup: KeptCopy?
     @State private var confirming = false
 
+    /// "backed up 2 days ago · 152 kB".
+    private var facts: String {
+        "backed up \(backup.date.formatted(.relative(presentation: .named)))"
+            + (backup.size.map { " · " + Int64($0).formatted(.byteCount(style: .file)) } ?? "")
+    }
+
     var body: some View {
-        Group {
-            if let backup {
-                HStack(spacing: 12) {
-                    Text("Earlier version backed up \(backup.date.formatted(.relative(presentation: .named)))"
-                         + (backup.size.map { " · " + Int64($0).formatted(.byteCount(style: .file)) } ?? ""))
-                        .textRole(.meta)
-                    Spacer()
-                    Button("Restore") { confirming = true }
-                        .buttonStyle(.leather)
-                        .disabled(model.isWorking)
-                        .help("Put the earlier version back; this one is kept as a backup")
+        HStack(spacing: 12) {
+            // One line where it fits; on a phone, two clean lines rather
+            // than "· 152 kB" wrapped onto a line of its own.
+            ViewThatFits(in: .horizontal) {
+                Text("Earlier version " + facts).lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Earlier version")
+                    Text(facts)
                 }
             }
-        }
-        // Again after a restore or update (the file's date changes), and
-        // when the Restore page's lists change.
-        .task(id: "\(item.id)|\(item.date.timeIntervalSince1970)|\(model.recentBackups.count)") {
-            backup = await model.backups(of: item).first
+            .textRole(.meta)
+            Spacer()
+            Button("Restore") { confirming = true }
+                .buttonStyle(.leather)
+                .disabled(model.isWorking)
+                .help("Put the earlier version back; this one is kept as a backup")
         }
         .confirmationDialog("Restore the earlier version of \(item.title.quoted)?",
                             isPresented: $confirming, titleVisibility: .visible) {
-            Button("Restore") {
-                if let backup { Task { await model.restore(backup) } }
-            }
+            Button("Restore") { Task { await model.restore(backup) } }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("The copy here now is kept as a backup, so you can switch back. Earlier versions are listed in Settings › Restore.")
@@ -334,8 +347,8 @@ private struct AO3LinkFinder: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(linkedWorkID == nil ? "Not linked to AO3" : "Change the AO3 link").textRole(.kicker)
             Text(linkedWorkID == nil
-                 ? "This copy came from outside Parade, so it has no AO3 link, tags or series. Paste the work's AO3 link, or find it on AO3; Parade fetches AO3's own copy and this one goes to Backups."
-                 : "Linked to the wrong work? Paste the right work's AO3 link, or find it on AO3; Parade fetches that work's own copy and this one goes to Backups.")
+                 ? "This copy came from outside Parade, so it has no AO3 link, tags or series. Paste the work's AO3 link, or find it on AO3; Parade fetches AO3's own copy and keeps this one for 30 days, under Settings › Restore."
+                 : "Linked to the wrong work? Paste the right work's AO3 link, or find it on AO3; Parade fetches that work's own copy and keeps this one for 30 days, under Settings › Restore.")
                 .textRole(.meta)
                 .fixedSize(horizontal: false, vertical: true)
             pasteField
