@@ -18,6 +18,10 @@ public struct Organizer: Sendable {
     /// Library subfolder that holds superseded versions; never a provider.
     public static let backupsFolder = "Backups"
 
+    /// Library subfolder that holds deleted fics for a while (see
+    /// KeptCopies); never a provider.
+    public static let trashFolder = "Trash"
+
     /// Library subfolder for fics saved to read later: a library of its own
     /// (`To Read/<provider>/<Author>/<Title>.epub`), kept out of the main
     /// one until a fic is added to it.

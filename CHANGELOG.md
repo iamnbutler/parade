@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Added
+- **Settings › Restore.** When an update replaces a fic, Parade has always
+  kept the old copy in a Backups folder; now you can see those copies and
+  put one back. Recently Updated lists each earlier version with when it
+  was backed up and its size, and Recently Deleted lists deleted fics.
+  Restore puts either one back where it came from, the library or To
+  Read. The copy it replaces is kept as a backup, so you can switch back.
+  A fic with an earlier version also shows it on its own page, with a
+  Restore button.
+- **Deleting a fic moves it to Trash** for 30 days instead of deleting
+  it, on every device. Backups and Trash both live in the library's
+  iCloud folder, so they sync, and they're never shown in the library.
+- **Backups and deleted fics are removed after 30 days**, at launch and
+  after each update. Parade still keeps an older backup while it's bigger
+  than the fic in your library, since that copy may have chapters a bad
+  download lost.
+
 ### Fixed
 - **Fics saved with only their first chapter.** While AO3's EPUB downloads
   are off, Parade builds the EPUB from AO3's HTML download, and it was
@@ -13,6 +30,12 @@
   chapters than the copy you have, or than AO3 says are posted, Parade
   keeps your copy as it was and says how many chapters were missing,
   instead of replacing it.
+- **A deleted fic could stay in the list, or come back.** If Parade was
+  reading the library folder when you deleted a fic, that read finished
+  with the fic still in it and put it back on screen. To Read also didn't
+  drop the fic straight away. Now the list refreshes again after any
+  change made while it's reading, and a deleted To Read fic leaves the
+  list at once.
 
 ## 0.10.0 — 2026-11-15
 

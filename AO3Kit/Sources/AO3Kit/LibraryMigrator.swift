@@ -39,8 +39,9 @@ public enum LibraryMigrator {
                 }
                 continue
             }
-            if name == Organizer.backupsFolder {
-                mergeBackups(entry, into: root, result: &result)
+            if name == Organizer.backupsFolder || name == Organizer.trashFolder {
+                // Kept copies stay kept copies, never library fics.
+                mergeBackups(entry, into: root, folder: name, result: &result)
             } else if knownProviders.contains(name) {
                 // Provider folder: its subfolders are authors.
                 for author in subdirectories(of: entry) {
@@ -83,6 +84,7 @@ public enum LibraryMigrator {
         for entry in entries {
             let isDir = (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
             guard isDir, entry.lastPathComponent != Organizer.backupsFolder,
+                  entry.lastPathComponent != Organizer.trashFolder,
                   entry.lastPathComponent != Organizer.toReadFolder else { continue }
             if !directEPUBs(in: entry).isEmpty {
                 // Folder of EPUBs at the root — a legacy/hand-dropped author dir.
@@ -170,15 +172,16 @@ public enum LibraryMigrator {
         try fm.moveItem(at: file, to: dest)
     }
 
-    /// File-level merge of an old Backups tree into `<root>/Backups`.
-    /// Legacy author-level paths (`Backups/<Author>/x`) are refiled under
-    /// ao3/; provider-level paths are kept as they are.
-    private static func mergeBackups(_ oldBackups: URL, into root: URL, result: inout Result) {
+    /// File-level merge of an old Backups (or Trash) tree into
+    /// `<root>/<folder>`. Legacy author-level paths (`Backups/<Author>/x`)
+    /// are refiled under ao3/; provider-level paths are kept as they are.
+    private static func mergeBackups(_ oldBackups: URL, into root: URL,
+                                     folder: String = Organizer.backupsFolder, result: inout Result) {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: oldBackups, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
         else { return }
-        let newBackups = root.appendingPathComponent(Organizer.backupsFolder, isDirectory: true)
+        let newBackups = root.appendingPathComponent(folder, isDirectory: true)
         for case let file as URL in enumerator {
             guard (try? file.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory != true else { continue }
             var parts = file.path
