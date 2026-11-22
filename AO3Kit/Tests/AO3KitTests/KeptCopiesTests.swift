@@ -292,14 +292,16 @@ final class RefreshCoalescerTests: XCTestCase {
     func testACallDuringARunGetsAFreshRun() async {
         var folder = ["Fic"]
         var seen: [[String]] = []
+        var reads = 0
         let gate = AsyncGate()
         let coalescer = RefreshCoalescer {
             let snapshot = folder      // the scan reads the folder…
+            reads += 1
             await gate.wait()          // …then takes a while
             seen.append(snapshot)
         }
         let first = Task { await coalescer.run() }
-        await Task.yield()
+        while reads == 0 { await Task.yield() }
         XCTAssertTrue(coalescer.isRunning)
 
         folder = []                    // the delete, mid-scan
@@ -321,9 +323,9 @@ final class RefreshCoalescerTests: XCTestCase {
             await gate.wait()
         }
         let first = Task { await coalescer.run() }
-        await Task.yield()
+        while runs == 0 { await Task.yield() }
         let others = (0..<5).map { _ in Task { await coalescer.run() } }
-        await Task.yield()
+        for _ in 0..<20 { await Task.yield() }  // let them all call run()
         gate.open()
         await first.value
         for task in others { await task.value }
