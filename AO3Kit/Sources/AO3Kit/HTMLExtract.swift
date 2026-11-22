@@ -32,6 +32,15 @@ enum HTMLExtract {
             .map { $0.replacingOccurrences(of: "&amp;", with: "&") }
     }
 
+    /// Chapters posted, from the work page's stats: "19" of "19/20" (the
+    /// posted count is sometimes a link to the latest chapter).
+    static func postedChapters(in html: String) -> Int? {
+        firstMatch(in: html, pattern: #"<dd class="chapters">([\s\S]*?)</dd>"#)
+            .map { $0.replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression) }
+            .flatMap { $0.split(separator: "/").first }
+            .flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+    }
+
     /// The work a chapter page belongs to, from its own links
     /// (/works/<id>/chapters/…, /share, /bookmarks, /kudos).
     static func workID(inChapterPage html: String) -> String? {

@@ -26,22 +26,37 @@ public struct Organizer: Sendable {
     /// Moves `epubFile` into place for `work`. A previous version at the same
     /// path (same fic, newer text) is moved into Backups/ first, never
     /// deleted. Returns the final location.
+    ///
+    /// A download with fewer chapters than the work page states, or (with
+    /// `keepFullerCopy`) than the copy already there, isn't placed: it's
+    /// deleted, the saved copy is left as it was, and this throws
+    /// `AO3Error.missingChapters`.
     @discardableResult
-    public func place(_ epubFile: URL, for work: WorkInfo) throws -> URL {
-        try place(epubFile, author: work.authorLabel, title: work.title)
+    public func place(_ epubFile: URL, for work: WorkInfo, keepFullerCopy: Bool = true) throws -> URL {
+        let dest = destination(author: work.authorLabel, title: work.title)
+        do {
+            try ChapterGuard.check(epubFile, replacing: keepFullerCopy ? dest : nil, stated: work.postedChapters)
+        } catch {
+            try? FileManager.default.removeItem(at: epubFile)
+            throw error
+        }
+        return try place(epubFile, author: work.authorLabel, title: work.title)
+    }
+
+    /// Where a fic by `author` titled `title` goes.
+    public func destination(author: String, title: String) -> URL {
+        root.appendingPathComponent(provider, isDirectory: true)
+            .appendingPathComponent(Self.sanitize(author), isDirectory: true)
+            .appendingPathComponent(Self.sanitize(title))
+            .appendingPathExtension("epub")
     }
 
     /// Moves `epubFile` to `<provider>/<author>/<title>.epub`, backing up a
     /// fic already there — for a download, or a fic moving in from To Read.
     @discardableResult
     public func place(_ epubFile: URL, author: String, title: String) throws -> URL {
-        let authorDir = root
-            .appendingPathComponent(provider, isDirectory: true)
-            .appendingPathComponent(Self.sanitize(author), isDirectory: true)
-        try FileManager.default.createDirectory(at: authorDir, withIntermediateDirectories: true)
-        let dest = authorDir
-            .appendingPathComponent(Self.sanitize(title))
-            .appendingPathExtension("epub")
+        let dest = destination(author: author, title: title)
+        try FileManager.default.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
         // An update keeps the fic's original "added" date (the file's
         // creation date), so it doesn't jump to the top of Date Added.
         var added: Date?
