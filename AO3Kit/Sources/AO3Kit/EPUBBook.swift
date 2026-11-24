@@ -159,8 +159,12 @@ public enum EPUBBookParser {
     /// Reads every spine document of the EPUB at `url`, in order.
     public static func parse(epubAt url: URL) throws -> EPUBBook {
         let archive = try Archive(url: url, accessMode: .read)
+        // `archive[path]` walks the central directory each time; a book
+        // looks up every chapter and image, so index it once.
+        var entries: [String: Entry] = [:]
+        for entry in archive where entries[entry.path] == nil { entries[entry.path] = entry }
         func read(_ path: String) -> String? {
-            guard let entry = archive[path] else { return nil }
+            guard let entry = entries[path] else { return nil }
             var data = Data()
             guard (try? archive.extract(entry, skipCRC32: true) { data.append($0) }) != nil else { return nil }
             return String(data: data, encoding: .utf8)
@@ -200,7 +204,7 @@ public enum EPUBBookParser {
                 }
             }
             for source in sources where book.images[source] == nil {
-                guard let entry = archive[source] else { continue }
+                guard let entry = entries[source] else { continue }
                 var data = Data()
                 if (try? archive.extract(entry, skipCRC32: true) { data.append($0) }) != nil {
                     book.images[source] = data
@@ -322,7 +326,7 @@ public enum EPUBBookParser {
     static func ncxTitles(_ ncx: String) -> [String: String] {
         var titles: [String: String] = [:]
         let pattern = ##"<navLabel>\s*<text>([\s\S]*?)</text>\s*</navLabel>\s*<content\s+src="([^"#]+)"##
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [:] }
+        guard let regex = RegexCache.regex(pattern) else { return [:] }
         for m in regex.matches(in: ncx, range: NSRange(ncx.startIndex..., in: ncx)) {
             guard let label = Range(m.range(at: 1), in: ncx), let src = Range(m.range(at: 2), in: ncx) else { continue }
             let key = HTMLExtract.decodeEntities(String(ncx[src]))
@@ -367,14 +371,39 @@ public enum EPUBBookParser {
 
     /// XHTML from the web often carries HTML's named entities, which XML
     /// doesn't know without a DTD. Turn the common ones into characters.
+    ///
+    /// One pass over the bytes: a chapter is tens of kilobytes and nearly
+    /// always has an `&` in it, and a pass per entity name copied it 34 times.
     static func xmlSafe(_ s: String) -> String {
-        guard s.contains("&") else { return s }
-        var out = s
-        for (name, char) in htmlEntities {
-            out = out.replacingOccurrences(of: "&\(name);", with: char)
+        let amp = UInt8(ascii: "&"), semi = UInt8(ascii: ";")
+        guard s.utf8.contains(amp) else { return s }
+        let bytes = Array(s.utf8)
+        var out: [UInt8] = []
+        out.reserveCapacity(bytes.count)
+        var i = 0, copied = 0
+        while i < bytes.count {
+            guard bytes[i] == amp else { i += 1; continue }
+            // "&name;" with a name of at most `longestEntity` letters.
+            var j = i + 1
+            while j < bytes.count, j - i - 1 <= longestEntity, bytes[j] != semi, bytes[j] != amp { j += 1 }
+            if j < bytes.count, bytes[j] == semi, j > i + 1,
+               let char = htmlEntityBytes[String(decoding: bytes[(i + 1)..<j], as: UTF8.self)] {
+                out.append(contentsOf: bytes[copied..<i])
+                out.append(contentsOf: char)
+                copied = j + 1
+                i = j + 1
+            } else {
+                i += 1
+            }
         }
-        return out
+        guard copied > 0 else { return s }
+        out.append(contentsOf: bytes[copied...])
+        return String(decoding: out, as: UTF8.self)
     }
+
+    private static let htmlEntityBytes: [String: [UInt8]] =
+        Dictionary(htmlEntities.map { ($0.0, Array($0.1.utf8)) }, uniquingKeysWith: { a, _ in a })
+    private static let longestEntity = htmlEntities.map(\.0.utf8.count).max() ?? 0
 
     private static let htmlEntities: [(String, String)] = [
         ("nbsp", "\u{00A0}"), ("mdash", "—"), ("ndash", "–"), ("hellip", "…"),
@@ -415,7 +444,7 @@ public enum EPUBBookParser {
     }
 
     static func allMatches(in s: String, pattern: String, group: Int = 0) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = RegexCache.regex(pattern) else { return [] }
         return regex.matches(in: s, range: NSRange(s.startIndex..., in: s)).compactMap { m in
             Range(m.range(at: group), in: s).map { String(s[$0]) }
         }
@@ -613,7 +642,12 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         guard skipDepth == 0 else { return }
         // Source line breaks and indentation are just spaces; only <br>
         // breaks a line.
-        append(string.replacingOccurrences(of: #"[\t\r\n]"#, with: " ", options: .regularExpression))
+        // Called many times per paragraph, so no regex.
+        func isBreak(_ u: Unicode.Scalar) -> Bool { u == "\t" || u == "\r" || u == "\n" }
+        guard string.unicodeScalars.contains(where: isBreak) else { return append(string) }
+        var spaced = String.UnicodeScalarView()
+        for u in string.unicodeScalars { spaced.append(isBreak(u) ? " " : u) }
+        append(String(spaced))
     }
 
     /// An image is a block of its own; one only on the web keeps its URL.
@@ -648,11 +682,20 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
     }
 
     /// Symbols only: a lone "…" is a beat of silence and "ooo" is a word.
+    /// Asked of every paragraph, so it stops at the first letter.
     static func isTypedBreak(_ text: String) -> Bool {
-        let marks = text.filter { !$0.isWhitespace }
-        return marks.count >= 3 && marks.allSatisfy { "~*-=_•·°#+❦❧✦✧♦◆○●◇†‡§|/\\—–×".contains($0) }
-            && Set(marks).count <= 3
+        var count = 0
+        var kinds = Set<Character>()
+        for c in text where !c.isWhitespace {
+            guard breakMarks.contains(c) else { return false }
+            count += 1
+            kinds.insert(c)
+            if kinds.count > 3 { return false }
+        }
+        return count >= 3
     }
+
+    private static let breakMarks = Set("~*-=_•·°#+❦❧✦✧♦◆○●◇†‡§|/\\—–×")
 
     /// Stands in for <br> until the paragraph is cleaned up.
     private static let lineBreak = "\u{2028}"
@@ -664,9 +707,9 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
     private func append(_ text: String) {
         var run = style
         run.text = text
-        if var last = runs.last, last.sameStyle(as: run) {
-            last.text += text
-            runs[runs.count - 1] = last
+        if let last = runs.last, last.sameStyle(as: run) {
+            // In place: a copy of the run would copy its text on every append.
+            runs[runs.count - 1].text += text
         } else {
             runs.append(run)
         }
@@ -679,27 +722,34 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         defer { runs = [] }
         var cleaned: [EPUBBook.Run] = []
         for var run in runs {
-            run.text = run.text
-                .replacingOccurrences(of: " {2,}", with: " ", options: .regularExpression)
-                .replacingOccurrences(of: Self.lineBreak, with: "\n")
+            if run.text.contains("  ") {
+                run.text = run.text.replacingOccurrences(of: " {2,}", with: " ", options: .regularExpression)
+            }
+            if run.text.contains(Self.lineBreak) {
+                run.text = run.text.replacingOccurrences(of: Self.lineBreak, with: "\n")
+            }
             cleaned.append(run)
         }
         // Trim leading/trailing spaces across the whole paragraph, and the
         // spaces that hug a line break.
-        while let first = cleaned.first, first.text.trimmingCharacters(in: .whitespaces).isEmpty, !first.text.contains("\n") {
+        // Every step here looks at the ends, or stops early: a paragraph's
+        // text is walked as little as possible.
+        while let first = cleaned.first, Self.isBlank(first.text, .whitespaces), !first.text.contains("\n") {
             cleaned.removeFirst()
         }
         guard !cleaned.isEmpty else { return }
-        cleaned[0].text = String(cleaned[0].text.drop { $0 == " " })
-        cleaned[cleaned.count - 1].text = String(cleaned[cleaned.count - 1].text.reversed().drop { $0 == " " || $0 == "\n" }.reversed())
-        for i in cleaned.indices {
+        let leading = cleaned[0].text.prefix { $0 == " " }.count
+        if leading > 0 { cleaned[0].text.removeFirst(leading) }
+        let last = cleaned.count - 1
+        while let c = cleaned[last].text.last, c == " " || c == "\n" { cleaned[last].text.removeLast() }
+        for i in cleaned.indices where cleaned[i].text.utf8.contains(UInt8(ascii: "\n")) {
             cleaned[i].text = cleaned[i].text
                 .replacingOccurrences(of: " \n", with: "\n")
                 .replacingOccurrences(of: "\n ", with: "\n")
         }
         cleaned.removeAll { $0.text.isEmpty }
         let text = cleaned.map(\.text).joined()
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard !Self.isBlank(text, .whitespacesAndNewlines) else { return }
         let marker = pendingMarker
         pendingMarker = nil
         if chat == nil, cell != nil || tableRows != nil, let marker {
@@ -741,6 +791,12 @@ final class BlockBuilder: NSObject, XMLParserDelegate {
         let kind: EPUBBook.Block.Kind = headingLevel.map { .heading(level: $0) } ?? .paragraph
         blocks.append(.init(kind: kind, runs: cleaned, quoteDepth: quoteDepth, alignment: alignment,
                             marker: marker, listDepth: lists.count))
+    }
+
+    /// `s.trimmingCharacters(in: set).isEmpty`, stopping at the first
+    /// character outside `set`.
+    static func isBlank(_ s: String, _ set: CharacterSet) -> Bool {
+        s.unicodeScalars.allSatisfy(set.contains)
     }
 
     static func label(_ marker: EPUBBook.Block.Marker) -> String {

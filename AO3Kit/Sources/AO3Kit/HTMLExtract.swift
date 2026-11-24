@@ -74,7 +74,7 @@ enum HTMLExtract {
     // MARK: - helpers
 
     static func firstMatch(in text: String, pattern: String) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: pattern),
+        guard let regex = RegexCache.regex(pattern),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               match.numberOfRanges > 1,
               let range = Range(match.range(at: 1), in: text)
@@ -83,7 +83,7 @@ enum HTMLExtract {
     }
 
     static func allMatches(in text: String, pattern: String, group: Int = 1) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = RegexCache.regex(pattern) else { return [] }
         return regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
             .compactMap { match in
                 guard match.numberOfRanges > group, let range = Range(match.range(at: group), in: text) else { return nil }
@@ -93,12 +93,14 @@ enum HTMLExtract {
 
     /// Decodes the entities AO3 actually emits in titles/names.
     static func decodeEntities(_ s: String) -> String {
+        // Most names and tags have none: skip the ten passes.
+        guard s.utf8.contains(UInt8(ascii: "&")) else { return s }
         var out = s
         let map = ["&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&#39;": "'", "&#x27;": "'", "&apos;": "'", "&nbsp;": "\u{00A0}"]
         for (entity, char) in map { out = out.replacingOccurrences(of: entity, with: char) }
         // Numeric entities (decimal and hex)
         for pattern in [#"&#(\d+);"#, #"&#x([0-9a-fA-F]+);"#] {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            guard let regex = RegexCache.regex(pattern) else { continue }
             let isHex = pattern.contains("x")
             while let match = regex.firstMatch(in: out, range: NSRange(out.startIndex..., in: out)),
                   let full = Range(match.range, in: out),
