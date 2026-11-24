@@ -67,6 +67,9 @@ struct LibraryView: View {
                 .leatherBackground()
             }
         } else {
+            // Filtered once per redraw: the list and its empty state share it.
+            let sections = sort.isGrouped ? self.sections : []
+            let flatItems = sort.isGrouped ? [] : self.flatItems
             List {
                 if searchText.isEmpty {
                     ContinueReadingRow()
@@ -100,7 +103,7 @@ struct LibraryView: View {
                 }
             }
             .leatherList()
-            .backToTop { topRowID }
+            .backToTop { topRowID(sections: sections, flat: flatItems) }
             .noSearchResults(for: searchText, when: sort.isGrouped ? sections.isEmpty : flatItems.isEmpty)
             .refreshable { model.refreshLibrary() }
         }
@@ -108,7 +111,7 @@ struct LibraryView: View {
 
     /// The list's first row, for Back to Top: Continue Reading, To Read, or
     /// the first fic.
-    private var topRowID: AnyHashable? {
+    private func topRowID(sections: [(name: String, items: [LibraryItem])], flat flatItems: [LibraryItem]) -> AnyHashable? {
         if searchText.isEmpty, model.lastReadItem != nil { return ListTop.id }
         return (sort.isGrouped ? sections.first?.items.first : flatItems.first)?.id
     }
