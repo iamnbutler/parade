@@ -7,6 +7,7 @@ struct ContentView: View {
     /// page: the pager rebuilds its pages as the library refreshes, and a
     /// cover hung off one of them was dismissed along with it.
     @State private var reading: LibraryItem?
+    @State private var tab = ContentView.initialTab
     #endif
 
     var body: some View {
@@ -25,6 +26,8 @@ struct ContentView: View {
             // scrolled to a section: "search-form@categories".
             SearchForm(scrolledTo: screen.components(separatedBy: "@").dropFirst().first)
                 .onAppear { model.refreshLibrary() }
+        } else if DebugScreen.standalone {
+            DebugScreenView()
         } else {
             appRoot
         }
@@ -56,17 +59,22 @@ struct ContentView: View {
         MacRootView()
             .frame(minWidth: 700, minHeight: 420)
         #else
-        TabView {
+        TabView(selection: $tab) {
             LibraryView()
                 .tabItem { Label("Library", systemImage: "books.vertical") }
+                .tag("library")
             ToReadView()
                 .tabItem { Label("To Read", systemImage: "bookmark") }
+                .tag("to-read")
             CollectionsView()
                 .tabItem { Label("Collections", systemImage: "rectangle.stack.fill") }
+                .tag("collections")
             SearchView()
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
+                .tag("search")
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag("settings")
         }
         .environment(\.readFic) { reading = $0 }
         .fullScreenCover(item: $reading) { item in
@@ -85,6 +93,18 @@ struct ContentView: View {
         #endif
     }
 }
+
+#if os(iOS)
+extension ContentView {
+    static var initialTab: String {
+        #if DEBUG
+        DebugScreen.tab ?? "library"
+        #else
+        "library"
+        #endif
+    }
+}
+#endif
 
 /// A short floating message, e.g. the result of updating one fic.
 private struct ToastView: View {

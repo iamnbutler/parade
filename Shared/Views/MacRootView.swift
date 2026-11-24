@@ -105,7 +105,7 @@ struct MacRootView: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("librarySort.v1") private var sortRaw = LibrarySort.author.rawValue
     @AppStorage("browseKind.v1") private var kindRaw = TagKind.fandoms.rawValue
-    @State private var section: SidebarSection? = .library
+    @State private var section: SidebarSection? = MacRootView.initialSection
     /// The fic open to read, filling the window.
     @State private var reading: LibraryItem?
     /// Where the window's leather backdrop sits, so the sidebar can show the
@@ -127,6 +127,21 @@ struct MacRootView: View {
     @State private var browseFacet: FacetSelection?
     /// Where Back returns to after following tags from fic details.
     @State private var browseHistory: [(kind: String, tag: String?, facet: FacetSelection?)] = []
+
+    private static var initialSection: SidebarSection {
+        #if DEBUG
+        switch DebugScreen.tab {
+        case "to-read": return .toRead
+        case "search": return .search
+        case "browse": return .browse
+        case "favorites": return .favorites
+        case "settings": return .settings
+        default: return .library
+        }
+        #else
+        return .library
+        #endif
+    }
 
     private var sort: LibrarySort { LibrarySort(rawValue: sortRaw) ?? .author }
     private var kind: TagKind { TagKind(rawValue: kindRaw) ?? .fandoms }
@@ -252,6 +267,13 @@ struct MacRootView: View {
             model.refreshLibrary()
             model.buildDetailsIndex()
         }
+        #if DEBUG
+        // PARADE_SCREEN=fic:<title> selects that fic once the library is in.
+        .onChange(of: model.library.count, initial: true) { _, _ in
+            guard selectedID == nil, let title = DebugScreen.title("fic") else { return }
+            selectedID = (model.flatItems(.title) + model.toRead).first { $0.title == title }?.id
+        }
+        #endif
         .onChange(of: section) { _, new in
             // Leaving Browse closes the open tag; coming back starts at the list.
             if new != .browse {

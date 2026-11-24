@@ -51,7 +51,15 @@ struct RestoreView: View {
         .leatherBackground()
         .navigationTitle("Restore")
         .pageTitleInContent()
-        .task { model.refreshKeptCopies() }
+        .task {
+            model.refreshKeptCopies()
+            #if DEBUG
+            if DebugScreen.is("restore", "confirm") {
+                try? await Task.sleep(for: .milliseconds(800))
+                confirming = model.recentBackups.first
+            }
+            #endif
+        }
         .confirmationDialog(
             "Restore the earlier version of \(confirming?.title.quoted ?? "this fic")?",
             isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),

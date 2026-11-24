@@ -9,6 +9,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             Form {
                 #if os(macOS)
                 PageHeader(title: "Settings")
@@ -16,10 +17,10 @@ struct SettingsView: View {
                 folderSection
                 updatesSection
                 restoreSection
-                linkSection
+                linkSection.id("links")
                 searchSection
-                matureSection
-                aboutSection
+                matureSection.id("mature")
+                aboutSection.id("about")
                 #if os(macOS)
                 folderImportSection
                 #endif
@@ -32,6 +33,10 @@ struct SettingsView: View {
                 }
             }
             .leatherForm()
+            #if DEBUG
+            .task { await debugScreen(proxy) }
+            #endif
+            }
             #if os(macOS)
             .formStyle(.grouped)
             .buttonStyle(.leather)
@@ -187,6 +192,24 @@ struct SettingsView: View {
     }
     #endif
 }
+
+#if DEBUG
+extension SettingsView {
+    /// `tab:settings@<section>` scrolls to a section; `@age` asks the 18+
+    /// question.
+    private func debugScreen(_ proxy: ScrollViewProxy) async {
+        guard DebugScreen.tab == "settings", let variant = DebugScreen.variant else { return }
+        try? await Task.sleep(for: .milliseconds(600))
+        if variant == "age" {
+            proxy.scrollTo("mature", anchor: .center)
+            try? await Task.sleep(for: .milliseconds(300))
+            confirmingAge = true
+        } else {
+            proxy.scrollTo(variant, anchor: .top)
+        }
+    }
+}
+#endif
 
 #if os(macOS)
 /// "Add a Folder to Library…" moves what it's given, so its picker should

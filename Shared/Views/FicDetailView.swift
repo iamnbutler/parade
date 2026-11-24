@@ -276,7 +276,15 @@ private struct EarlierVersion: View {
     let item: LibraryItem
     let backup: KeptCopy
     @EnvironmentObject private var model: AppModel
-    @State private var confirming = false
+    @State private var confirming = EarlierVersion.debugConfirms
+
+    private static var debugConfirms: Bool {
+        #if DEBUG
+        DebugScreen.variant == "restore"
+        #else
+        false
+        #endif
+    }
 
     /// "backed up 2 days ago · 152 kB".
     private var facts: String {
@@ -320,7 +328,7 @@ private struct AO3LinkFinder: View {
     let item: LibraryItem
     /// The AO3 work the EPUB links to now, if any.
     let linkedWorkID: Int?
-    @State private var changing = false
+    @State private var changing = AO3LinkFinder.debugChanging
     @EnvironmentObject private var model: AppModel
     @Environment(\.palette) private var palette
     @State private var candidates: [WorkBlurb]?
@@ -341,6 +349,14 @@ private struct AO3LinkFinder: View {
         } else {
             finder
         }
+    }
+
+    private static var debugChanging: Bool {
+        #if DEBUG
+        DebugScreen.opensChangeLink
+        #else
+        false
+        #endif
     }
 
     private var finder: some View {
