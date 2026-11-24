@@ -511,9 +511,10 @@ struct MacRootView: View {
             .leatherBackground()
             .navigationTitle(name)
         } else {
+            let shown = items.filter { model.item($0, matches: searchText) }
             List(selection: $selectedID) {
                 PageHeader(title: name, subtitle: ficCount(items.count)).id(ListTop.id)
-                ForEach(items.filter { model.item($0, matches: searchText) }) { item in
+                ForEach(shown) { item in
                     FicRow(item: item, showsAuthor: true, collection: name).tag(item.id)
                 }
                 .leatherRows()
@@ -521,7 +522,7 @@ struct MacRootView: View {
             .leatherList()
             .readOnDoubleClick(model)
             .backToTop()
-            .noSearchResults(for: searchText, when: !items.contains { model.item($0, matches: searchText) })
+            .noSearchResults(for: searchText, when: shown.isEmpty)
             .ficSearch(text: $searchText, prompt: "Filter collection…")
             .navigationTitle(name)
             .pageTitleInContent()
@@ -569,9 +570,10 @@ struct MacRootView: View {
         } else {
             Group {
                 if let name = browseTag {
+                    let items = model.items(for: .tag(TagSelection(kind: kind, name: name), query: searchText))
                     List(selection: $selectedID) {
                         PageHeader(title: name, subtitle: kind.label).id(ListTop.id)
-                        ForEach(model.items(for: .tag(TagSelection(kind: kind, name: name), query: searchText))) { item in
+                        ForEach(items) { item in
                             FicRow(item: item, showsAuthor: true).tag(item.id)
                         }
                         .leatherRows()
@@ -580,16 +582,17 @@ struct MacRootView: View {
                     .readOnDoubleClick(model)
                     .backToTop()
                     .navigationTitle(name)
-                    .noSearchResults(for: searchText, when: model.items(for: .tag(TagSelection(kind: kind, name: name), query: searchText)).isEmpty)
+                    .noSearchResults(for: searchText, when: items.isEmpty)
                 } else {
+                    let groups = filteredGroups
                     // Selecting a row opens that tag.
                     List(selection: Binding<String?>(get: { nil }, set: { browseTag = $0 })) {
-                        PageHeader(subtitle: filteredGroups.count == 1
+                        PageHeader(subtitle: groups.count == 1
                                    ? "1 \(kind.singular)"
-                                   : "\(filteredGroups.count) \(kind.label.lowercased())") {
+                                   : "\(groups.count) \(kind.label.lowercased())") {
                             browseKindMenu
                         }
-                        ForEach(filteredGroups, id: \.name) { group in
+                        ForEach(groups, id: \.name) { group in
                             HStack(alignment: .firstTextBaseline) {
                                 Text(group.name).textRole(.rowTitle).lineLimit(1)
                                 Spacer()
@@ -602,7 +605,7 @@ struct MacRootView: View {
                     }
                     .leatherList()
                     .navigationTitle(kind.label)
-                    .noSearchResults(for: searchText, when: filteredGroups.isEmpty)
+                    .noSearchResults(for: searchText, when: groups.isEmpty)
                 }
             }
             .searchable(text: $searchText, prompt: "Filter \(kind.label.lowercased())…")
@@ -657,11 +660,14 @@ struct MacRootView: View {
                 .leatherBackground()
             }
         } else {
+            // Filtered once per redraw: the list and its empty state share it.
+            let sections = sort.isGrouped ? filteredSections : []
+            let flat = sort.isGrouped ? [] : libraryFlat
             List(selection: $selectedID) {
                 PageHeader(title: "Library", subtitle: librarySubtitle).id(ListTop.id)
                 if searchText.isEmpty { ContinueReadingRow() }
                 if sort.isGrouped {
-                    ForEach(filteredSections, id: \.name) { section in
+                    ForEach(sections, id: \.name) { section in
                         Section {
                             SectionHeading(name: section.name)
                             ForEach(section.items) { item in
@@ -671,7 +677,7 @@ struct MacRootView: View {
                         }
                     }
                 } else {
-                    ForEach(libraryFlat) { item in
+                    ForEach(flat) { item in
                         FicRow(item: item, showsAuthor: true, date: RowDate(sort)).tag(item.id)
                     }
                     .leatherRows()
@@ -682,7 +688,7 @@ struct MacRootView: View {
             .backToTop()
             .noSearchResults(
                 for: searchText,
-                when: sort.isGrouped ? filteredSections.isEmpty : libraryFlat.isEmpty)
+                when: sort.isGrouped ? sections.isEmpty : flat.isEmpty)
             .ficSearch(text: $searchText, prompt: "Search titles, tags, summaries…")
             .navigationTitle("Library")
             .pageTitleInContent()

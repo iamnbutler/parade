@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Fixed
+- **Long fics open in Pages in seconds, not minutes.** A 400,000-word fic
+  took over two minutes to lay out into pages; it now takes about a
+  second. Turning a page no longer does work for every page in the book,
+  and scrolling a long fic no longer rebuilds it each time a paragraph
+  passes the top. On the Mac, dragging the window wider lays the pages
+  out once, when you let go.
 - **A fic's page shows its earlier version again.** The "Earlier version
   backed up … · Restore" line never appeared on a fic's page, even when
   Settings › Restore listed a backup of it. It shows now.
