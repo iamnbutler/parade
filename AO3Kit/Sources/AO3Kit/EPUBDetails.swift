@@ -63,11 +63,52 @@ public extension WorkDetails {
     /// midnight — compare against precise timestamps with a full-day margin.
     var latestDate: Date? {
         guard let s = updated ?? published else { return nil }
+        let day = s.trimmingCharacters(in: .whitespaces)
+        return WorkDetailsDates.utcDay(day) ?? WorkDetailsDates.day.date(from: day)
+    }
+}
+
+/// One formatter, made once: a new DateFormatter cost ~60 µs, and
+/// `latestDate` is read for every row of a list sorted by update date.
+/// DateFormatter is thread-safe once configured.
+enum WorkDetailsDates {
+    nonisolated(unsafe) static let day: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.date(from: s.trimmingCharacters(in: .whitespaces))
+        return formatter
+    }()
+}
+
+extension WorkDetailsDates {
+    /// "2024-05-06" as UTC midnight, worked out by hand (~0.1 µs; the
+    /// formatter takes ~20). Anything that isn't a real day in that exact
+    /// shape is nil, for the formatter to have a go at.
+    static func utcDay(_ s: String) -> Date? {
+        let b = Array(s.utf8)
+        guard b.count == 10, b[4] == UInt8(ascii: "-"), b[7] == UInt8(ascii: "-") else { return nil }
+        func number(_ r: Range<Int>) -> Int? {
+            var n = 0
+            for i in r {
+                guard (UInt8(ascii: "0")...UInt8(ascii: "9")).contains(b[i]) else { return nil }
+                n = n * 10 + Int(b[i] - UInt8(ascii: "0"))
+            }
+            return n
+        }
+        guard let y = number(0..<4), let m = number(5..<7), let d = number(8..<10),
+              (1900...9999).contains(y), (1...12).contains(m) else { return nil }
+        let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)
+        let monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]
+        guard (1...monthDays).contains(d) else { return nil }
+        // Days since 1970-01-01 in the proleptic Gregorian calendar
+        // (Howard Hinnant's days_from_civil).
+        let yy = m <= 2 ? y - 1 : y
+        let era = yy / 400
+        let yoe = yy - era * 400
+        let doy = (153 * ((m + 9) % 12) + 2) / 5 + d - 1
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+        return Date(timeIntervalSince1970: TimeInterval(era * 146_097 + doe - 719_468) * 86_400)
     }
 }
 
@@ -136,7 +177,7 @@ public enum EPUBDetailsParser {
 
         // The tags block is dt/dd pairs: label → comma-separated tag links.
         let pairPattern = #"<dt[^>]*>\s*([^<]+?):\s*</dt>\s*<dd[^>]*>([\s\S]*?)</dd>"#
-        guard let regex = try? NSRegularExpression(pattern: pairPattern) else { return d }
+        guard let regex = RegexCache.regex(pairPattern) else { return d }
         let range = NSRange(preface.startIndex..., in: preface)
         for match in regex.matches(in: preface, range: range) {
             guard let labelRange = Range(match.range(at: 1), in: preface),
@@ -188,7 +229,7 @@ public enum EPUBDetailsParser {
     }
 
     private static func firstMatch(in text: String, pattern: String) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: pattern),
+        guard let regex = RegexCache.regex(pattern),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               match.numberOfRanges > 1,
               let range = Range(match.range(at: 1), in: text)
@@ -197,7 +238,7 @@ public enum EPUBDetailsParser {
     }
 
     private static func allMatches(in text: String, pattern: String) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = RegexCache.regex(pattern) else { return [] }
         return regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
             .compactMap { match in
                 guard match.numberOfRanges > 1, let range = Range(match.range(at: 1), in: text) else { return nil }

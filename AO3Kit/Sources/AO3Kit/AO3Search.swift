@@ -312,7 +312,7 @@ enum BlurbExtract {
     // MARK: - helpers
 
     private static func ranges(of pattern: String, in s: String) -> [Range<String.Index>] {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = RegexCache.regex(pattern) else { return [] }
         return regex.matches(in: s, range: NSRange(s.startIndex..., in: s)).compactMap { Range($0.range, in: s) }
     }
 

@@ -20,9 +20,13 @@ public struct AO3Client: Sendable {
         return URLSession(configuration: config)
     }()
 
+    /// Whether AO3's EPUB downloads were found switched off just now.
+    let epubsOff: EPUBsOff
+
     public init(session: URLSession? = nil, scheduler: AO3Scheduler = .shared) {
         self.scheduler = scheduler
         self.session = session ?? Self.sharedSession
+        self.epubsOff = EPUBsOff()
     }
 
     /// Resolves a link to the list of works it names — one for a work link,
@@ -91,20 +95,46 @@ public struct AO3Client: Sendable {
         if work.epubURL.pathExtension == "html" {
             return try await epubFromHTMLDownload(work, from: work.epubURL, priority: priority)
         }
+        var html = Self.htmlDownloadURL(for: work.epubURL)
+        // EPUB links that failed a moment ago still fail: go straight to the
+        // HTML download rather than spend a request (and its spacing) on
+        // each. Anything but AO3 asking us to wait sends it the usual way.
+        if let shortcut = html, epubsOff.recently() {
+            do {
+                return try await epubFromHTMLDownload(work, from: shortcut, priority: priority)
+            } catch let error as AO3Error where error.isWaitingRoomOrRateLimit {
+                throw error
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                epubsOff.clear()
+                // Not asked for twice in a row.
+                html = nil
+            }
+        }
         do {
-            return try await download(work.epubURL, priority: priority)
+            let file = try await download(work.epubURL, priority: priority)
+            epubsOff.clear()
+            return file
         } catch let error as AO3Error where Self.isMissingDownload(error) {
             // AO3 turns EPUB downloads off at times (a link that's still on
             // the page may 404 or fail): its HTML download is the same text.
-            guard var parts = URLComponents(url: work.epubURL, resolvingAgainstBaseURL: false) else { throw error }
-            parts.path = (parts.path as NSString).deletingPathExtension + ".html"
-            guard let html = parts.url else { throw error }
+            guard let html else { throw error }
             do {
-                return try await epubFromHTMLDownload(work, from: html, priority: priority)
+                let file = try await epubFromHTMLDownload(work, from: html, priority: priority)
+                epubsOff.mark()
+                return file
             } catch {
                 throw error is AO3Error ? error : AO3Error.parseFailed("HTML download")
             }
         }
+    }
+
+    /// The HTML download beside an EPUB link: same path, `.html`.
+    static func htmlDownloadURL(for epub: URL) -> URL? {
+        guard var parts = URLComponents(url: epub, resolvingAgainstBaseURL: false) else { return nil }
+        parts.path = (parts.path as NSString).deletingPathExtension + ".html"
+        return parts.url
     }
 
     /// A downloaded file is only looked into when it isn't a plain success
@@ -213,6 +243,33 @@ public struct AO3Client: Sendable {
             throw AO3Error.rateLimited(retryAfter: retryAfter)
         default: throw AO3Error.httpError(http.statusCode)
         }
+    }
+}
+
+extension AO3Error {
+    /// AO3 asking us to wait, which no other route around should ignore.
+    var isWaitingRoomOrRateLimit: Bool {
+        switch self {
+        case .rateLimited, .waitingRoom: return true
+        default: return false
+        }
+    }
+}
+
+/// When AO3's EPUB downloads last failed while its HTML download worked.
+/// Remembered for `window`, then the EPUB is tried again.
+final class EPUBsOff: @unchecked Sendable {
+    static let window: TimeInterval = 30 * 60
+    private let lock = NSLock()
+    private var since: Date?
+    private let now: @Sendable () -> Date
+
+    init(now: @escaping @Sendable () -> Date = { Date() }) { self.now = now }
+
+    func mark() { lock.withLock { since = now() } }
+    func clear() { lock.withLock { since = nil } }
+    func recently() -> Bool {
+        lock.withLock { since.map { now().timeIntervalSince($0) < Self.window } ?? false }
     }
 }
 
