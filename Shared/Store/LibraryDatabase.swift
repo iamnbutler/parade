@@ -60,7 +60,31 @@ final class LibraryDatabase: Sendable {
                 t.column("pending", .boolean).notNull().defaults(to: false)
             }
         }
+        // Each fic's search row gets a fixed rowid (from searchRow), so
+        // replacing or dropping it is a key lookup. `itemID` is UNINDEXED in
+        // the FTS table: deleting by it scanned the whole index once per fic,
+        // which made the first index of a large library quadratic (9,000
+        // fics: 12.5 s of writes, against 0.6 s by rowid).
+        migrator.registerMigration("v2-search-rowids") { db in
+            try db.execute(sql: """
+                CREATE TABLE searchRow (itemID TEXT PRIMARY KEY);
+                INSERT OR IGNORE INTO searchRow (itemID) SELECT itemID FROM search;
+                CREATE VIRTUAL TABLE search2 USING fts5(itemID UNINDEXED, text, tokenize = 'trigram');
+                INSERT INTO search2 (rowid, itemID, text)
+                    SELECT searchRow.rowid, search.itemID, search.text FROM search
+                    JOIN searchRow ON searchRow.itemID = search.itemID
+                    WHERE search.rowid IN (SELECT MAX(rowid) FROM search GROUP BY itemID);
+                DROP TABLE search;
+                ALTER TABLE search2 RENAME TO search;
+                """)
+        }
         return migrator
+    }
+
+    /// The fixed rowid of a fic's search row, made on first use.
+    private static func searchRowID(_ db: Database, _ itemID: String) throws -> Int64 {
+        try db.execute(sql: "INSERT OR IGNORE INTO searchRow (itemID) VALUES (?)", arguments: [itemID])
+        return try Int64.fetchOne(db, sql: "SELECT rowid FROM searchRow WHERE itemID = ?", arguments: [itemID])!
     }
 
     // MARK: - details
@@ -94,14 +118,15 @@ final class LibraryDatabase: Sendable {
         let encoder = JSONEncoder()
         try pool.write { db in
             for row in rows {
-                try db.execute(sql: "DELETE FROM search WHERE itemID = ?", arguments: [row.itemID])
+                let rowID = try Self.searchRowID(db, row.itemID)
+                try db.execute(sql: "DELETE FROM search WHERE rowid = ?", arguments: [rowID])
                 try db.execute(
                     sql: "INSERT OR REPLACE INTO details (key, itemID, json) VALUES (?, ?, ?)",
                     arguments: [row.key, row.itemID, try encoder.encode(row.details)])
                 let text = Self.searchText(row.details)
                 if !text.isEmpty {
-                    try db.execute(sql: "INSERT INTO search (itemID, text) VALUES (?, ?)",
-                                   arguments: [row.itemID, text])
+                    try db.execute(sql: "INSERT INTO search (rowid, itemID, text) VALUES (?, ?, ?)",
+                                   arguments: [rowID, row.itemID, text])
                 }
             }
         }
@@ -115,8 +140,11 @@ final class LibraryDatabase: Sendable {
                 if let itemID = try String.fetchOne(db, sql: "SELECT itemID FROM details WHERE key = ?", arguments: [key]) {
                     try db.execute(sql: "DELETE FROM details WHERE key = ?", arguments: [key])
                     // Another version of the same fic may still be indexed.
-                    if try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM details WHERE itemID = ?", arguments: [itemID]) == 0 {
-                        try db.execute(sql: "DELETE FROM search WHERE itemID = ?", arguments: [itemID])
+                    if try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM details WHERE itemID = ?", arguments: [itemID]) == 0,
+                       let rowID = try Int64.fetchOne(db, sql: "SELECT rowid FROM searchRow WHERE itemID = ?",
+                                                      arguments: [itemID]) {
+                        try db.execute(sql: "DELETE FROM search WHERE rowid = ?", arguments: [rowID])
+                        try db.execute(sql: "DELETE FROM searchRow WHERE rowid = ?", arguments: [rowID])
                     }
                 }
             }

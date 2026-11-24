@@ -232,11 +232,19 @@ final class AppModel: ObservableObject {
     private let database: LibraryDatabase
 
     /// Replaces polling: refreshes when iCloud reports the folder changed.
-    private lazy var watcher = LibraryWatcher { [weak self] in self?.libraryChanged() }
+    private lazy var watcher = LibraryWatcher { [weak self] change in self?.libraryChanged(change) }
 
-    private func libraryChanged() {
-        refreshLibrary()
-        buildDetailsIndex()
+    /// Redoes what `change` needs. Only a fic changing walks the library: a
+    /// state file (ours, written back by iCloud, or another device's) is
+    /// re-read on its own, and Backups and Trash only relist themselves.
+    private func libraryChanged(_ change: LibraryChange = .all) {
+        if change.contains(.library) {
+            refreshLibrary()
+            buildDetailsIndex()
+        } else if change.contains(.state) {
+            reloadStateFiles()
+        }
+        if change.contains(.keptCopies) { refreshKeptCopies() }
         pullReadingPositions()
     }
 
@@ -244,7 +252,17 @@ final class AppModel: ObservableObject {
     /// for folders it doesn't watch, and a cheap safety net — at most every
     /// few minutes.
     func appBecameActive() {
-        guard Date().timeIntervalSince(lastRefreshEnd) > (inCloud ? 300 : 15) else { return }
+        refreshIfStale()
+    }
+
+    /// A library screen appeared. In iCloud the watcher already reports
+    /// every change, so this walks the folder only as a safety net (every
+    /// few minutes); elsewhere, at most every 15 seconds. Walking on every
+    /// appearance made each tab switch a full scan and index pass.
+    /// Pull to refresh and Scan Now still always walk.
+    func refreshIfStale() {
+        guard !refresher.isRunning,
+              Date().timeIntervalSince(lastRefreshEnd) > (inCloud ? 300 : 15) else { return }
         libraryChanged()
     }
 
@@ -286,7 +304,7 @@ final class AppModel: ObservableObject {
             try? FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
             destinationRoot = container
             inCloud = true
-            watcher.watchCloud()
+            watcher.watchCloud(root: container)
             // New root, new first scan — the loading state should show
             // until the container has actually been read once.
             hasLoadedOnce = false
@@ -388,6 +406,8 @@ final class AppModel: ObservableObject {
         var placeholders: [URL] = []
         var toRead: [LibraryItem] = []
         var error: String?
+        /// EPUBs sitting where an author folder should be.
+        var foundStrays = false
     }
 
     /// One scan at a time. A refresh asked for mid-scan gets a scan that
@@ -486,21 +506,23 @@ final class AppModel: ObservableObject {
         root: URL,
         onPartial: (@Sendable ([(author: String, items: [LibraryItem])]) -> Void)? = nil
     ) -> LibraryScan {
-        // Self-heal stray drops (an author folder at the root, etc.) so
-        // nothing in the folder can exist undetected.
+        let scan = walkLibrary(root: root, onPartial: onPartial)
+        guard scan.foundStrays else { return scan }
+        // Self-heal stray drops (an author folder of EPUBs at the root) so
+        // nothing in the folder can exist undetected, then read it again.
+        // Only when the walk saw one: normalizing first on every scan listed
+        // the root and every provider folder twice.
         LibraryMigrator.normalizeLayout(root: root)
+        return walkLibrary(root: root, onPartial: onPartial)
+    }
+
+    private nonisolated static func walkLibrary(
+        root: URL,
+        onPartial: (@Sendable ([(author: String, items: [LibraryItem])]) -> Void)?
+    ) -> LibraryScan {
         let fm = FileManager.default
         var scan = LibraryScan()
-        let favoritesFile = root.appendingPathComponent("Favorites.txt")
-        if fm.fileExists(atPath: root.appendingPathComponent(".Favorites.txt.icloud").path) {
-            scan.placeholders.append(favoritesFile)
-        }
-        scan.favorites = favoriteIDs(at: favoritesFile)
-        let collectionsFile = root.appendingPathComponent(Self.collectionsFileName)
-        if fm.fileExists(atPath: root.appendingPathComponent(".\(Self.collectionsFileName).icloud").path) {
-            scan.placeholders.append(collectionsFile)
-        }
-        scan.collections = (try? String(contentsOf: collectionsFile, encoding: .utf8)).map(FicCollections.init(text:)) ?? FicCollections()
+        (scan.favorites, scan.collections, scan.placeholders) = readStateFiles(root: root)
 
         let providerDirs: [URL]
         do {
@@ -526,6 +548,9 @@ final class AppModel: ObservableObject {
                 at: providerDir, includingPropertiesForKeys: [.isDirectoryKey],
                 options: [.skipsHiddenFiles])) ?? []
             for dir in authorDirs {
+                // An EPUB right inside a root folder: that folder is an
+                // author dropped at the root (see normalizeLayout).
+                if dir.pathExtension.lowercased() == "epub" { scan.foundStrays = true }
                 guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
                       dir.lastPathComponent != Organizer.backupsFolder,
                       dir.lastPathComponent != Organizer.trashFolder else { continue }
@@ -1145,6 +1170,40 @@ final class AppModel: ObservableObject {
         try? text.write(to: favoritesFile, atomically: true, encoding: .utf8)
     }
 
+    /// Re-reads Favorites.txt and Collections.txt alone, for when only they
+    /// changed: no library walk. Our own save coming back reads as what we
+    /// already have and publishes nothing.
+    private func reloadStateFiles() {
+        let root = destinationRoot
+        let editStamp = localEditStamp
+        Task {
+            let (favorites, collections, placeholders) = await Task.detached(priority: .utility) {
+                Self.readStateFiles(root: root)
+            }.value
+            guard root.path == destinationRoot.path, localEditStamp == editStamp else { return }
+            if self.favorites != favorites { self.favorites = favorites }
+            if self.collections != collections { self.collections = collections }
+            requestDownloads(placeholders)
+        }
+    }
+
+    /// Favorites.txt and Collections.txt at `root`, and either one that's
+    /// still an iCloud placeholder. Off-actor: the scan reads them too.
+    private nonisolated static func readStateFiles(root: URL) -> (Set<String>, FicCollections, [URL]) {
+        let fm = FileManager.default
+        var placeholders: [URL] = []
+        let favoritesFile = root.appendingPathComponent("Favorites.txt")
+        if fm.fileExists(atPath: root.appendingPathComponent(".Favorites.txt.icloud").path) {
+            placeholders.append(favoritesFile)
+        }
+        let collectionsFile = root.appendingPathComponent(collectionsFileName)
+        if fm.fileExists(atPath: root.appendingPathComponent(".\(collectionsFileName).icloud").path) {
+            placeholders.append(collectionsFile)
+        }
+        let collections = (try? String(contentsOf: collectionsFile, encoding: .utf8)).map(FicCollections.init(text:)) ?? FicCollections()
+        return (favoriteIDs(at: favoritesFile), collections, placeholders)
+    }
+
     // MARK: - reading positions
 
     /// Where each fic was left off. The device's database holds it; page
@@ -1199,7 +1258,11 @@ final class AppModel: ObservableObject {
         for (id, position) in mine where (position.date ?? .distantPast) > (all[id]?.date ?? .distantPast) {
             all[id] = position
         }
-        if let data = try? Self.positionEncoder.encode(all) {
+        // Nothing newer than the file already has (a fic reopened at the
+        // place another device already wrote): no write, so nothing syncs.
+        if all == shared {
+            try? database.markReadingPositionsSynced()
+        } else if let data = try? Self.positionEncoder.encode(all) {
             try? data.write(to: readingFile, options: .atomic)
             try? database.markReadingPositionsSynced()
             readingFileSeen = (try? readingFile.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
@@ -1232,6 +1295,9 @@ final class AppModel: ObservableObject {
     private static let positionEncoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
+        // Same places, same bytes: a dictionary's order otherwise changes
+        // from run to run.
+        encoder.outputFormatting = .sortedKeys
         return encoder
     }()
 
@@ -1399,9 +1465,6 @@ final class AppModel: ObservableObject {
                 : "Saved \(saved) fic\(saved == 1 ? "" : "s"), \(failed) failed")
         }
         await refreshLibraryNow()
-        #if os(macOS)
-        await scanNow()
-        #endif
     }
 
     /// Downloads one AO3 work found in search into the library or To Read.
@@ -1496,15 +1559,20 @@ final class AppModel: ObservableObject {
     private func save(_ work: WorkInfo, toRead: Bool = false, replacing: URL? = nil) async throws {
         status("Downloading \(work.title.quoted) by \(work.authorLabel)…")
         let temp = try await client.downloadEPUB(work)
+        let organizer = Organizer(root: toRead ? toReadRoot : destinationRoot)
         // The copy at the download's own path is checked when it's placed;
-        // this is for one saved under another title or author.
-        do {
-            try ChapterGuard.check(temp, replacing: replacing, stated: work.postedChapters)
-        } catch {
-            try? FileManager.default.removeItem(at: temp)
-            throw error
+        // this is for one saved under another title or author. (An update
+        // to the same path would otherwise unzip both EPUBs twice.)
+        if let replacing, replacing.standardizedFileURL
+            != organizer.destination(author: work.authorLabel, title: work.title).standardizedFileURL {
+            do {
+                try ChapterGuard.check(temp, replacing: replacing, stated: work.postedChapters)
+            } catch {
+                try? FileManager.default.removeItem(at: temp)
+                throw error
+            }
         }
-        let dest = try Organizer(root: toRead ? toReadRoot : destinationRoot).place(temp, for: work)
+        let dest = try organizer.place(temp, for: work)
         status("✓ Saved \(relativePath(of: dest))")
     }
 
@@ -1855,9 +1923,6 @@ final class AppModel: ObservableObject {
             showToast("Couldn't update \(item.title.quoted): \(error.localizedDescription)")
         }
         await refreshLibraryNow()
-        #if os(macOS)
-        await scanNow()
-        #endif
     }
 
     func status(_ line: String) {
