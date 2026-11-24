@@ -39,8 +39,7 @@ struct LibraryView: View {
             AddFicSheet()
         }
         .onAppear {
-            model.refreshLibrary()
-            model.buildDetailsIndex()
+            model.refreshIfStale()
         }
     }
 
@@ -161,7 +160,7 @@ struct FavoritesView: View {
         .navigationTitle("Favorites")
         // Favorites is the after-hours room: black leather, garnet, gold.
         .palette(.noir)
-        .onAppear { model.refreshLibrary() }
+        .onAppear { model.refreshIfStale() }
     }
 }
 /// The To Read tab: fics saved to read later, newest first.

@@ -249,8 +249,7 @@ struct MacRootView: View {
             Text("The fics in it stay in your library.")
         }
         .onAppear {
-            model.refreshLibrary()
-            model.buildDetailsIndex()
+            model.refreshIfStale()
         }
         .onChange(of: section) { _, new in
             // Leaving Browse closes the open tag; coming back starts at the list.
