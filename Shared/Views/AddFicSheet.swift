@@ -34,24 +34,19 @@ struct AddFicSheet: View {
         #endif
     }
 
-    private var footnote: String {
-        if linkCount == 0, !linkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Parade doesn't see an AO3 link here yet. Paste a work or series link, like archiveofourown.org/works/12345."
+    /// One line under the box, only when there's something to know before
+    /// Download: no link Parade recognizes (#19: Download stays tappable
+    /// and says so), or a copy that isn't AO3's own.
+    private var footnote: String? {
+        if unrecognized {
+            return "No AO3 link here yet. Paste a work or series link, like archiveofourown.org/works/12345."
         }
-        if linkCount > 1 { return "\(linkCount) links — they download one after another." }
-        if case .archivedWork? = AO3Link(text: linkText) {
-            return "A Wayback Machine copy: Parade saves the work from the archived page, for when AO3 is down. "
-                + "Snapshots with ?view_full_work=true have every chapter."
+        switch AO3Link(text: linkText) {
+        case .archivedWork?: return "Saved from the Wayback Machine's copy."
+        case .ellipsus?: return "Saved from Ellipsus, without an AO3 link."
+        case .ao3saver?: return "Saved from ao3saver.com's copy."
+        default: return nil
         }
-        if case .ellipsus? = AO3Link(text: linkText) {
-            return "An Ellipsus Reader link: Parade saves the story as an EPUB in an ellipsus folder. It has no AO3 link until you link it."
-        }
-        if case .ao3saver? = AO3Link(text: linkText) {
-            return "An ao3saver.com copy: Parade saves the work from that saved version, no AO3 needed."
-        }
-        return toRead
-            ? "Saved to To Read, a folder of its own beside the library. Add a fic to the library when you want to keep it."
-            : "Works and whole series — paste one link or a whole batch. The EPUB is AO3's own export, filed as Author/Title in your library."
     }
 
     private var destinationPicker: some View {
@@ -78,7 +73,6 @@ struct AddFicSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Add fics").textRole(.heading)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Links from AO3").textRole(.kicker)
                 destinationPicker
                     .labelsHidden()
                     .fixedSize()
@@ -89,9 +83,11 @@ struct AddFicSheet: View {
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .debossed(cornerRadius: 10)
-                Text(footnote).textRole(.meta)
-                    .foregroundStyle(unrecognized ? palette.alert : palette.inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
+                if let footnote {
+                    Text(footnote).textRole(.meta)
+                        .foregroundStyle(unrecognized ? palette.alert : palette.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             if !activity.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -134,13 +130,17 @@ struct AddFicSheet: View {
     private var iosSheet: some View {
         NavigationStack {
             Form {
-                LeatherSection(title: "Links from AO3") {
+                Section {
                     destinationPicker
                     linkField
                 } footer: {
-                    Text(footnote)
-                        .foregroundStyle(unrecognized ? palette.alert : palette.inkSoft)
+                    if let footnote {
+                        Text(footnote)
+                            .textRole(.meta)
+                            .foregroundStyle(unrecognized ? palette.alert : palette.inkSoft)
+                    }
                 }
+                .listRowBackground(palette.raised)
 
                 if !activity.isEmpty {
                     LeatherSection("Activity") {

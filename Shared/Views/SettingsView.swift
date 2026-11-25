@@ -9,6 +9,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             Form {
                 #if os(macOS)
                 PageHeader(title: "Settings")
@@ -16,10 +17,9 @@ struct SettingsView: View {
                 folderSection
                 updatesSection
                 restoreSection
-                linkSection
-                searchSection
-                matureSection
-                aboutSection
+                linkSection.id("links")
+                searchSection.id("search")
+                aboutSection.id("about")
                 #if os(macOS)
                 folderImportSection
                 #endif
@@ -32,6 +32,10 @@ struct SettingsView: View {
                 }
             }
             .leatherForm()
+            #if DEBUG
+            .task { await debugScreen(proxy) }
+            #endif
+            }
             #if os(macOS)
             .formStyle(.grouped)
             .buttonStyle(.leather)
@@ -58,25 +62,9 @@ struct SettingsView: View {
     }
 
     private var folderSection: some View {
-        LeatherSection(title: "Library folder") {
+        LeatherSection("Library") {
             LabeledContent("Saving to", value: model.destinationLabel)
-        } footer: {
-            if AppModel.testLibrary != nil {
-                Text("Test library (debug build): a scratch folder with its own settings. Nothing here touches the real library or iCloud.")
-            } else {
-                libraryFooter
-            }
         }
-    }
-
-    private var libraryFooter: Text {
-        #if os(iOS)
-        model.inCloud
-            ? Text("The library lives in Parade's own iCloud Drive folder and syncs to all your devices automatically. Fics are filed by source: ao3/Author/Title.epub.")
-            : Text("iCloud isn't available, so the library is kept on this device only. Fics are filed by source: ao3/Author/Title.epub.")
-        #else
-        Text("The library lives in iCloud Drive › Parade, synced with your other devices. Fics that appear in it — downloaded here or synced from the phone — show up in the library.")
-        #endif
     }
 
     private var updatesSection: some View {
@@ -95,11 +83,7 @@ struct SettingsView: View {
             }
             .disabled(model.isCheckingUpdates)
         } footer: {
-            #if os(iOS)
-            Text("Asks AO3 which of your fics changed since the last check, a few hundred per request (the first check of a big library takes a while). Only runs when you tap it. Fics with an update get a gold dot; nothing downloads until you swipe one and tap Update. Updating keeps the old version for 30 days, under Restore.")
-            #else
-            Text("Asks AO3 which of your fics changed since the last check, a few hundred per request (the first check of a big library takes a while). Only runs when you click it. Fics with an update get a gold dot; nothing downloads until you right-click one and choose Update from AO3. Updating keeps the old version for 30 days, under Restore.")
-            #endif
+            Text("Marks updated fics with a gold dot. Nothing downloads until you update one.")
         }
     }
 
@@ -111,7 +95,7 @@ struct SettingsView: View {
                 Text("Earlier Versions and Deleted Fics")
             }
         } footer: {
-            Text("Versions an update replaced, and fics you delete, are kept for 30 days and then removed automatically. They sync with your library through iCloud.")
+            Text("Kept for 30 days.")
         }
     }
 
@@ -134,35 +118,31 @@ struct SettingsView: View {
             }
             .disabled(count == 0)
         } footer: {
-            Text("Fics downloaded outside Parade have no AO3 link, tags or series. This finds them on AO3 by title and author, 20 at a time and gently paced, and swaps in AO3's own copy where there's exactly one sure match, keeping the old file for 30 days, under Restore. The rest can be matched by hand on their own page.")
+            if count > 0 {
+                Text("Swaps in AO3's copy where the match is sure. The old file goes to Restore.")
+            }
         }
     }
 
+    /// Search's two settings: what it may show, and what it remembers.
     private var searchSection: some View {
         LeatherSection(title: "Search") {
-            Button("Clear Search History") { model.clearSearchHistory() }
-                .disabled(model.recentSearches.isEmpty)
-        } footer: {
-            Text("Recent searches show when you tap a search field. They stay on this device.")
-        }
-    }
-
-    private var matureSection: some View {
-        LeatherSection(title: "Mature works") {
             Toggle("Show mature and explicit works", isOn: Binding(
                 get: { model.matureContentAllowed },
                 set: { on in
                     if on { confirmingAge = true } else { model.setMatureContent(false) }
                 }
             ))
+            Button("Clear Search History") { model.clearSearchHistory() }
+                .disabled(model.recentSearches.isEmpty)
         } footer: {
-            Text("Off, Search leaves out works AO3 rates Mature, Explicit or Not Rated. Authors choose their own ratings. Turning this on means you are 18 or older. It only changes Search: fics you save yourself are always in your library.")
+            Text("Off, Search also hides works that aren't rated.")
         }
         .confirmationDialog("Show mature and explicit works?", isPresented: $confirmingAge, titleVisibility: .visible) {
             Button("I'm 18 or older") { model.setMatureContent(true) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Works rated Mature or Explicit contain adult themes. Only turn this on if you are 18 or older.")
+            Text("Works rated Mature or Explicit contain adult themes.")
         }
     }
 
@@ -172,21 +152,38 @@ struct SettingsView: View {
             Link("Support", destination: ParadeLinks.support)
             Link("Report a Work on AO3", destination: ParadeLinks.ao3Report())
         } footer: {
-            Text("Parade is unofficial. It isn't affiliated with or endorsed by the Archive of Our Own or the Organization for Transformative Works. It only saves works you choose, to your own device.")
+            Text("Unofficial: not affiliated with or endorsed by the Archive of Our Own or the Organization for Transformative Works.")
         }
     }
 
     #if os(macOS)
     private var folderImportSection: some View {
-        LeatherSection(title: "Bring Fics In") {
+        LeatherSection(title: "Import") {
             Button("Add a Folder to Library…") { showImportPicker = true }
-            Button("Scan Now") { model.scan() }
         } footer: {
-            Text("“Add a Folder to Library…” moves an existing [Author]/[epub] tree (like a Calibre library) into the library folder.")
+            Text("Moves an Author/Title.epub folder, like a Calibre library, into the library.")
         }
     }
     #endif
 }
+
+#if DEBUG
+extension SettingsView {
+    /// `tab:settings@<section>` scrolls to a section; `@age` asks the 18+
+    /// question.
+    private func debugScreen(_ proxy: ScrollViewProxy) async {
+        guard DebugScreen.tab == "settings", let variant = DebugScreen.variant else { return }
+        try? await Task.sleep(for: .milliseconds(600))
+        if variant == "age" {
+            proxy.scrollTo("search", anchor: .center)
+            try? await Task.sleep(for: .milliseconds(300))
+            confirmingAge = true
+        } else {
+            proxy.scrollTo(variant, anchor: .top)
+        }
+    }
+}
+#endif
 
 #if os(macOS)
 /// "Add a Folder to Library…" moves what it's given, so its picker should

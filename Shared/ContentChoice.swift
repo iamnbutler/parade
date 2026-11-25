@@ -27,10 +27,10 @@ struct ContentChoiceView: View {
             Text("Before you search")
                 .textRole(.title)
                 .multilineTextAlignment(.center)
-            Text("Parade can search the Archive of Our Own. Authors rate their own works, and some are rated Mature or Explicit and contain adult themes.")
+            Text("Some works on AO3 are rated Mature or Explicit and contain adult themes.")
                 .textRole(.body)
                 .multilineTextAlignment(.center)
-            Text("Those stay hidden unless you say you're 18 or older. You can change this any time in Settings.")
+            Text("You can change this in Settings.")
                 .textRole(.dek)
                 .multilineTextAlignment(.center)
             VStack(spacing: 10) {

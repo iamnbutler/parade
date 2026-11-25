@@ -139,7 +139,7 @@ struct FavoritesView: View {
                     EmptyPage(
                         drawing: "EmptyFavorites",
                         title: "No favorites yet",
-                        message: "Swipe right on a fic in your library and tap the star. The ones you keep coming back to gather here.")
+                        message: "Swipe right on a fic in your library and tap the star.")
                     .leatherBackground()
                 }
             } else {
@@ -177,7 +177,7 @@ struct ToReadView: View {
             list
                 .tabHeader(
                     "To Read",
-                    search: $searchText,
+                    search: model.toRead.isEmpty ? nil : $searchText,
                     prompt: "Filter to read…",
                     add: ("Add to To Read", { showAddSheet = true }))
                 .ficDestinations()
@@ -191,7 +191,7 @@ struct ToReadView: View {
             EmptyPage(
                 drawing: "EmptyShelf",
                 title: "Nothing to read yet",
-                message: "Fics saved for later wait here, in a folder of their own. Add one to the library when it's a keeper.")
+                message: "Save a fic for later with +.")
             .leatherBackground()
         } else {
             List {

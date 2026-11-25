@@ -221,7 +221,7 @@ final class AppModel: ObservableObject {
         if case .inLine = state {
             guard !inAO3Line else { return }
             inAO3Line = true
-            status("AO3 has a waiting room up. In line: Parade checks back every few seconds and carries on when let in.")
+            status("In AO3's waiting room. Parade carries on when let in.")
         } else if inAO3Line {
             inAO3Line = false
             if state == .running { status("Through AO3's waiting room.") }

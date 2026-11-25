@@ -12,32 +12,26 @@ struct RestoreView: View {
             if model.recentBackups.isEmpty && model.recentlyDeleted.isEmpty {
                 EmptyPage(
                     title: "Nothing to restore",
-                    message: "When an update replaces a fic, or you delete one, Parade keeps the copy here for 30 days.")
+                    message: "Earlier versions and deleted fics stay here for 30 days.")
             } else {
                 Form {
                     #if os(macOS)
                     PageHeader(title: "Restore")
                     #endif
-                    Section {
-                        Text("Parade keeps the version an update replaced, and every fic you delete, for 30 days, then removes them on its own. Restoring keeps the copy it replaces, so you can switch back.")
-                            .textRole(.meta)
-                            .listRowBackground(Color.clear)
-                    }
-                    LeatherSection("Recently Updated") {
-                        if model.recentBackups.isEmpty {
-                            Text("No earlier versions from the last 30 days.").textRole(.meta)
-                        }
-                        ForEach(model.recentBackups) { copy in
-                            KeptCopyRow(copy: copy, when: "Backed up") { confirming = copy }
+                    // A list that's empty says nothing: its heading goes too.
+                    if !model.recentBackups.isEmpty {
+                        LeatherSection("Recently Updated") {
+                            ForEach(model.recentBackups) { copy in
+                                KeptCopyRow(copy: copy, when: "Backed up") { confirming = copy }
+                            }
                         }
                     }
-                    LeatherSection("Recently Deleted") {
-                        if model.recentlyDeleted.isEmpty {
-                            Text("Nothing deleted in the last 30 days.").textRole(.meta)
-                        }
-                        ForEach(model.recentlyDeleted) { copy in
-                            KeptCopyRow(copy: copy, when: "Deleted") {
-                                Task { await model.restore(copy) }
+                    if !model.recentlyDeleted.isEmpty {
+                        LeatherSection("Recently Deleted") {
+                            ForEach(model.recentlyDeleted) { copy in
+                                KeptCopyRow(copy: copy, when: "Deleted") {
+                                    Task { await model.restore(copy) }
+                                }
                             }
                         }
                     }
@@ -51,7 +45,15 @@ struct RestoreView: View {
         .leatherBackground()
         .navigationTitle("Restore")
         .pageTitleInContent()
-        .task { model.refreshKeptCopies() }
+        .task {
+            model.refreshKeptCopies()
+            #if DEBUG
+            if DebugScreen.is("restore", "confirm") {
+                try? await Task.sleep(for: .milliseconds(800))
+                confirming = model.recentBackups.first
+            }
+            #endif
+        }
         .confirmationDialog(
             "Restore the earlier version of \(confirming?.title.quoted ?? "this fic")?",
             isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
