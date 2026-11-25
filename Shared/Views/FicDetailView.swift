@@ -91,7 +91,34 @@ struct FicDetailView: View {
         readFic?(item)
     }
 
+    /// The title block, with the fic's page on AO3 (or Ellipsus) as an icon
+    /// in the top corner.
     private var header: some View {
+        HStack(alignment: .top, spacing: 12) {
+            titleBlock
+            Spacer(minLength: 0)
+            sourceLink
+        }
+    }
+
+    @ViewBuilder
+    private var sourceLink: some View {
+        if let url = details?.workURL ?? details?.sourceURL {
+            Link(destination: url) {
+                Image(systemName: "safari")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(palette.ink)
+                    .frame(width: 40, height: 40)
+                    .contentShape(Circle())
+                    .embossed(cornerRadius: 20)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(details?.workURL != nil ? "Open on AO3" : "Open on Ellipsus")
+            .help(details?.workURL != nil ? "Open on AO3" : "Open on Ellipsus")
+        }
+    }
+
+    private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let head = runningHead ?? (model.isToRead(item) ? "To Read" : details?.fandoms.first) {
                 Text(head).textRole(.runningHead).lineLimit(1)
@@ -158,22 +185,23 @@ struct FicDetailView: View {
             // Always available; prominent when a check found an update.
             updateButton
                 .buttonStyle(LeatherButtonStyle(prominent: model.hasUpdate(item)))
-            if let url = details?.workURL {
-                Link("AO3", destination: url)
-                .buttonStyle(.leather)
-            } else if let url = details?.sourceURL {
-                Link("Ellipsus", destination: url)
-                .buttonStyle(.leather)
-            }
-            Button(model.isFavorite(item) ? "Favorited" : "Favorite") {
+            // Favorite and Collections are icons: the star and the stack read
+            // by shape, and the row stays one line on a phone.
+            Button {
                 model.toggleFavorite(item)
+            } label: {
+                Image(systemName: model.isFavorite(item) ? "star.fill" : "star")
             }
             .buttonStyle(.leather)
+            .accessibilityLabel(model.isFavorite(item) ? "Favorited" : "Favorite")
+            .help(model.isFavorite(item) ? "Remove from Favorites" : "Add to Favorites")
             Menu {
                 CollectionMenuItems(item: item, showNewCollection: $showNewCollection)
             } label: {
-                Text("Collections")
+                Image(systemName: "rectangle.stack")
             }
+            .accessibilityLabel("Collections")
+            .help("Collections")
             .menuStyle(.button)
             .buttonStyle(.leather)
             .fixedSize()

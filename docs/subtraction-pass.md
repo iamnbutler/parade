@@ -35,7 +35,7 @@ drawings, running heads) are counted but weren't candidates.
 | Settings › 18+ confirmation | 5 | 4 |
 | Settings › Restore (one of each) | 13 | 11 |
 | Settings › Restore, one list empty | 10 | 6 |
-| Fic page (linked, with an earlier version) | 34 | 26 |
+| Fic page (linked, with an earlier version) | 34 | 24 |
 | Change Link box | 8 | 6 |
 | Restore-earlier-version confirmation | 5 | 4 |
 | Reader popovers (Contents, Text) | 10 | 8 |
@@ -190,9 +190,13 @@ prompt.
 
 `ios-09-fic.jpg`, `ios-10-fic-change-link.jpg`, `ios-11-fic-restore-confirm.jpg`, `mac-fic.jpg` · 34 → 26; Change Link box 8 → 6
 
-- **Icons beside words:** Read, Update, AO3, Favorite, Collections and
-  Add to Library lose their icons. Update still turns prominent when a check
-  found one, and Favorite still reads "Favorited".
+- **Buttons:** Read and Update are words only (their icons repeated the
+  word). Favorite and Collections are icons only: the star (filled when
+  favorited) and the stack read by shape, and the row fits on one line on a
+  phone. AO3 (or Ellipsus) leaves the row for an icon in the top corner,
+  beside the title. Update still turns prominent when a check found one.
+  *Revised after review: the first version cut every icon and kept every
+  word, which went too far.*
 - **Duplicate path:** the Author field (label and chip) went. The byline
   "by quillheart" links each author to the same list.
 - **Status nobody needed:** "Linked to AO3 work 999000001" went. The AO3
