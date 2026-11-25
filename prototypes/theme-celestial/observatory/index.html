@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Observatory · Parade celestial theme</title>
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<!-- Icon sprite: hairline glyphs standing in for SF Symbols -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-books" viewBox="0 0 24 24"><g class="ic"><rect x="3.5" y="4" width="4" height="16" rx=".8"/><rect x="8.5" y="4" width="4" height="16" rx=".8"/><path d="M14.2 5.2l3.7-1 4 15.3-3.7 1z"/><path d="M5.5 7.5v1.5M10.5 7.5v1.5"/></g></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path class="ic" d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/></symbol>
+    <symbol id="i-stack" viewBox="0 0 24 24"><g class="ic"><rect x="3.5" y="8" width="17" height="12.5" rx="2"/><path d="M5.5 5.5h13M7.5 3h9"/></g></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g class="ic"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.3 15.3l5.2 5.2"/></g></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><g class="ic"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/><circle cx="12" cy="12" r="6.6"/></g></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path class="ic" style="stroke-width:2" d="M14.5 5l-7 7 7 7"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path class="ic" style="stroke-width:1.8" d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><g class="ic" style="stroke-width:1.7"><path d="M8 4v16M4.5 7.5L8 4l3.5 3.5M16 20V4M12.5 16.5L16 20l3.5-3.5"/></g></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><g class="ic" style="stroke-width:1.7"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.8" cy="6.5" r=".6"/><circle cx="4.8" cy="12" r=".6"/><circle cx="4.8" cy="17.5" r=".6"/></g></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><g class="ic" style="stroke-width:1.7"><path d="M12 3.5v11M8 7l4-3.5L16 7"/><path d="M8.5 10.5H6.5v10h11v-10h-2"/></g></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></g></symbol>
+    <symbol id="i-star4" viewBox="-10 -10 20 20"><path fill="currentColor" d="M0-10C.9-2.6 2.6-.9 10 0 2.6.9.9 2.6 0 10-.9 2.6-2.6.9-10 0-2.6-.9-.9-2.6 0-10z"/></symbol>
+    <symbol id="i-starline" viewBox="0 0 24 24"><path class="ic" d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><g class="ic"><path d="M7 18.5h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.2A3.4 3.4 0 0 0 7 18.5z"/><path d="M12 10.5v6M9.6 14.2L12 16.6l2.4-2.4"/></g></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24"><g class="ic"><circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></g></symbol>
+    <symbol id="i-update" viewBox="0 0 24 24"><g class="ic"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v8M8.8 12.6L12 15.8l3.2-3.2"/></g></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><g class="ic"><path d="M4.5 6.5h15M9.5 6.5V4h5v2.5M6.5 6.5l1 13.5h9l1-13.5"/></g></symbol>
+    <symbol id="i-heartstar" viewBox="0 0 24 24"><use href="#i-starline"/></symbol>
+    <symbol id="i-signal" viewBox="0 0 18 12"><g fill="currentColor"><rect x="0" y="8" width="3" height="4" rx=".7"/><rect x="5" y="5.5" width="3" height="6.5" rx=".7"/><rect x="10" y="3" width="3" height="9" rx=".7"/><rect x="15" y="0" width="3" height="12" rx=".7"/></g></symbol>
+    <symbol id="i-wifi" viewBox="0 0 16 12"><g fill="currentColor"><path d="M8 2.2c2.4 0 4.6.9 6.3 2.5l1.2-1.2A10.6 10.6 0 0 0 8 .5C5.1.5 2.5 1.6.5 3.5l1.2 1.2A9 9 0 0 1 8 2.2z"/><path d="M8 5.6c1.5 0 2.9.6 3.9 1.5l1.2-1.2A7.2 7.2 0 0 0 8 3.9c-2 0-3.7.7-5.1 2l1.2 1.2c1-.9 2.4-1.5 3.9-1.5z"/><path d="M8 9c.6 0 1.1.2 1.5.6L8 11.5 6.5 9.6C6.9 9.2 7.4 9 8 9z"/></g></symbol>
+    <symbol id="i-battery" viewBox="0 0 28 13"><rect x=".5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="21" height="9" rx="2.2" fill="currentColor"/><path d="M26 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2z" fill="currentColor" opacity=".4"/></symbol>
+
+    <!-- The app icon, drawn once and used at three sizes -->
+    <symbol id="appicon" viewBox="0 0 1024 1024">
+      <defs>
+        <linearGradient id="ic-field" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#1d2a4b"/><stop offset=".55" stop-color="#111b33"/><stop offset="1" stop-color="#080e1c"/></linearGradient>
+        <radialGradient id="ic-lamp" cx=".28" cy="0" r=".85"><stop offset="0" stop-color="#dce4ff" stop-opacity=".12"/><stop offset="1" stop-color="#dce4ff" stop-opacity="0"/></radialGradient>
+        <linearGradient id="ic-sheen" x1="0" y1=".1" x2="1" y2=".9"><stop offset=".25" stop-color="#fff" stop-opacity="0"/><stop offset=".36" stop-color="#fff" stop-opacity=".045"/><stop offset=".47" stop-color="#fff" stop-opacity="0"/></linearGradient>
+        <linearGradient id="ic-gilt" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#f6efdb"/><stop offset=".45" stop-color="#d6ceb6"/><stop offset=".8" stop-color="#a59c84"/><stop offset="1" stop-color="#7d755f"/></linearGradient>
+        <linearGradient id="ic-brass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3dc9c"/><stop offset=".5" stop-color="#c9a35a"/><stop offset="1" stop-color="#8a6a30"/></linearGradient>
+      </defs>
+      <rect width="1024" height="1024" fill="url(#ic-field)"/>
+      <rect width="1024" height="1024" fill="url(#ic-lamp)"/>
+      <rect width="1024" height="1024" fill="url(#ic-sheen)"/>
+      <g fill="none" stroke="#cfc6ae">
+        <circle cx="512" cy="512" r="392" stroke-width="3" opacity=".55"/>
+        <circle cx="512" cy="512" r="372" stroke-width="22" stroke-dasharray="2.2 17.27" stroke-linecap="butt" opacity=".45"/>
+        <circle cx="512" cy="512" r="366" stroke-width="34" stroke-dasharray="3.4 188.25" stroke-linecap="butt" opacity=".7"/>
+        <circle cx="512" cy="512" r="346" stroke-width="2" opacity=".45"/>
+        <circle cx="512" cy="470" r="246" stroke-width="2" opacity=".22"/>
+        <circle cx="512" cy="512" r="200" stroke-width="1.5" opacity=".16"/>
+        <path d="M150 512h724M512 150v724" stroke-width="1.5" opacity=".14"/>
+      </g>
+      <text x="512" y="700" text-anchor="middle" font-family="Cormorant Garamond" font-weight="600" font-size="560" fill="#000" opacity=".55" dy="7">P</text>
+      <text x="512" y="700" text-anchor="middle" font-family="Cormorant Garamond" font-weight="600" font-size="560" fill="#f6efdb" opacity=".22" dy="-3">P</text>
+      <text x="512" y="700" text-anchor="middle" font-family="Cormorant Garamond" font-weight="600" font-size="560" fill="url(#ic-gilt)">P</text>
+      <path transform="translate(512 140) scale(3.2)" fill="url(#ic-brass)" d="M0-10C.9-2.6 2.6-.9 10 0 2.6.9.9 2.6 0 10-.9 2.6-2.6.9-10 0-2.6-.9-.9-2.6 0-10z"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="satin-page">
+<main class="gallery">
+
+  <header class="gallery-head">
+    <div>
+      <a class="back" href="../index.html">‹ All five directions</a>
+      <h1>Observatory</h1>
+      <p class="dek">A night-time reading room in an old observatory. The page is deep navy, nearly flat, with a satin sheen you only notice when you tilt your head. The instruments are drawn in hairline silver-gilt: an astrolabe’s rete, the rings of an orrery, graduated scales and a vernier. Real brass appears once on each screen, on the one thing to look at or touch. It is the quietest of the five directions, and the cheapest to draw.</p>
+      <p class="borrows"><i>Borrows from Leather &amp; Ink:</i> the type pairing’s display face (Cormorant Garamond), italic labels in place of capitals, the emboss and deboss vocabulary (made crisper, like engraved plates), one framed object per page, and gold kept for ornament. It drops the grain, the stitching and the rose.</p>
+    </div>
+    <div class="head-aside">
+      <div class="swatches">
+        <div class="swatch"><div class="chip-color" style="background:#0d1527"></div><b>Navy</b><code>#0d1527</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#080e1c"></div><b>Deep</b><code>#080e1c</code></div>
+        <div class="swatch"><div class="chip-color" style="background:linear-gradient(#19253f,#141e35)"></div><b>Raised</b><code>#19253f → #141e35</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#e6e4dc"></div><b>Ink</b><code>#e6e4dc</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#a3a8b5"></div><b>Ink soft</b><code>#a3a8b5</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#cfc6ae"></div><b>Silver-gilt</b><code>#cfc6ae</code></div>
+        <div class="swatch"><div class="chip-color" style="background:radial-gradient(circle at 35% 30%,#f0d79a,#c9a35a 55%,#8a6a30)"></div><b>Brass</b><code>#c9a35a</code></div>
+      </div>
+      <div class="specimen">
+        <div class="d">The Pleiades, Approximately</div>
+        <div class="di">Cormorant Garamond, for titles and labels</div>
+        <div class="b">Six you can see. Nine if you’ve got good eyes and no streetlights. Spectral, a book face drawn for screens, carries the reading.</div>
+        <div class="bi">Spectral italic for meta: 46,903 words, 11 of 14 chapters</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= SCREENS ================= -->
+  <h2 class="section-title">On the iPhone</h2>
+  <p class="section-note">iPhone 16 Pro size (393 × 852 points). Native structure throughout: a large-title navigation stack, iOS 26 floating glass toolbar buttons and tab bar, tinted to the navy. Brass marks the one thing on each screen.</p>
+
+  <div class="screens">
+
+    <!-- 1. Library -->
+    <figure class="screen-figure">
+      <div class="phone"><div class="screen satin">
+        <div class="statusbar"><span>9:41</span><span class="sb-right"><svg width="18" height="12"><use href="#i-signal"/></svg><svg width="16" height="12"><use href="#i-wifi"/></svg><svg width="28" height="13"><use href="#i-battery"/></svg></span></div>
+        <div class="navbar"><div class="group"></div><div class="group"><span class="glass round"><svg><use href="#i-sort"/></svg></span><span class="glass round"><svg><use href="#i-plus"/></svg></span></div></div>
+        <div class="content">
+          <div class="large-title"><h1>Library</h1><p class="sub">8 fics, 2 favorites, by date added</p></div>
+          <div class="section-head"><span class="name">This week</span><span class="count">4</span></div>
+          <div class="scale section-scale"></div>
+          <ul class="rows">
+            <li><div class="txt"><div class="t"><span>A Field Guide to Falling Stars</span></div><div class="m">orreryheart, 46,903 words, 11 of 14</div></div><span class="dot-brass" title="Update waiting"></span></li>
+            <li><div class="txt"><div class="t"><span>Small Hours, Borrowed Light</span><svg class="fav"><use href="#i-star4"/></svg></div><div class="m">velvetcomma, 31,650 words, 9 of 9</div></div></li>
+            <li><div class="txt"><div class="t"><span>The Cartographer’s Last Commission</span><svg class="fav"><use href="#i-star4"/></svg></div><div class="m">quillandlantern, 84,212 words, 23 of 23</div></div></li>
+            <li><div class="txt"><div class="t"><span>Every Lighthouse Keeps a Ledger</span></div><div class="m">saltmarsh_, 12,480 words, 3 of 3</div></div></li>
+          </ul>
+          <div class="section-head"><span class="name">Earlier this month</span><span class="count">4</span></div>
+          <div class="scale section-scale"></div>
+          <ul class="rows">
+            <li><div class="txt"><div class="t"><span>Nine Letters Never Sent</span></div><div class="m">the_archivist_who_wasnt, 18,002 words, 9 of ?</div></div></li>
+            <li><div class="txt"><div class="t"><span>Where the River Learns Your Name</span></div><div class="m">marginalia_, 7,215 words, 1 of 1</div></div></li>
+            <li><div class="txt"><div class="t"><span>The Long Winter of Lantern Street</span></div><div class="m">hollyandhemlock, 102,390 words, 31 of 31</div></div></li>
+            <li><div class="txt"><div class="t"><span>Ink on the Tidewater</span></div><div class="m">quillandlantern, 5,440 words, 1 of 1</div></div><span class="cloud"><svg><use href="#i-cloud"/></svg>iCloud</span></li>
+          </ul>
+        </div>
+        <nav class="tabbar">
+          <span class="tab on"><svg><use href="#i-books"/></svg>Library</span>
+          <span class="tab"><svg><use href="#i-bookmark"/></svg>To Read</span>
+          <span class="tab"><svg><use href="#i-stack"/></svg>Collections</span>
+          <span class="tab"><svg><use href="#i-search"/></svg>Search</span>
+          <span class="tab"><svg><use href="#i-gear"/></svg>Settings</span>
+        </nav>
+        <div class="home-indicator"></div>
+      </div></div>
+      <figcaption><b>Library.</b> Section headings sit on a graduated scale instead of a plain rule. The brass dot is the screen’s one brass mark: an update is waiting on AO3. Favorites get a small silver-gilt star.</figcaption>
+    </figure>
+
+    <!-- 2. Fic detail -->
+    <figure class="screen-figure">
+      <div class="phone"><div class="screen satin">
+        <div class="statusbar"><span>9:41</span><span class="sb-right"><svg width="18" height="12"><use href="#i-signal"/></svg><svg width="16" height="12"><use href="#i-wifi"/></svg><svg width="28" height="13"><use href="#i-battery"/></svg></span></div>
+        <div class="navbar"><div class="group"><span class="glass round"><svg><use href="#i-chevron"/></svg></span></div><div class="group"><span class="glass round"><svg><use href="#i-share"/></svg></span><span class="glass round"><svg><use href="#i-more"/></svg></span></div></div>
+        <div class="content">
+          <div class="detail">
+            <div class="running">Library, 1 of 8</div>
+            <h1>A Field Guide to Falling Stars</h1>
+            <div class="byline">by <a href="#">orreryheart</a></div>
+            <div class="fandom">Good Omens (TV)</div>
+            <div class="waiting"><span class="pip"></span>Chapter 12 is waiting on AO3. <a href="#">Update</a></div>
+            <div class="actions">
+              <span class="btn primary"><svg class="ic" viewBox="0 0 24 24"><path d="M4 5.5c3-1 5.5-.6 8 1 2.5-1.6 5-2 8-1v13c-3-1-5.5-.6-8 1-2.5-1.6-5-2-8-1z"/><path d="M12 6.5v13"/></svg>Continue, chapter 7</span>
+              <span class="btn"><svg><use href="#i-starline"/></svg>Favorite</span>
+              <span class="btn"><svg><use href="#i-stack"/></svg>Collections</span>
+              <span class="btn"><svg><use href="#i-compass"/></svg>AO3</span>
+            </div>
+            <div class="plate" style="margin-top:18px">
+              <span class="kicker">The summary</span>
+              <p>Crowley kept a list of every star he ever hung, and one of them is going out. Aziraphale offers to help him find it, which is how they end up crossing three counties in a 1926 Bentley with a borrowed telescope on the back seat, and not talking about the last six months at all.</p>
+            </div>
+            <div class="facts">
+              <span class="kicker">Tags</span>
+              <div class="chips">
+                <span class="chip on">Aziraphale/Crowley</span><span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip">Road Trip</span><span class="chip">Stargazing</span><span class="chip">Hurt/Comfort</span><span class="chip">Happy Ending Eventually</span>
+              </div>
+            </div>
+            <div class="stats"><b>46,903</b> words, <b>11</b> of 14 chapters, 2,184 kudos, 318 bookmarks. Teen And Up Audiences, no archive warnings apply, M/M. Updated 19 Nov 2026.</div>
+            <div class="facts">
+              <span class="kicker">Chapters</span>
+              <ul class="chapters">
+                <li class="read"><span class="n">5</span>Dew Point</li>
+                <li class="read"><span class="n">6</span>What the Lens Remembers</li>
+                <li class="here"><span class="n">7</span>Opposition</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <nav class="tabbar">
+          <span class="tab on"><svg><use href="#i-books"/></svg>Library</span>
+          <span class="tab"><svg><use href="#i-bookmark"/></svg>To Read</span>
+          <span class="tab"><svg><use href="#i-stack"/></svg>Collections</span>
+          <span class="tab"><svg><use href="#i-search"/></svg>Search</span>
+          <span class="tab"><svg><use href="#i-gear"/></svg>Settings</span>
+        </nav>
+        <div class="home-indicator"></div>
+      </div></div>
+      <figcaption><b>Fic detail.</b> The summary sits on the page’s one framed object, an instrument plate: four screw heads and two engraved hairlines. Brass goes to “Continue, chapter 7”. The waiting update gets a silver-gilt pip, not brass, so the two don’t compete.</figcaption>
+    </figure>
+
+    <!-- 3. Reader -->
+    <figure class="screen-figure">
+      <div class="phone"><div class="screen satin">
+        <div class="statusbar"><span>9:41</span><span class="sb-right"><svg width="18" height="12"><use href="#i-signal"/></svg><svg width="16" height="12"><use href="#i-wifi"/></svg><svg width="28" height="13"><use href="#i-battery"/></svg></span></div>
+        <div class="navbar"><div class="group"><span class="glass round"><svg><use href="#i-chevron"/></svg></span></div><span class="center">Chapter 4 of 11</span><div class="group"><span class="glass round"><svg><use href="#i-list"/></svg></span><span class="glass round"><span class="aa">Aa</span></span></div></div>
+        <div class="content">
+          <article class="reader">
+            <div class="chap">Chapter four</div>
+            <h2>The Pleiades, Approximately</h2>
+            <div class="orn"><svg width="132" height="12" viewBox="0 0 132 12"><g fill="none" stroke="currentColor" stroke-width="1" opacity=".55"><path d="M0 6h56M76 6h56"/><path d="M0 4h56M76 4h56" stroke-width="3" stroke-dasharray=".8 6.2" stroke-linecap="butt" opacity=".8"/></g><use href="#i-star4" x="60" y="0" width="12" height="12" fill="currentColor"/></svg></div>
+            <div class="body">
+              <p>The trouble with the Pleiades, Crowley said, was that nobody could agree how many of them there were.</p>
+              <p>“Seven,” said Aziraphale, who had read the relevant poets. He was holding the thermos the way other people held a candle in church, both hands, close to the chest. The field smelled of cut hay and of the Bentley’s engine ticking itself cool. “There are seven sisters. It’s rather the point of them.”</p>
+              <p>“Six you can see. Nine if you’ve got good eyes and no streetlights. Fourteen hundred if you’ve got a decent telescope and a grudge.” Crowley lay back on the bonnet with his hands behind his head.</p>
+            </div>
+          </article>
+        </div>
+        <div class="reader-foot">
+          <svg width="341" height="30" viewBox="0 0 341 30" aria-label="38% through">
+            <g fill="none">
+              <path d="M0 14H341" stroke="rgba(207,198,174,.28)" stroke-width="1"/>
+              <path d="M0 14H129.6" stroke="#cfc6ae" stroke-width="1"/>
+              <path d="M0 11.5H341" stroke="rgba(207,198,174,.3)" stroke-width="5" stroke-dasharray=".8 5.4" stroke-linecap="butt"/>
+              <path d="M.5 10H341" stroke="rgba(207,198,174,.45)" stroke-width="8" stroke-dasharray="1 29.9" stroke-linecap="butt"/>
+              <path d="M.5 10H129.6" stroke="#cfc6ae" stroke-width="8" stroke-dasharray="1 29.9" stroke-linecap="butt"/>
+              <path d="M129.6 25.5H162" stroke="#c9a35a" stroke-width="5" stroke-dasharray=".8 4.76" stroke-linecap="butt" opacity=".75"/>
+            </g>
+            <path d="M129.6 15.5l-4.6 7h9.2z" fill="#c9a35a"/>
+          </svg>
+          <div class="lbl"><span>Chapter 4 of 11</span><span>38% through</span></div>
+        </div>
+        <div class="home-indicator"></div>
+      </div></div>
+      <figcaption><b>Reader.</b> Spectral at 18 points on 1.65 leading, about 40 characters a line. Ink #e6e4dc on navy #0d1527 is <b>14.3 : 1</b>; the sheen is a 2–3% band, so the reading surface is effectively flat. Progress is the signature: a chapter scale with a brass vernier pointer, the screen’s one brass mark.</figcaption>
+    </figure>
+
+    <!-- 4. Empty -->
+    <figure class="screen-figure">
+      <div class="phone"><div class="screen satin">
+        <div class="statusbar"><span>9:41</span><span class="sb-right"><svg width="18" height="12"><use href="#i-signal"/></svg><svg width="16" height="12"><use href="#i-wifi"/></svg><svg width="28" height="13"><use href="#i-battery"/></svg></span></div>
+        <div class="content">
+          <div class="large-title"><h1>To Read</h1></div>
+        </div>
+        <div class="empty">
+          <svg width="300" height="236" viewBox="0 0 320 250" role="img" aria-label="A small brass orrery">
+            <title>An orrery</title>
+            <g fill="none" stroke="#cfc6ae" stroke-linecap="round" stroke-linejoin="round">
+              <!-- graduated meridian ring -->
+              <circle cx="160" cy="112" r="104" stroke-width=".8" opacity=".35"/>
+              <circle cx="160" cy="112" r="100" stroke-width="5" stroke-dasharray=".7 4.53" stroke-linecap="butt" opacity=".3"/>
+              <circle cx="160" cy="112" r="99" stroke-width="9" stroke-dasharray="1 51.36" stroke-linecap="butt" opacity=".5"/>
+              <!-- orbits, tilted -->
+              <g transform="rotate(-9 160 112)">
+                <ellipse cx="160" cy="112" rx="38" ry="11" stroke-width="1" opacity=".7"/>
+                <ellipse cx="160" cy="112" rx="66" ry="19" stroke-width="1" opacity=".6"/>
+                <ellipse cx="160" cy="112" rx="92" ry="27" stroke-width="1.1" opacity=".55"/>
+                <!-- arms -->
+                <path d="M160 112L124 117M160 112L210 124M160 112L82 98" stroke-width=".7" opacity=".55"/>
+                <circle cx="124" cy="117" r="4" stroke-width="1"/>
+                <circle cx="210" cy="124" r="6" stroke-width="1"/>
+                <path d="M205 124a5 2 0 0 0 10 0" stroke-width=".6" opacity=".7"/>
+                <circle cx="82" cy="98" r="5" fill="#c9a35a" stroke="#e7cd8f" stroke-width=".7"/>
+                <ellipse cx="82" cy="98" rx="10" ry="3" stroke="#c9a35a" stroke-width=".8"/>
+              </g>
+              <!-- sun -->
+              <circle cx="160" cy="112" r="9" stroke-width="1.2"/>
+              <path d="M154 108c3-2 6-2 9 0M153.5 113c3.5-1.5 7.5-1.5 12 0" stroke-width=".6" opacity=".6"/>
+              <!-- column and stand -->
+              <path d="M160 121v84" stroke-width="1.2"/>
+              <path d="M156 205h8M157 150h6" stroke-width="1"/>
+              <path d="M118 226c14-6 28-18 42-21 14 3 28 15 42 21" stroke-width="1.2"/>
+              <ellipse cx="160" cy="228" rx="50" ry="5" stroke-width="1"/>
+              <path d="M126 228c2 3 66 3 68 0" stroke-width=".6" opacity=".5"/>
+            </g>
+            <g fill="#cfc6ae" opacity=".7">
+              <use href="#i-star4" x="40" y="22" width="9" height="9"/>
+              <use href="#i-star4" x="270" y="40" width="7" height="7"/>
+              <use href="#i-star4" x="286" y="168" width="10" height="10"/>
+              <use href="#i-star4" x="26" y="176" width="6" height="6"/>
+            </g>
+          </svg>
+          <h2>Nothing waiting to be read</h2>
+          <p>Fics you mark To Read gather here, newest first. Find one in your library or on AO3.</p>
+          <span class="btn"><svg><use href="#i-search"/></svg>Search AO3</span>
+        </div>
+        <nav class="tabbar">
+          <span class="tab"><svg><use href="#i-books"/></svg>Library</span>
+          <span class="tab on"><svg><use href="#i-bookmark"/></svg>To Read</span>
+          <span class="tab"><svg><use href="#i-stack"/></svg>Collections</span>
+          <span class="tab"><svg><use href="#i-search"/></svg>Search</span>
+          <span class="tab"><svg><use href="#i-gear"/></svg>Settings</span>
+        </nav>
+        <div class="home-indicator"></div>
+      </div></div>
+      <figcaption><b>Empty state.</b> A small orrery inside a graduated meridian ring, drawn in hairline silver-gilt. One planet is brass. The button stays plain so the drawing keeps the screen’s one brass mark.</figcaption>
+    </figure>
+
+    <!-- 5. Chrome close-up -->
+    <figure class="screen-figure">
+      <div class="panel satin">
+        <h4>Toolbar, at 2×</h4>
+        <div style="height:92px">
+          <div class="zoom" style="transform:scale(2);display:flex;gap:8px;align-items:center;width:186px">
+            <span class="glass round"><svg><use href="#i-chevron"/></svg></span>
+            <span style="flex:1"></span>
+            <span class="glass round"><svg><use href="#i-list"/></svg></span>
+            <span class="glass round"><span class="aa">Aa</span></span>
+          </div>
+        </div>
+        <p class="note">Native Liquid Glass buttons, tinted toward the navy, with a silver-gilt hairline. Glyphs are SF Symbols at the light weight; “Aa” is set in Cormorant.</p>
+
+        <h4>Tab bar, at 2× (three of five tabs)</h4>
+        <div style="height:132px">
+          <div class="zoom" style="transform:scale(2);width:186px">
+            <div class="tabbar" style="position:relative;left:0;right:0;bottom:0;grid-template-columns:repeat(3,1fr);width:186px">
+              <span class="tab on"><svg><use href="#i-books"/></svg>Library</span>
+              <span class="tab"><svg><use href="#i-bookmark"/></svg>To Read</span>
+              <span class="tab"><svg><use href="#i-stack"/></svg>Collections</span>
+            </div>
+          </div>
+        </div>
+        <p class="note">Selected: strong ink with a silver-gilt glyph on a faint engraved pill. Unselected: soft ink. No brass in the chrome; brass belongs to the page.</p>
+
+        <h4>Swipe actions</h4>
+        <div class="swipe">
+          <span class="act" style="background:#76612f"><svg><use href="#i-starline"/></svg>Favorite</span>
+          <div class="row"><div class="t">Small Hours, Borrowed Light</div><div class="m">velvetcomma, 31,650 words</div></div>
+        </div>
+        <div class="swipe" style="margin-top:10px">
+          <div class="row"><div class="t">Nine Letters Never Sent</div><div class="m">the_archivist_who_wasnt</div></div>
+          <span class="act" style="background:#36476a"><svg><use href="#i-update"/></svg>Update</span>
+          <span class="act" style="background:#6b2c39"><svg><use href="#i-trash"/></svg>Delete</span>
+        </div>
+        <p class="note">Tints: aged brass #76612f, slate #36476a, dusk violet #4a4866 (remove from collection), oxblood #6b2c39. All dark enough for the system’s white label.</p>
+      </div>
+      <figcaption><b>Chrome, close up.</b> The structure is all native: the toolbar, the tab bar and swipe actions are system components with tint and type set once, as Chrome.swift does today.</figcaption>
+    </figure>
+
+    <!-- 6. App icon -->
+    <figure class="screen-figure">
+      <div class="panel satin" style="display:flex;flex-direction:column;align-items:center">
+        <h4 style="align-self:flex-start">App icon</h4>
+        <div class="icon-mask" style="width:240px;height:240px;margin-top:20px"><svg width="240" height="240"><use href="#appicon"/></svg></div>
+        <div style="display:flex;gap:28px;align-items:flex-end;margin-top:40px">
+          <div class="icon-mask" style="width:120px;height:120px"><svg width="120" height="120"><use href="#appicon"/></svg></div>
+          <div class="icon-mask" style="width:60px;height:60px"><svg width="60" height="60"><use href="#appicon"/></svg></div>
+        </div>
+        <p class="note" style="margin-top:36px">The P from today’s icon, now engraved in silver-gilt on navy satin and set inside an astrolabe’s graduated limb. A brass four-point star sits at the top of the ring, like the rete’s pointer. At 60 points the ticks blur into a fine textured ring, which is what you want there; the P and the brass star carry it.</p>
+        <p class="note" style="margin-top:0">Vector all the way down: no baked leather texture, so it goes straight into Icon Composer as three layers (field, ring, P and star).</p>
+      </div>
+      <figcaption><b>App icon.</b> Shown with the iOS mask at 240, 120 and 60 points.</figcaption>
+    </figure>
+  </div>
+
+  <!-- ================= DETAILS ================= -->
+  <h2 class="section-title">Up close</h2>
+  <p class="section-note">Each effect, large, with what it would cost in SwiftUI. Observatory is the perf-friendliest direction because almost everything is gradients and strokes: no noise tile, no blend modes, no blurs of our own, and depth from one-pixel strokes instead of shadows.</p>
+
+  <div class="details-grid">
+
+    <div class="detail-card wide">
+      <h3>Navy satin</h3>
+      <p class="what">The page material. A lamp at the top left, one diagonal band of sheen at 2–3%, a vignette at the foot. On reading surfaces the band is dropped.</p>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
+        <div class="satin" style="height:300px;border-radius:6px;box-shadow:inset 0 0 0 1px var(--rule);display:flex;align-items:flex-end;padding:16px"><span class="meta">Page: navy satin, #0d1527</span></div>
+        <div style="height:300px;border-radius:6px;background:#0d1527;box-shadow:inset 0 0 0 1px var(--rule);display:flex;align-items:flex-end;padding:16px"><span class="meta">Reader: flat #0d1527</span></div>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span><b>One LinearGradient, two EllipticalGradients</b> in a ZStack behind the window, drawn once and never invalidated. It’s LeatherBackground with the grain tile removed, so it saves a tiled image draw per frame of scroll.</p>
+    </div>
+
+    <div class="detail-card wide">
+      <h3>Engraved plate and brass</h3>
+      <p class="what">Depth comes from crisp one-pixel lips, as on an engraved brass plate: a highlight on top, a dark line beneath, no soft shadow. Lettering is a silver-gilt gradient with a hairline cut above it.</p>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:center">
+        <div class="plate" style="padding:34px 32px 36px">
+          <span class="kicker">Engraved</span>
+          <div class="engraved" style="font:500 44px/1.05 var(--display);margin-top:10px">A Field Guide to Falling Stars</div>
+          <p style="color:var(--ink-soft);font-style:italic">by orreryheart, 46,903 words</p>
+        </div>
+        <div style="display:grid;gap:18px;justify-items:center">
+          <svg width="150" height="150" viewBox="-80 -80 160 160" aria-label="Brass pointer">
+            <defs><radialGradient id="d-brass" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#f3dc9c"/><stop offset=".5" stop-color="#c9a35a"/><stop offset="1" stop-color="#7d5f2a"/></radialGradient></defs>
+            <circle r="72" fill="none" stroke="#cfc6ae" stroke-width=".8" opacity=".45"/>
+            <circle r="66" fill="none" stroke="#cfc6ae" stroke-width="10" stroke-dasharray=".8 6.1" stroke-linecap="butt" opacity=".5"/>
+            <circle r="44" fill="url(#d-brass)"/>
+            <circle r="44" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1.2" transform="translate(0 1)"/>
+            <circle r="43" fill="none" stroke="#fff3d2" stroke-opacity=".35" stroke-width=".8" transform="translate(0 -.6)"/>
+            <use href="#i-star4" x="-20" y="-20" width="40" height="40" fill="#5a4320" opacity=".65"/>
+          </svg>
+          <span class="meta">Brass: a radial gradient #f3dc9c → #c9a35a → #7d5f2a, a dark lip below, a highlight above</span>
+        </div>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span><b>Plate:</b> a LinearGradient fill plus two <code>strokeBorder</code> lines and four tiny circles in a Canvas; no <code>.shadow</code>, so no offscreen pass. <span class="cost-tag moderate">moderate</span><b>Engraved lettering:</b> a gradient <code>foregroundStyle</code> is cheap; fake the cut with a 1-point offset copy of the Text in black, not a shadow modifier. Titles only, never body text.</p>
+    </div>
+
+    <div class="detail-card wide">
+      <h3>Star motifs</h3>
+      <p class="what">Instrument drawings in hairline silver-gilt: an astrolabe rete, an orrery, a compass star, the moon’s phases. Ticks are one circle with a dash pattern, not hundreds of lines.</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:center;justify-items:center">
+        <svg width="190" height="190" viewBox="-100 -100 200 200" role="img" aria-label="Astrolabe rete">
+          <title>Astrolabe rete</title>
+          <g fill="none" stroke="#cfc6ae" stroke-linecap="round">
+            <circle r="94" stroke-width="1" opacity=".6"/>
+            <circle r="88" stroke-width="8" stroke-dasharray=".7 4.31" stroke-linecap="butt" opacity=".45"/>
+            <circle r="87" stroke-width="13" stroke-dasharray="1.1 44.45" stroke-linecap="butt" opacity=".7"/>
+            <circle r="80" stroke-width=".8" opacity=".55"/>
+            <circle r="52" stroke-width=".6" opacity=".35"/>
+            <circle r="26" stroke-width=".6" opacity=".35"/>
+            <circle cx="0" cy="-18" r="58" stroke-width="1.2" opacity=".85"/>
+            <circle cx="0" cy="-18" r="51" stroke-width=".6" opacity=".5"/>
+            <path d="M-80 0H80M0-80V80" stroke-width=".5" opacity=".3"/>
+            <!-- star pointers: little flames -->
+            <path d="M-34 30c4-6 8-10 12-11M44 -40c-2 7-6 11-11 13M20 46c-4-5-6-10-6-15M-52 -30c6 0 11 2 14 6" stroke-width="1"/>
+            <path d="M-92 4l184-8" stroke-width="1.3" opacity=".75"/>
+          </g>
+          <g fill="#cfc6ae"><circle cx="-22" cy="19" r="2"/><circle cx="33" cy="-27" r="2"/><circle cx="14" cy="31" r="1.6"/><circle cx="-38" cy="-24" r="1.6"/><circle r="3"/></g>
+          <circle cx="0" cy="-76" r="3.4" fill="#c9a35a"/>
+        </svg>
+        <svg width="190" height="160" viewBox="0 0 320 250" role="img" aria-label="Orrery">
+          <g fill="none" stroke="#cfc6ae" stroke-linecap="round">
+            <g transform="rotate(-9 160 112)">
+              <ellipse cx="160" cy="112" rx="38" ry="11" opacity=".7"/>
+              <ellipse cx="160" cy="112" rx="66" ry="19" opacity=".6"/>
+              <ellipse cx="160" cy="112" rx="92" ry="27" opacity=".55"/>
+              <path d="M160 112L124 117M160 112L210 124M160 112L82 98" stroke-width=".7" opacity=".55"/>
+              <circle cx="124" cy="117" r="4"/><circle cx="210" cy="124" r="6"/><circle cx="82" cy="98" r="5"/>
+            </g>
+            <circle cx="160" cy="112" r="9" stroke-width="1.3"/>
+            <path d="M160 121v84M118 226c14-6 28-18 42-21 14 3 28 15 42 21" stroke-width="1.2"/>
+            <ellipse cx="160" cy="228" rx="50" ry="5"/>
+          </g>
+        </svg>
+        <svg width="170" height="170" viewBox="-50 -50 100 100" role="img" aria-label="Compass star">
+          <g stroke="#cfc6ae" stroke-width=".7" stroke-linejoin="round">
+            <circle r="30" fill="none" opacity=".4"/>
+            <circle r="27" fill="none" stroke-width="3" stroke-dasharray=".5 2.33" stroke-linecap="butt" opacity=".45"/>
+            <g transform="rotate(45)"><path d="M0-30L4-4 30 0 4 4 0 30-4 4-30 0-4-4z" fill="none" opacity=".7"/><path d="M0-30L4-4 0 0zM30 0L4 4 0 0zM0 30L-4 4 0 0zM-30 0L-4-4 0 0z" fill="#cfc6ae" fill-opacity=".16" stroke="none"/></g>
+            <path d="M0-46L6-6 46 0 6 6 0 46-6 6-46 0-6-6z" fill="none"/>
+            <path d="M0-46L6-6 0 0zM46 0L6 6 0 0zM0 46L-6 6 0 0zM-46 0L-6-6 0 0z" fill="#cfc6ae" fill-opacity=".28" stroke="none"/>
+            <circle r="3" fill="#0d1527"/>
+          </g>
+        </svg>
+        <svg width="260" height="78" viewBox="0 0 200 60" role="img" aria-label="Moon phases">
+          <g transform="translate(0 30)" stroke="#cfc6ae" stroke-width=".8">
+            <g transform="translate(14 0)"><circle r="10" fill="none" opacity=".5"/></g>
+            <g transform="translate(38 0)"><circle r="10" fill="none" opacity=".5"/><path d="M0-10A10 10 0 0 1 0 10 6 10 0 0 0 0-10z" fill="#cfc6ae" stroke="none"/></g>
+            <g transform="translate(62 0)"><circle r="10" fill="none" opacity=".5"/><path d="M0-10A10 10 0 0 1 0 10z" fill="#cfc6ae" stroke="none"/></g>
+            <g transform="translate(86 0)"><circle r="10" fill="none" opacity=".5"/><path d="M0-10A10 10 0 0 1 0 10 6 10 0 0 1 0-10z" fill="#cfc6ae" stroke="none"/></g>
+            <g transform="translate(110 0)"><circle r="10" fill="#cfc6ae" stroke="none"/></g>
+            <g transform="translate(134 0)"><circle r="10" fill="none" opacity=".5"/><path d="M0-10A10 10 0 0 0 0 10 6 10 0 0 0 0-10z" fill="#cfc6ae" stroke="none"/></g>
+            <g transform="translate(158 0)"><circle r="10" fill="none" opacity=".5"/><path d="M0-10A10 10 0 0 0 0 10z" fill="#cfc6ae" stroke="none"/></g>
+            <g transform="translate(182 0)"><circle r="10" fill="none" opacity=".5"/><path d="M0-10A10 10 0 0 0 0 10 6 10 0 0 1 0-10z" fill="#cfc6ae" stroke="none"/></g>
+          </g>
+        </svg>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span><b>Static Shapes or one Canvas</b>, or a vector asset in the catalog. Graduations are a single <code>Circle().stroke(style: StrokeStyle(lineWidth: 8, dash: [0.7, 4.3]))</code>: one path, not a ForEach of tick views. Put large drawings behind <code>.drawingGroup()</code> only if they animate; static ones don’t need it.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Buttons</h3>
+      <p class="what">Small engraved plates. The primary takes the page’s brass, in italic; pressed sinks into the plate.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <span class="btn primary">Continue, chapter 7</span>
+        <span class="btn"><svg><use href="#i-starline"/></svg>Favorite</span>
+        <span class="btn pressed"><svg><use href="#i-starline"/></svg>Favorited</span>
+      </div>
+      <p class="meta" style="margin-top:10px">Primary, secondary, pressed</p>
+      <p class="cost"><span class="cost-tag cheap">cheap</span>LeatherButtonStyle as it is today, with the shadow line swapped for a bottom stroke.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Chips and tags</h3>
+      <p class="what">Cut into the page: a dark well with a hairline catch at the bottom. Selected gets a silver-gilt rim.</p>
+      <div class="chips">
+        <span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip on">Aziraphale/Crowley</span><span class="chip">Stargazing</span>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span>Today’s Debossed with the inner shadow replaced by a 1-point top stroke, which drops the one offscreen pass each chip costs now. Worth doing in a tag cloud of 20.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Dividers and ornaments</h3>
+      <p class="what">The graduated scale replaces the plain rule under section headings. A four-point star between two short scales replaces the fleuron.</p>
+      <div class="scale" style="margin:10px 0 22px"></div>
+      <div style="display:flex;justify-content:center;color:var(--gilt)"><svg width="200" height="14" viewBox="0 0 200 14"><g fill="none" stroke="currentColor" opacity=".55"><path d="M0 7h88M112 7h88" stroke-width="1"/><path d="M0 5h88M112 5h88" stroke-width="3" stroke-dasharray=".8 6.2" stroke-linecap="butt" opacity=".8"/></g><use href="#i-star4" x="93" y="0" width="14" height="14" fill="currentColor"/></svg></div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span>One Path stroked twice (a baseline and a dashed tick row). Fixed height, no layout cost.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Progress: the vernier</h3>
+      <p class="what">The signature. A chapter scale (one long tick per chapter) with a brass pointer and a short vernier sliding under it.</p>
+      <svg width="340" height="30" viewBox="0 0 341 30" aria-label="38% through">
+        <g fill="none">
+          <path d="M0 14H341" stroke="rgba(207,198,174,.28)"/>
+          <path d="M0 14H129.6" stroke="#cfc6ae"/>
+          <path d="M0 11.5H341" stroke="rgba(207,198,174,.3)" stroke-width="5" stroke-dasharray=".8 5.4" stroke-linecap="butt"/>
+          <path d="M.5 10H341" stroke="rgba(207,198,174,.45)" stroke-width="8" stroke-dasharray="1 29.9" stroke-linecap="butt"/>
+          <path d="M.5 10H129.6" stroke="#cfc6ae" stroke-width="8" stroke-dasharray="1 29.9" stroke-linecap="butt"/>
+          <path d="M129.6 25.5H162" stroke="#c9a35a" stroke-width="5" stroke-dasharray=".8 4.76" stroke-linecap="butt" opacity=".75"/>
+        </g>
+        <path d="M129.6 15.5l-4.6 7h9.2z" fill="#c9a35a"/>
+      </svg>
+      <div class="meta" style="display:flex;justify-content:space-between;width:340px"><span>Chapter 4 of 11</span><span>38% through</span></div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span>Static scale in a Canvas; only the pointer’s x offset changes as you read, so scrolling redraws one small triangle.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Glass chrome</h3>
+      <p class="what">The toolbar and tab bar are the system’s Liquid Glass, tinted toward navy, with a silver-gilt hairline from the system’s own edge light.</p>
+      <div style="display:flex;gap:8px"><span class="glass round"><svg><use href="#i-chevron"/></svg></span><span class="glass round"><svg><use href="#i-list"/></svg></span><span class="glass round"><span class="aa">Aa</span></span></div>
+      <p class="cost"><span class="cost-tag cheap">free</span>The system draws and caches the glass. We only set tint and fonts through appearance proxies. Don’t rebuild it with <code>.background(.ultraThinMaterial)</code> on every row.</p>
+    </div>
+  </div>
+
+  <h2 class="section-title" style="font-size:30px;margin-top:48px">What each effect costs</h2>
+  <p class="section-note">Ranked for the parallel drawing-cost pass. “Cheap” means no offscreen render and no per-frame work while scrolling.</p>
+  <table class="cost-table">
+    <thead><tr><th>Effect</th><th>Build it with</th><th>Cost</th><th>Watch for</th></tr></thead>
+    <tbody>
+      <tr><td>Navy satin page</td><td>LinearGradient + two EllipticalGradients in one background view behind the window</td><td><span class="cost-tag cheap">cheap</span></td><td>Draw it once per window (the existing leatherBackdrop flag), not per column.</td></tr>
+      <tr><td>Reading surface</td><td>Flat Color</td><td><span class="cost-tag cheap">cheapest</span></td><td>Nothing; the reader drops the sheen.</td></tr>
+      <tr><td>Engraved plate</td><td>Gradient fill + <code>strokeBorder</code> top and bottom lips</td><td><span class="cost-tag cheap">cheap</span></td><td>Avoid <code>.shadow</code>; use a 1-point stroke for the lip.</td></tr>
+      <tr><td>Screw heads</td><td>Four Circles in the plate’s overlay, or a Canvas</td><td><span class="cost-tag cheap">cheap</span></td><td>One plate per page.</td></tr>
+      <tr><td>Engraved title lettering</td><td>Gradient <code>foregroundStyle</code> + an offset black copy behind</td><td><span class="cost-tag moderate">moderate</span></td><td>Titles only. Never on list rows.</td></tr>
+      <tr><td>Brass dot and pointer</td><td>RadialGradient in a Circle</td><td><span class="cost-tag cheap">cheap</span></td><td>One per screen, by design.</td></tr>
+      <tr><td>Graduated scale</td><td>One Path stroked with a dash pattern</td><td><span class="cost-tag cheap">cheap</span></td><td>Don’t ForEach tick views.</td></tr>
+      <tr><td>Instrument drawings</td><td>Vector assets, or static Shapes</td><td><span class="cost-tag cheap">cheap</span></td><td><code>.drawingGroup()</code> only if animated.</td></tr>
+      <tr><td>Chips</td><td>Dark fill + 1-point top stroke (no inner shadow)</td><td><span class="cost-tag cheap">cheap</span></td><td>Today’s inner shadow costs a pass per chip.</td></tr>
+      <tr><td>Glass bars</td><td>System toolbar and tab bar, tinted</td><td><span class="cost-tag cheap">free</span></td><td>Don’t stack extra materials.</td></tr>
+      <tr><td>Grain, blend modes, noise</td><td>None</td><td><span class="cost-tag cheap">saved</span></td><td>This direction has none of them.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ================= MAC ================= -->
+  <h2 class="section-title">On the Mac</h2>
+  <p class="section-note">NavigationSplitView: sidebar, the library list, and the fic. One satin backdrop spans the whole window; the sidebar darkens it rather than starting its own.</p>
+
+  <div class="mac satin">
+    <div class="traffic"><i></i><i></i><i></i></div>
+    <aside class="side">
+      <div class="item on"><svg><use href="#i-books"/></svg>Library<span class="c">8</span></div>
+      <div class="item"><svg><use href="#i-bookmark"/></svg>To Read<span class="c">3</span></div>
+      <div class="item"><svg><use href="#i-starline"/></svg>Favorites<span class="c">2</span></div>
+      <div class="grp">Collections</div>
+      <div class="item"><svg><use href="#i-stack"/></svg>Comfort Reads<span class="c">12</span></div>
+      <div class="item"><svg><use href="#i-stack"/></svg>Slow Burns<span class="c">7</span></div>
+      <div class="item"><svg><use href="#i-stack"/></svg>Finished WIPs<span class="c">4</span></div>
+      <div class="grp">AO3</div>
+      <div class="item"><svg><use href="#i-search"/></svg>Search AO3</div>
+      <div class="item"><svg><use href="#i-gear"/></svg>Settings</div>
+      <svg style="position:absolute;left:24px;bottom:22px;opacity:.55" width="184" height="60" viewBox="0 0 320 104" aria-hidden="true">
+        <g fill="none" stroke="#cfc6ae" stroke-linecap="round"><g transform="rotate(-9 160 52)"><ellipse cx="160" cy="52" rx="38" ry="11" opacity=".7"/><ellipse cx="160" cy="52" rx="66" ry="19" opacity=".6"/><ellipse cx="160" cy="52" rx="92" ry="27" opacity=".5"/></g><circle cx="160" cy="52" r="7"/></g>
+      </svg>
+    </aside>
+    <section class="list">
+      <div class="hdr"><h1>Library</h1><div class="sub">8 fics, 2 favorites, by date added</div></div>
+      <div class="section-head"><span class="name">This week</span><span class="count">4</span></div>
+      <div class="scale section-scale"></div>
+      <ul class="rows">
+        <li class="sel"><div class="txt"><div class="t"><span>A Field Guide to Falling Stars</span></div><div class="m">orreryheart, 46,903 words, 11 of 14</div></div><span class="dot-brass"></span></li>
+        <li><div class="txt"><div class="t"><span>Small Hours, Borrowed Light</span><svg class="fav"><use href="#i-star4"/></svg></div><div class="m">velvetcomma, 31,650 words, 9 of 9</div></div></li>
+        <li><div class="txt"><div class="t"><span>The Cartographer’s Last Commission</span><svg class="fav"><use href="#i-star4"/></svg></div><div class="m">quillandlantern, 84,212 words, 23 of 23</div></div></li>
+        <li><div class="txt"><div class="t"><span>Every Lighthouse Keeps a Ledger</span></div><div class="m">saltmarsh_, 12,480 words, 3 of 3</div></div></li>
+      </ul>
+      <div class="section-head"><span class="name">Earlier this month</span><span class="count">4</span></div>
+      <div class="scale section-scale"></div>
+      <ul class="rows">
+        <li><div class="txt"><div class="t"><span>Nine Letters Never Sent</span></div><div class="m">the_archivist_who_wasnt, 18,002 words, 9 of ?</div></div></li>
+        <li><div class="txt"><div class="t"><span>Where the River Learns Your Name</span></div><div class="m">marginalia_, 7,215 words, 1 of 1</div></div></li>
+        <li><div class="txt"><div class="t"><span>The Long Winter of Lantern Street</span></div><div class="m">hollyandhemlock, 102,390 words, 31 of 31</div></div></li>
+        <li><div class="txt"><div class="t"><span>Ink on the Tidewater</span></div><div class="m">quillandlantern, 5,440 words, 1 of 1</div></div><span class="cloud"><svg><use href="#i-cloud"/></svg>iCloud</span></li>
+      </ul>
+    </section>
+    <section class="det">
+      <div class="tools"><span class="glass"><svg><use href="#i-update"/></svg>Update</span><span class="glass"><svg><use href="#i-share"/></svg></span></div>
+      <div class="inner">
+        <div class="running">Library, 1 of 8</div>
+        <h1>A Field Guide to Falling Stars</h1>
+        <div class="byline">by <a href="#">orreryheart</a></div>
+        <div class="fandom">Good Omens (TV)</div>
+        <div class="actions">
+          <span class="btn primary">Continue, chapter 7</span>
+          <span class="btn"><svg><use href="#i-starline"/></svg>Favorite</span>
+          <span class="btn"><svg><use href="#i-stack"/></svg>Collections</span>
+          <span class="btn"><svg><use href="#i-compass"/></svg>AO3</span>
+        </div>
+        <div class="plate" style="margin-top:20px">
+          <span class="kicker">The summary</span>
+          <p>Crowley kept a list of every star he ever hung, and one of them is going out. Aziraphale offers to help him find it, which is how they end up crossing three counties in a 1926 Bentley with a borrowed telescope on the back seat, and not talking about the last six months at all.</p>
+        </div>
+        <div class="facts">
+          <span class="kicker">Tags</span>
+          <div class="chips"><span class="chip on">Aziraphale/Crowley</span><span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip">Road Trip</span><span class="chip">Stargazing</span><span class="chip">Post-Season/Series 02</span><span class="chip">Hurt/Comfort</span><span class="chip">Happy Ending Eventually</span></div>
+        </div>
+        <div class="stats"><b>46,903</b> words, <b>11</b> of 14 chapters, 2,184 kudos, 318 bookmarks. Updated 19 Nov 2026.</div>
+        <div class="facts">
+          <span class="kicker">Where you are</span>
+          <svg width="480" height="30" viewBox="0 0 480 30" style="margin-top:8px">
+            <g fill="none">
+              <path d="M0 14H480" stroke="rgba(207,198,174,.28)"/>
+              <path d="M0 14H182" stroke="#cfc6ae"/>
+              <path d="M0 11.5H480" stroke="rgba(207,198,174,.3)" stroke-width="5" stroke-dasharray=".8 7.93" stroke-linecap="butt"/>
+              <path d="M.5 10H480" stroke="rgba(207,198,174,.45)" stroke-width="8" stroke-dasharray="1 42.6" stroke-linecap="butt"/>
+              <path d="M.5 10H182" stroke="#cfc6ae" stroke-width="8" stroke-dasharray="1 42.6" stroke-linecap="butt"/>
+            </g>
+            <path d="M182 15.5l-4.6 7h9.2z" fill="#cfc6ae"/>
+          </svg>
+          <div class="meta" style="display:flex;justify-content:space-between;width:480px"><span>Chapter 7, Opposition</span><span>38% through</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <p class="section-note" style="margin-top:20px">On the Mac the brass goes to “Continue, chapter 7” and the selected row’s update dot; the vernier pointer turns silver-gilt here so the window keeps to two brass marks across three columns.</p>
+
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parade, bound in blue and gold · celestial directions</title>
+<link rel="stylesheet" href="shared/base.css">
+<style>
+  :root {
+    --page: #0b1020; --raised: #131a30; --ink: #ece4d2; --ink-soft: #b4afa6; --ink-faint: #858597;
+    --gold: #cfae6b; --gold-faint: rgba(207,174,107,.32); --rule: rgba(236,228,210,.1);
+    --display: "Cormorant Garamond", Garamond, serif; --serif: "Newsreader", Georgia, serif;
+  }
+  body {
+    color: var(--ink); font: 400 16px/1.6 var(--serif);
+    background:
+      radial-gradient(ellipse 90% 50% at 20% 0%, rgba(150,170,255,.07), transparent 60%),
+      radial-gradient(ellipse 80% 60% at 50% 120%, rgba(0,0,0,.5), transparent 70%),
+      var(--page);
+    background-attachment: fixed;
+  }
+  a { color: var(--ink); text-decoration-color: var(--gold-faint); text-underline-offset: .2em; }
+  a:hover { text-decoration-color: var(--gold); }
+
+  .masthead { display: grid; grid-template-columns: minmax(0, 46rem) minmax(0, 1fr); gap: 56px; align-items: end; padding-bottom: 36px; border-bottom: 1px solid var(--gold-faint); }
+  .kicker { font: italic 500 19px/1.2 var(--display); color: var(--gold); margin: 0 0 10px; }
+  h1 { font: 500 clamp(44px, 5vw, 68px)/1 var(--display); margin: 0 0 18px; text-wrap: balance; letter-spacing: -.01em; }
+  .dek { font: italic 400 19px/1.55 var(--serif); color: var(--ink-soft); margin: 0; max-width: 40rem; }
+  .verdict { position: relative; padding: 24px 26px 24px; border-radius: 14px; background: linear-gradient(180deg, #1a2342, #151c36); box-shadow: inset 0 1px 0 rgba(210,222,255,.07), inset 0 -1px 0 rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.35); }
+  .verdict::after { content: ""; position: absolute; inset: 7px; border: 1px solid var(--gold-faint); border-radius: 9px; pointer-events: none; }
+  .verdict h2 { font: italic 500 22px/1.2 var(--display); color: var(--gold); margin: 0 0 8px; }
+  .verdict p { margin: 0 0 10px; font-size: 15.5px; line-height: 1.6; }
+  .verdict p:last-child { margin-bottom: 0; }
+
+  .compare.round2 { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 1100px; margin-top: 8px; }
+  .compare { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 26px; margin-top: 44px; }
+  .dir { display: flex; flex-direction: column; gap: 14px; }
+  .dir h2 { font: 500 30px/1.05 var(--display); margin: 0; }
+  .dir h2 a { text-decoration: none; }
+  .dir .mood { font-style: italic; color: var(--ink-soft); font-size: 15px; line-height: 1.5; margin: 0; min-height: 4.5em; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .shots a:first-child { grid-column: 1 / -1; }
+  .shots img { width: 100%; height: auto; border-radius: 15.8% / 7.5%; }
+  .pal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pal span { display: block; height: 30px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+  .pal code { display: block; font: 11px/1.3 ui-monospace, Menlo, monospace; color: var(--ink-faint); margin-top: 3px; }
+  .pal small { display: block; font: italic 12px/1.2 var(--serif); color: var(--ink-soft); }
+  dl { margin: 0; display: grid; gap: 8px; font-size: 14px; line-height: 1.5; }
+  dt { font: italic 500 16px/1.2 var(--display); color: var(--gold); }
+  dd { margin: 0; color: var(--ink-soft); }
+  .open { font: italic 500 18px var(--display); color: var(--gold); text-decoration: none; margin-top: auto; }
+  .open:hover { text-decoration: underline; }
+  .badge { display: inline-block; font: italic 13px var(--serif); padding: 1px 9px; border-radius: 7px; background: rgba(0,0,0,.25); box-shadow: inset 0 1px 2px rgba(0,0,0,.5); color: var(--gold); margin-left: 6px; vertical-align: 4px; }
+
+  .section-title { font: 500 38px/1.1 var(--display); }
+  .section-note { color: var(--ink-soft); font-style: italic; }
+  .macs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px 30px; }
+  .macs figure { margin: 0; }
+  .macs img { width: 100%; height: auto; border-radius: 10px; box-shadow: 0 30px 60px rgba(0,0,0,.5); }
+  .macs figcaption { margin-top: 10px; font-style: italic; color: var(--ink-soft); font-size: 14.5px; }
+  .macs figcaption b { font: 500 19px var(--display); font-style: normal; color: var(--ink); margin-right: 6px; }
+
+  table.cost-table { margin-top: 8px; }
+  .cost-table th { font: italic 500 17px var(--display); color: var(--gold); border-bottom: 1px solid var(--gold-faint); }
+  .cost-table td { border-bottom: 1px dotted var(--rule); color: var(--ink-soft); }
+  .cost-table td:first-child { font: 500 19px var(--display); color: var(--ink); white-space: nowrap; }
+  .cheap { background: rgba(130,170,120,.16); color: #b9d3a9; }
+  .moderate { background: rgba(207,174,107,.16); color: #e2c789; }
+  .costly { background: rgba(200,100,90,.18); color: #e8a395; }
+  .foot { margin-top: 64px; color: var(--ink-faint); font-style: italic; font-size: 14px; }
+
+  @media (max-width: 1300px) { .compare { grid-template-columns: repeat(3, minmax(0, 1fr)); } .masthead { grid-template-columns: 1fr; } }
+  @media (max-width: 800px) { .compare, .macs { grid-template-columns: 1fr; } .gallery { padding: 28px 16px 64px; } }
+</style>
+</head>
+<body>
+<main class="gallery">
+
+  <header class="masthead">
+    <div>
+      <p class="kicker">Parade · a new binding</p>
+      <h1>Binding Parade in blue and gold</h1>
+      <p class="dek">Each direction keeps Parade's native structure (tab bar, split view, toolbars, the custom rows and cards) and keeps Leather &amp; Ink's rules: one dark theme, tactile but quiet, literary type, drawings rather than icons. What changes is the binding. Every page shows the same fics on the same screens: library, a fic page, the reader, an empty state, the chrome close up, the app icon, the details, and a Mac window.</p>
+    </div>
+    <aside class="verdict">
+      <h2>The recommendation, after round two</h2>
+      <p><b>Blue Morocco: Leather &amp; Ink in deep navy goatskin, with the chapter constellation as its one celestial idea.</b></p>
+      <p>Round one's grounds were too busy, and the linen weave read as horizontal grain. Round two goes back to leather in a deeper blue, with a texture you feel rather than see. Morocco is the closest to today's app: the same fonts, stitched card, emboss and deboss, and LeatherBackground with a new palette and one baked pebble tile, so it's also the cheapest port.</p>
+      <p>Midnight Calf is the calmer alternative: smooth burnished calf with almost no grain, a gilt turn-in border, and moon phases for reading progress. Round one stays below for its ideas.</p>
+    </aside>
+  </header>
+
+
+  <h2 class="section-title">Round two: deep blue leather</h2>
+  <p class="section-note">Quieter grounds with no directional texture, and one button component per row: the same height and baseline, the primary set apart by fill alone.</p>
+  <section class="compare round2" aria-label="Round two directions">
+    <article class="dir">
+      <h2><a href="morocco/index.html">Blue Morocco</a><span class="badge">recommended</span></h2>
+      <p class="mood">Deep navy goatskin with a fine, even pebble grain, gold saddle stitching on the one card per page, a single gilt star between fillets.</p>
+      <div class="shots">
+        <a href="morocco/index.html"><img src="previews/morocco-library.jpg" alt="Blue Morocco library on iPhone"></a>
+        <a href="morocco/index.html"><img src="previews/morocco-detail.jpg" alt="Fic page"></a>
+        <a href="morocco/index.html"><img src="previews/morocco-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#0e1730"></span><small>leather</small><code>#0e1730</code></div>
+        <div><span style="background:#16213f"></span><small>raised</small><code>#16213f</code></div>
+        <div><span style="background:#ece4d2"></span><small>ink</small><code>#ece4d2</code></div>
+        <div><span style="background:#cfae6b"></span><small>gold</small><code>#cfae6b</code></div>
+        <div><span style="background:#d9a69c"></span><small>rose</small><code>#d9a69c</code></div>
+        <div><span style="background:#0c1429"></span><small>reader</small><code>#0c1429</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>Cormorant Garamond and Newsreader, unchanged.</dd>
+        <dt>Signature</dt><dd>Chapters as a constellation: read stars lit, the current one ringed in rose, saved ones open, ones waiting on AO3 dotted. The reader's footer repeats it as a row.</dd>
+        <dt>Borrows</dt><dd>Nearly everything: the stitched card, emboss and deboss, the lamp and vignette, rose for interaction and gold for ornament.</dd>
+        <dt>Cost</dt><dd>Cheap. One baked pebble tile (like Grain.tile) and today's surface modifiers; the constellation is one Canvas per fic page.</dd>
+      </dl>
+      <a class="open" href="morocco/index.html">Open Blue Morocco</a>
+    </article>
+    <article class="dir">
+      <h2><a href="calf/index.html">Midnight Calf</a></h2>
+      <p class="mood">Smooth, polished calfskin in the deepest blue, carried by one soft burnished sheen; a gilt turn-in roll frames the one card per page.</p>
+      <div class="shots">
+        <a href="calf/index.html"><img src="previews/calf-library.jpg" alt="Midnight Calf library on iPhone"></a>
+        <a href="calf/index.html"><img src="previews/calf-detail.jpg" alt="Fic page"></a>
+        <a href="calf/index.html"><img src="previews/calf-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#0b1329"></span><small>calf</small><code>#0b1329</code></div>
+        <div><span style="background:#17233f"></span><small>raised</small><code>#17233f</code></div>
+        <div><span style="background:#ece5d4"></span><small>ink</small><code>#ece5d4</code></div>
+        <div><span style="background:#d3b36f"></span><small>gold</small><code>#d3b36f</code></div>
+        <div><span style="background:#e0a99d"></span><small>rose</small><code>#e0a99d</code></div>
+        <div><span style="background:#0a1226"></span><small>reader</small><code>#0a1226</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>Cormorant Garamond and Newsreader. EB Garamond was tried for body and thins out on a ground this dark.</dd>
+        <dt>Signature</dt><dd>Moon phases for how far you've read: on each row, as the reader's progress, and as the chapter strip.</dd>
+        <dt>Borrows</dt><dd>The type, the emboss, rose for interaction; the stitched card becomes a gilt turn-in border.</dd>
+        <dt>Cost</dt><dd>Cheapest of the textured ones: two static gradients and a faint mottle tile; the border is a 9-slice image.</dd>
+      </dl>
+      <a class="open" href="calf/index.html">Open Midnight Calf</a>
+    </article>
+  </section>
+  <div class="macs" style="margin-top:34px">
+    <figure><a href="morocco/index.html"><img src="previews/morocco-mac.jpg" alt="Blue Morocco Mac window"></a><figcaption><b>Blue Morocco</b> the stitched summary card and the chapter constellation.</figcaption></figure>
+    <figure><a href="calf/index.html"><img src="previews/calf-mac.jpg" alt="Midnight Calf Mac window"></a><figcaption><b>Midnight Calf</b> the turn-in border and chapters listed by moon.</figcaption></figure>
+  </div>
+
+  <h2 class="section-title">Round one</h2>
+  <p class="section-note">Five broader directions. Ideas worth keeping: the chapter constellation (Star Atlas), moon-phase progress (Nocturne), and the graduated scale (Observatory).</p>
+  <section class="compare" aria-label="The five directions side by side">
+
+    <article class="dir">
+      <h2><a href="bookcloth/index.html">Midnight Bookcloth</a></h2>
+      <p class="mood">The same book, rebound in indigo linen: a fine weave, blind-stamped frames, double gilt fillets with star corner pieces, foil on one word.</p>
+      <div class="shots">
+        <a href="bookcloth/index.html"><img src="previews/bookcloth-library.jpg" alt="Midnight Bookcloth library on iPhone"></a>
+        <a href="bookcloth/index.html"><img src="previews/bookcloth-detail.jpg" alt="Fic page"></a>
+        <a href="bookcloth/index.html"><img src="previews/bookcloth-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#18203d"></span><small>cloth</small><code>#18203d</code></div>
+        <div><span style="background:#212a4c"></span><small>raised</small><code>#212a4c</code></div>
+        <div><span style="background:#ede5d3"></span><small>ink</small><code>#ede5d3</code></div>
+        <div><span style="background:#d1b06b"></span><small>gold</small><code>#d1b06b</code></div>
+        <div><span style="background:#dba89e"></span><small>rose</small><code>#dba89e</code></div>
+        <div><span style="background:#151c37"></span><small>reader</small><code>#151c37</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>Cormorant Garamond and Newsreader, unchanged.</dd>
+        <dt>Signature</dt><dd>The tooled panel: the stitched card becomes a double gilt rule with eight-point stars at the corners.</dd>
+        <dt>Borrows</dt><dd>Almost everything: the type, the emboss and deboss, the one-card-per-page rule, rose for interaction and gold for ornament.</dd>
+        <dt>Cost</dt><dd>Cheap to moderate. The weave and grain become one baked tile, like Grain.tile today.</dd>
+      </dl>
+      <a class="open" href="bookcloth/index.html">Open Midnight Bookcloth</a>
+    </article>
+
+    <article class="dir">
+      <h2><a href="atlas/index.html">Star Atlas</a></h2>
+      <p class="mood">An 18th-century star atlas printed in gold on Prussian-blue laid paper: a faint graticule, graduated margin scales, constellations as stars of graded magnitude.</p>
+      <div class="shots">
+        <a href="atlas/index.html"><img src="previews/atlas-library.jpg" alt="Star Atlas library on iPhone"></a>
+        <a href="atlas/index.html"><img src="previews/atlas-detail.jpg" alt="Fic page"></a>
+        <a href="atlas/index.html"><img src="previews/atlas-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#0f2140"></span><small>chart</small><code>#0f2140</code></div>
+        <div><span style="background:#15294d"></span><small>raised</small><code>#15294d</code></div>
+        <div><span style="background:#e8e0c9"></span><small>ink</small><code>#e8e0c9</code></div>
+        <div><span style="background:#c8a65f"></span><small>gold line</small><code>#c8a65f</code></div>
+        <div><span style="background:#dd8263"></span><small>cinnabar</small><code>#dd8263</code></div>
+        <div><span style="background:#0d1c37"></span><small>reader</small><code>#0d1c37</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>IM Fell English for display, EB Garamond for body, Cinzel capitals only where an atlas letters a constellation (a deliberate, contained exception).</dd>
+        <dt>Signature</dt><dd>Chapters as a constellation: read stars lit, the current one ringed in cinnabar, unread open, unposted dotted.</dd>
+        <dt>Borrows</dt><dd>The rose's job goes to cinnabar (the atlas's ecliptic red); gold stays structural; italic labels.</dd>
+        <dt>Cost</dt><dd>Moderate. The paper is a baked tile; the graticule and chart are Paths drawn once, never on scroll.</dd>
+      </dl>
+      <a class="open" href="atlas/index.html">Open Star Atlas</a>
+    </article>
+
+    <article class="dir">
+      <h2><a href="lapis/index.html">Lapis &amp; Gold Leaf</a></h2>
+      <p class="mood">An illuminated book of hours: ultramarine stone with pyrite flecks, burnished raised gold leaf, rosette stars, and a decorated initial opening each chapter.</p>
+      <div class="shots">
+        <a href="lapis/index.html"><img src="previews/lapis-library.jpg" alt="Lapis library on iPhone"></a>
+        <a href="lapis/index.html"><img src="previews/lapis-detail.jpg" alt="Fic page"></a>
+        <a href="lapis/index.html"><img src="previews/lapis-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#1c2a6e"></span><small>lapis</small><code>#1c2a6e</code></div>
+        <div><span style="background:#24347f"></span><small>raised</small><code>#24347f</code></div>
+        <div><span style="background:#f1e8d6"></span><small>ink</small><code>#f1e8d6</code></div>
+        <div><span style="background:#e2bd68"></span><small>gold leaf</small><code>#e2bd68</code></div>
+        <div><span style="background:#e8b9a6"></span><small>shell rose</small><code>#e8b9a6</code></div>
+        <div><span style="background:#111a4a"></span><small>reader</small><code>#111a4a</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>Bodoni Moda (optical sizes, italic labels) for display, Newsreader for body.</dd>
+        <dt>Signature</dt><dd>The decorated initial: a gilt frame round a lapis field, on the summary and at each chapter's start.</dd>
+        <dt>Borrows</dt><dd>Newsreader, rose for interaction (as shell), one ornamental moment per screen.</dd>
+        <dt>Cost</dt><dd>The costliest. Burnished leaf wants pre-rendered images or a Metal shader; wrapping text round the initial needs TextKit.</dd>
+      </dl>
+      <a class="open" href="lapis/index.html">Open Lapis &amp; Gold Leaf</a>
+    </article>
+
+    <article class="dir">
+      <h2><a href="observatory/index.html">Observatory</a></h2>
+      <p class="mood">A night reading room in an old observatory: near-flat navy, hairline instruments in silver-gilt, engraved-brass plates, and real brass for one mark per screen.</p>
+      <div class="shots">
+        <a href="observatory/index.html"><img src="previews/observatory-library.jpg" alt="Observatory library on iPhone"></a>
+        <a href="observatory/index.html"><img src="previews/observatory-detail.jpg" alt="Fic page"></a>
+        <a href="observatory/index.html"><img src="previews/observatory-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#0d1527"></span><small>navy</small><code>#0d1527</code></div>
+        <div><span style="background:#141e35"></span><small>raised</small><code>#141e35</code></div>
+        <div><span style="background:#e6e4dc"></span><small>ink</small><code>#e6e4dc</code></div>
+        <div><span style="background:#cfc6ae"></span><small>silver-gilt</small><code>#cfc6ae</code></div>
+        <div><span style="background:#c9a35a"></span><small>brass</small><code>#c9a35a</code></div>
+        <div><span style="background:#7c8498"></span><small>ink faint</small><code>#7c8498</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>Cormorant Garamond for display, Spectral (a screen-tuned book face) for body.</dd>
+        <dt>Signature</dt><dd>A graduated scale with a vernier pointer, as divider and as reading progress; the summary on a screwed instrument plate.</dd>
+        <dt>Borrows</dt><dd>Cormorant, the kicker voice, one bold object per page. Leaves behind the grain and most of the depth.</dd>
+        <dt>Cost</dt><dd>The cheapest. Flat fills and hairline Paths; no tiles, blends or blurs.</dd>
+      </dl>
+      <a class="open" href="observatory/index.html">Open Observatory</a>
+    </article>
+
+    <article class="dir">
+      <h2><a href="nocturne/index.html">Nocturne</a></h2>
+      <p class="mood">A keepsake bound in sapphire velvet: a soft diagonal sheen, a gold silk ribbon bookmark, a foil crescent, and the moon waxing as you read.</p>
+      <div class="shots">
+        <a href="nocturne/index.html"><img src="previews/nocturne-library.jpg" alt="Nocturne library on iPhone"></a>
+        <a href="nocturne/index.html"><img src="previews/nocturne-detail.jpg" alt="Fic page"></a>
+        <a href="nocturne/index.html"><img src="previews/nocturne-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#141c4a"></span><small>velvet</small><code>#141c4a</code></div>
+        <div><span style="background:#222d6c"></span><small>raised</small><code>#222d6c</code></div>
+        <div><span style="background:#efe9f2"></span><small>moon-pearl</small><code>#efe9f2</code></div>
+        <div><span style="background:#d6b46e"></span><small>gold</small><code>#d6b46e</code></div>
+        <div><span style="background:#e6b8c2"></span><small>blush</small><code>#e6b8c2</code></div>
+        <div><span style="background:#10173f"></span><small>reader</small><code>#10173f</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>Playfair Display (italic for display) and Crimson Pro at 19px for body.</dd>
+        <dt>Signature</dt><dd>Moon phases with meaning: each row's phase is how far you've read; the reader's progress is a moon on a gold line.</dd>
+        <dt>Borrows</dt><dd>The rose's job (as moonlight blush), the stitched card's role (with a foil crescent), the soft-ink drawings.</dd>
+        <dt>Cost</dt><dd>Moderate. A static sheen gradient and one baked nap tile are cheap; a sheen that follows device motion would not be.</dd>
+      </dl>
+      <a class="open" href="nocturne/index.html">Open Nocturne</a>
+    </article>
+  </section>
+
+  <h2 class="section-title">On the Mac</h2>
+  <p class="section-note">The same split view in each binding: sidebar, list, fic page.</p>
+  <div class="macs">
+    <figure><a href="bookcloth/index.html"><img src="previews/bookcloth-mac.jpg" alt="Midnight Bookcloth Mac window"></a><figcaption><b>Midnight Bookcloth</b> the tooled summary panel and foil Continue button.</figcaption></figure>
+    <figure><a href="atlas/index.html"><img src="previews/atlas-mac.jpg" alt="Star Atlas Mac window"></a><figcaption><b>Star Atlas</b> the chapter constellation sits where the summary card would.</figcaption></figure>
+    <figure><a href="nocturne/index.html"><img src="previews/nocturne-mac.jpg" alt="Nocturne Mac window"></a><figcaption><b>Nocturne</b> the ribbon hangs from the fic column; chapters as a lunar calendar.</figcaption></figure>
+    <figure><a href="observatory/index.html"><img src="previews/observatory-mac.jpg" alt="Observatory Mac window"></a><figcaption><b>Observatory</b> the quietest window, with instrument-plate summary.</figcaption></figure>
+    <figure><a href="lapis/index.html"><img src="previews/lapis-mac.jpg" alt="Lapis and gold leaf Mac window"></a><figcaption><b>Lapis &amp; Gold Leaf</b> the decorated initial on the summary.</figcaption></figure>
+  </div>
+
+  <h2 class="section-title">What each costs to draw in SwiftUI</h2>
+  <p class="section-note">For the drawing-cost pass. Each direction's page has a per-effect table; this is the summary. Blue Morocco and Midnight Calf both land in the cheap row: one baked tile, static gradients, today's surface modifiers.</p>
+  <table class="cost-table">
+    <thead><tr><th>Direction</th><th>Overall</th><th>Cheap</th><th>Watch out for</th></tr></thead>
+    <tbody>
+      <tr><td>Observatory</td><td><span class="cost-tag cheap">cheap</span></td><td>Flat fills, crisp one-pixel strokes, hairline Paths for scales and instruments.</td><td>Nothing much. Keep tick marks in one Path, not a view per tick.</td></tr>
+      <tr><td>Midnight Bookcloth</td><td><span class="cost-tag cheap">cheap</span> to <span class="cost-tag moderate">moderate</span></td><td>Static gradients, today's Embossed/Debossed, one baked weave-plus-grain tile, gilt rules as strokes.</td><td>Foil text (gradient-filled text) on many rows; keep it to the title and one button. Don't blend the weave per frame.</td></tr>
+      <tr><td>Nocturne</td><td><span class="cost-tag moderate">moderate</span></td><td>Static sheen gradient, baked nap tile, moon phases as Path, the ribbon as an image.</td><td>Motion-driven sheen (CoreMotion redraws); a moon per row is fine as Path but not as a blurred glow.</td></tr>
+      <tr><td>Star Atlas</td><td><span class="cost-tag moderate">moderate</span></td><td>Baked paper tile, a graticule drawn once behind the scroll view, the chapter chart as one Canvas.</td><td>A graticule that scrolls with content redraws; pin it or rasterise it with drawingGroup. Long fics (40+ chapters) need a layout rule.</td></tr>
+      <tr><td>Lapis &amp; Gold Leaf</td><td><span class="cost-tag costly">costly</span></td><td>The lapis ground as a baked tile; border bands as images.</td><td>Burnished leaf (specular lighting) needs pre-rendered assets or a .layerEffect shader; drop caps with wrapping text need TextKit.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="foot">Plain HTML, CSS and SVG; fonts bundled from Shared/Fonts and Google Fonts' OFL repository (see fonts/). Content is invented; see shared/CONTENT.md.</p>
+</main>
+</body>
+</html>
