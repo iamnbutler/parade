@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Parade, bound in blue and gold · five celestial directions</title>
+<title>Parade, bound in blue and gold · celestial directions</title>
 <link rel="stylesheet" href="shared/base.css">
 <style>
   :root {
@@ -32,6 +32,7 @@
   .verdict p { margin: 0 0 10px; font-size: 15.5px; line-height: 1.6; }
   .verdict p:last-child { margin-bottom: 0; }
 
+  .compare.round2 { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 1100px; margin-top: 8px; }
   .compare { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 26px; margin-top: 44px; }
   .dir { display: flex; flex-direction: column; gap: 14px; }
   .dir h2 { font: 500 30px/1.05 var(--display); margin: 0; }
@@ -78,21 +79,81 @@
   <header class="masthead">
     <div>
       <p class="kicker">Parade · a new binding</p>
-      <h1>Five ways to bind Parade in blue and gold</h1>
+      <h1>Binding Parade in blue and gold</h1>
       <p class="dek">Each direction keeps Parade's native structure (tab bar, split view, toolbars, the custom rows and cards) and keeps Leather &amp; Ink's rules: one dark theme, tactile but quiet, literary type, drawings rather than icons. What changes is the binding. Every page shows the same fics on the same screens: library, a fic page, the reader, an empty state, the chrome close up, the app icon, the details, and a Mac window.</p>
     </div>
     <aside class="verdict">
-      <h2>The recommendation</h2>
-      <p><b>Midnight Bookcloth as the base, with Star Atlas's chapter constellation as its one signature object.</b></p>
-      <p>Bookcloth is the brief's own image (a blue cloth book, gold-tooled), and it is the cheapest move from today's code: same fonts, same emboss, deboss and card recipes, a new palette and one baked weave tile. On its own it's close to a recolour, though. The Atlas's chapter chart (read chapters lit, the current one ringed, unposted ones dotted) gives it a celestial idea that means something, and it is one Canvas drawn once per fic page.</p>
-      <p>Runners-up: Nocturne's moon-phase progress is the most romantic idea here, but Playfair italic gets dressy fast. Observatory is the quietest and cheapest, but at a glance it reads as a nice dark app more than a bound book.</p>
+      <h2>The recommendation, after round two</h2>
+      <p><b>Blue Morocco: Leather &amp; Ink in deep navy goatskin, with the chapter constellation as its one celestial idea.</b></p>
+      <p>Round one's grounds were too busy, and the linen weave read as horizontal grain. Round two goes back to leather in a deeper blue, with a texture you feel rather than see. Morocco is the closest to today's app: the same fonts, stitched card, emboss and deboss, and LeatherBackground with a new palette and one baked pebble tile, so it's also the cheapest port.</p>
+      <p>Midnight Calf is the calmer alternative: smooth burnished calf with almost no grain, a gilt turn-in border, and moon phases for reading progress. Round one stays below for its ideas.</p>
     </aside>
   </header>
 
+
+  <h2 class="section-title">Round two: deep blue leather</h2>
+  <p class="section-note">Quieter grounds with no directional texture, and one button component per row: the same height and baseline, the primary set apart by fill alone.</p>
+  <section class="compare round2" aria-label="Round two directions">
+    <article class="dir">
+      <h2><a href="morocco/index.html">Blue Morocco</a><span class="badge">recommended</span></h2>
+      <p class="mood">Deep navy goatskin with a fine, even pebble grain, gold saddle stitching on the one card per page, a single gilt star between fillets.</p>
+      <div class="shots">
+        <a href="morocco/index.html"><img src="previews/morocco-library.jpg" alt="Blue Morocco library on iPhone"></a>
+        <a href="morocco/index.html"><img src="previews/morocco-detail.jpg" alt="Fic page"></a>
+        <a href="morocco/index.html"><img src="previews/morocco-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#0e1730"></span><small>leather</small><code>#0e1730</code></div>
+        <div><span style="background:#16213f"></span><small>raised</small><code>#16213f</code></div>
+        <div><span style="background:#ece4d2"></span><small>ink</small><code>#ece4d2</code></div>
+        <div><span style="background:#cfae6b"></span><small>gold</small><code>#cfae6b</code></div>
+        <div><span style="background:#d9a69c"></span><small>rose</small><code>#d9a69c</code></div>
+        <div><span style="background:#0c1429"></span><small>reader</small><code>#0c1429</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>Cormorant Garamond and Newsreader, unchanged.</dd>
+        <dt>Signature</dt><dd>Chapters as a constellation: read stars lit, the current one ringed in rose, saved ones open, ones waiting on AO3 dotted. The reader's footer repeats it as a row.</dd>
+        <dt>Borrows</dt><dd>Nearly everything: the stitched card, emboss and deboss, the lamp and vignette, rose for interaction and gold for ornament.</dd>
+        <dt>Cost</dt><dd>Cheap. One baked pebble tile (like Grain.tile) and today's surface modifiers; the constellation is one Canvas per fic page.</dd>
+      </dl>
+      <a class="open" href="morocco/index.html">Open Blue Morocco</a>
+    </article>
+    <article class="dir">
+      <h2><a href="calf/index.html">Midnight Calf</a></h2>
+      <p class="mood">Smooth, polished calfskin in the deepest blue, carried by one soft burnished sheen; a gilt turn-in roll frames the one card per page.</p>
+      <div class="shots">
+        <a href="calf/index.html"><img src="previews/calf-library.jpg" alt="Midnight Calf library on iPhone"></a>
+        <a href="calf/index.html"><img src="previews/calf-detail.jpg" alt="Fic page"></a>
+        <a href="calf/index.html"><img src="previews/calf-reader.jpg" alt="Reader"></a>
+      </div>
+      <div class="pal">
+        <div><span style="background:#0b1329"></span><small>calf</small><code>#0b1329</code></div>
+        <div><span style="background:#17233f"></span><small>raised</small><code>#17233f</code></div>
+        <div><span style="background:#ece5d4"></span><small>ink</small><code>#ece5d4</code></div>
+        <div><span style="background:#d3b36f"></span><small>gold</small><code>#d3b36f</code></div>
+        <div><span style="background:#e0a99d"></span><small>rose</small><code>#e0a99d</code></div>
+        <div><span style="background:#0a1226"></span><small>reader</small><code>#0a1226</code></div>
+      </div>
+      <dl>
+        <dt>Type</dt><dd>Cormorant Garamond and Newsreader. EB Garamond was tried for body and thins out on a ground this dark.</dd>
+        <dt>Signature</dt><dd>Moon phases for how far you've read: on each row, as the reader's progress, and as the chapter strip.</dd>
+        <dt>Borrows</dt><dd>The type, the emboss, rose for interaction; the stitched card becomes a gilt turn-in border.</dd>
+        <dt>Cost</dt><dd>Cheapest of the textured ones: two static gradients and a faint mottle tile; the border is a 9-slice image.</dd>
+      </dl>
+      <a class="open" href="calf/index.html">Open Midnight Calf</a>
+    </article>
+  </section>
+  <div class="macs" style="margin-top:34px">
+    <figure><a href="morocco/index.html"><img src="previews/morocco-mac.jpg" alt="Blue Morocco Mac window"></a><figcaption><b>Blue Morocco</b> the stitched summary card and the chapter constellation.</figcaption></figure>
+    <figure><a href="calf/index.html"><img src="previews/calf-mac.jpg" alt="Midnight Calf Mac window"></a><figcaption><b>Midnight Calf</b> the turn-in border and chapters listed by moon.</figcaption></figure>
+  </div>
+
+  <h2 class="section-title">Round one</h2>
+  <p class="section-note">Five broader directions. Ideas worth keeping: the chapter constellation (Star Atlas), moon-phase progress (Nocturne), and the graduated scale (Observatory).</p>
   <section class="compare" aria-label="The five directions side by side">
 
     <article class="dir">
-      <h2><a href="bookcloth/index.html">Midnight Bookcloth</a><span class="badge">recommended</span></h2>
+      <h2><a href="bookcloth/index.html">Midnight Bookcloth</a></h2>
       <p class="mood">The same book, rebound in indigo linen: a fine weave, blind-stamped frames, double gilt fillets with star corner pieces, foil on one word.</p>
       <div class="shots">
         <a href="bookcloth/index.html"><img src="previews/bookcloth-library.jpg" alt="Midnight Bookcloth library on iPhone"></a>
@@ -228,7 +289,7 @@
   </div>
 
   <h2 class="section-title">What each costs to draw in SwiftUI</h2>
-  <p class="section-note">For the drawing-cost pass. Each direction's page has a per-effect table; this is the summary.</p>
+  <p class="section-note">For the drawing-cost pass. Each direction's page has a per-effect table; this is the summary. Blue Morocco and Midnight Calf both land in the cheap row: one baked tile, static gradients, today's surface modifiers.</p>
   <table class="cost-table">
     <thead><tr><th>Direction</th><th>Overall</th><th>Cheap</th><th>Watch out for</th></tr></thead>
     <tbody>

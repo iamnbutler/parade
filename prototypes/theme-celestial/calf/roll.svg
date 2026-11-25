@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 21 21">
+  <!-- A binder's turn-in roll as a 9-slice: a small four-point star at each
+       corner, and along each edge two gilt fillets with a dot between them. -->
+  <g fill="#d3b36f">
+    <path d="M3.5 .6l.7 2.2 2.2.7-2.2.7-.7 2.2-.7-2.2-2.2-.7 2.2-.7z"/>
+    <path d="M17.5 .6l.7 2.2 2.2.7-2.2.7-.7 2.2-.7-2.2-2.2-.7 2.2-.7z"/>
+    <path d="M3.5 14.6l.7 2.2 2.2.7-2.2.7-.7 2.2-.7-2.2-2.2-.7 2.2-.7z"/>
+    <path d="M17.5 14.6l.7 2.2 2.2.7-2.2.7-.7 2.2-.7-2.2-2.2-.7 2.2-.7z"/>
+    <circle cx="10.5" cy="3.5" r=".95"/>
+    <circle cx="10.5" cy="17.5" r=".95"/>
+    <circle cx="3.5" cy="10.5" r=".95"/>
+    <circle cx="17.5" cy="10.5" r=".95"/>
+  </g>
+  <g stroke-width="1" fill="none">
+    <path stroke="#e9d29a" d="M7 .5h7M7 14.5h7M.5 7v7M14.5 7v7"/>
+    <path stroke="#a88843" d="M7 6.5h7M7 20.5h7M6.5 7v7M20.5 7v7"/>
+  </g>
+</svg>
