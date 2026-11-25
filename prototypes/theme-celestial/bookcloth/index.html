@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Midnight Bookcloth · Parade celestial themes</title>
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="theme.css">
+</head>
+<body class="cloth">
+
+<!-- Sprite: icons, stars, the app icon. Not display:none, or Chrome drops its gradients. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="foilg" x1="0" y1="0" x2=".25" y2="1">
+      <stop offset="0" stop-color="#f7e5b2"/><stop offset=".22" stop-color="#e2c27e"/><stop offset=".48" stop-color="#b58b4b"/>
+      <stop offset=".66" stop-color="#e9cd8c"/><stop offset=".84" stop-color="#a87d3f"/><stop offset="1" stop-color="#c9a35e"/>
+    </linearGradient>
+    <linearGradient id="threadg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d9bb7a"/><stop offset="1" stop-color="#a7854c"/>
+    </linearGradient>
+    <pattern id="weave" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="#1b2347"/>
+      <rect y="0" width="6" height="1.6" fill="#26305c" opacity=".7"/>
+      <rect y="3" width="6" height="1.2" fill="#222b54" opacity=".6"/>
+      <rect x="0" width="1.4" height="6" fill="#0e1430" opacity=".55"/>
+      <rect x="3" width="1" height="6" fill="#121a3a" opacity=".45"/>
+    </pattern>
+    <radialGradient id="lamp" cx=".28" cy="0" r=".9">
+      <stop offset="0" stop-color="#b6c6ff" stop-opacity=".16"/><stop offset="1" stop-color="#b6c6ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" cx=".5" cy="1.15" r=".8">
+      <stop offset="0" stop-color="#02040c" stop-opacity=".6"/><stop offset="1" stop-color="#02040c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="iconbase" x1="0" y1="0" x2=".3" y2="1">
+      <stop offset="0" stop-color="#2a3566"/><stop offset="1" stop-color="#111733"/>
+    </linearGradient>
+    <filter id="emboss" x="-10%" y="-10%" width="120%" height="125%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" result="b"/>
+      <feSpecularLighting in="b" surfaceScale="8" specularConstant=".95" specularExponent="24" lighting-color="#fff2cf" result="spec">
+        <feDistantLight azimuth="225" elevation="38"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specin"/>
+      <feComposite in="SourceGraphic" in2="specin" operator="arithmetic" k1="0" k2="1" k3=".7" k4="0" result="lit"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="12" result="sh"/>
+      <feOffset in="sh" dy="14" result="sho"/>
+      <feFlood flood-color="#02040c" flood-opacity=".6"/>
+      <feComposite in2="sho" operator="in" result="drop"/>
+      <feMerge><feMergeNode in="drop"/><feMergeNode in="lit"/></feMerge>
+    </filter>
+  </defs>
+
+  <symbol id="star8" viewBox="0 0 24 24"><polygon points="12.00,0.50 13.22,9.04 16.60,7.40 14.96,10.78 23.50,12.00 14.96,13.22 16.60,16.60 13.22,14.96 12.00,23.50 10.78,14.96 7.40,16.60 9.04,13.22 0.50,12.00 9.04,10.78 7.40,7.40 10.78,9.04"/></symbol>
+  <symbol id="star8even" viewBox="0 0 24 24"><polygon points="12.00,1.00 13.61,8.12 19.78,4.22 15.88,10.39 23.00,12.00 15.88,13.61 19.78,19.78 13.61,15.88 12.00,23.00 10.39,15.88 4.22,19.78 8.12,13.61 1.00,12.00 8.12,10.39 4.22,4.22 10.39,8.12"/></symbol>
+  <symbol id="star4" viewBox="0 0 24 24"><polygon points="12.00,1.00 13.84,10.16 23.00,12.00 13.84,13.84 12.00,23.00 10.16,13.84 1.00,12.00 10.16,10.16"/></symbol>
+
+  <symbol id="sb" viewBox="0 0 78 13">
+    <g fill="currentColor"><rect x="0" y="9" width="3" height="4" rx=".7"/><rect x="4.5" y="6.5" width="3" height="6.5" rx=".7"/><rect x="9" y="4" width="3" height="9" rx=".7"/><rect x="13.5" y="1" width="3" height="12" rx=".7"/></g>
+    <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M24.6 5.4a9.4 9.4 0 0 1 12.8 0"/><path d="M27.4 8.3a5.2 5.2 0 0 1 7.2 0"/></g>
+    <circle cx="31" cy="11.2" r="1.5" fill="currentColor"/>
+    <rect x="45.5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" opacity=".4"/>
+    <rect x="47.5" y="2.5" width="18" height="8" rx="2" fill="currentColor"/>
+    <rect x="70.8" y="4.3" width="1.8" height="4.4" rx=".9" fill="currentColor" opacity=".4"/>
+  </symbol>
+
+  <symbol id="i-books" viewBox="0 0 24 24"><path d="M4.5 4.5h3.2v15H4.5z M9.6 3.5h3.2v16H9.6z M14.6 5.2l3-.8 3.6 14.4-3 .8z M10.6 7h1.2 M5.5 8h1.2"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M7.2 3.5h9.6c.7 0 1.2.5 1.2 1.2V20.5l-6-3.9-6 3.9V4.7c0-.7.5-1.2 1.2-1.2z"/></symbol>
+  <symbol id="i-stack" viewBox="0 0 24 24"><path d="M6 9h12a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 6 9z M6.8 6.2h10.4 M8.8 3.6h6.4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.3"/><path d="M15.2 15.2l5 5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.6"/><path d="M12 2.6v2.2 M12 19.2v2.2 M2.6 12h2.2 M19.2 12h2.2 M5.4 5.4l1.5 1.5 M17.1 17.1l1.5 1.5 M5.4 18.6l1.5-1.5 M17.1 6.9l1.5-1.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14 M5 12h14"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M8 19V5 M4.6 8.4 8 5l3.4 3.4 M16 5v14 M12.6 15.6 16 19l3.4-3.4"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.8 4.8 7.6 12l7.2 7.2"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11 M9 12h11 M9 17.5h11"/><circle cx="4.8" cy="6.5" r=".6"/><circle cx="4.8" cy="12" r=".6"/><circle cx="4.8" cy="17.5" r=".6"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="18.5" cy="12" r="1"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12.00,2.0 13.4,9.2 17.6,6.4 14.8,10.6 22.0,12.0 14.8,13.4 17.6,17.6 13.4,14.8 12.00,22.0 10.6,14.8 6.4,17.6 9.2,13.4 2.0,12.0 9.2,10.6 6.4,6.4 10.6,9.2"/></symbol>
+  <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4 13.2 13.2 8.4 15.6 10.8 10.8z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v8.6 M8.6 12.9 12 16.3l3.4-3.4"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.2 18.5h9.9a4 4 0 0 0 .5-7.96 5.4 5.4 0 0 0-10.4-.9A4.45 4.45 0 0 0 7.2 18.5z M12 10.8v5 M10 14l2 2 2-2"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.8 7h14.4 M9.8 7V4.6h4.4V7 M6.4 7l1 13h9.2l1-13 M10.4 10.5v6 M13.6 10.5v6"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 9h12a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 6 9z M9 14.5h6 M8.8 5h6.4"/></symbol>
+
+  <!-- A sparse constellation, used as a fleuron. -->
+  <symbol id="fleuron" viewBox="0 0 132 26">
+    <g fill="none" stroke="#d1b06b" stroke-width=".6" stroke-linecap="round" opacity=".7">
+      <path d="M8 17 L31 9 L56 14"/><path d="M76 14 L101 9 L124 17"/>
+    </g>
+    <g fill="#d1b06b"><circle cx="8" cy="17" r="1.3"/><circle cx="31" cy="9" r="1.9"/><circle cx="56" cy="14" r="1.1"/>
+      <circle cx="76" cy="14" r="1.1"/><circle cx="101" cy="9" r="1.9"/><circle cx="124" cy="17" r="1.3"/></g>
+    <use href="#star8" x="57" y="4" width="18" height="18" fill="url(#foilg)"/>
+  </symbol>
+
+  <!-- The app icon art. -->
+  <symbol id="appicon" viewBox="0 0 1024 1024">
+    <rect width="1024" height="1024" fill="url(#iconbase)"/>
+    <rect width="1024" height="1024" fill="url(#weave)" opacity=".55"/>
+    <rect width="1024" height="1024" fill="url(#lamp)"/>
+    <rect width="1024" height="1024" fill="url(#vig)"/>
+    <!-- blind-stamped outer frame -->
+    <rect x="84" y="90" width="856" height="856" rx="168" fill="none" stroke="#dfe7ff" stroke-opacity=".07" stroke-width="5"/>
+    <rect x="84" y="84" width="856" height="856" rx="168" fill="none" stroke="#02040c" stroke-opacity=".45" stroke-width="9"/>
+    <!-- gilt double fillet -->
+    <rect x="134" y="134" width="756" height="756" rx="118" fill="none" stroke="#02040c" stroke-opacity=".5" stroke-width="9" transform="translate(0 3)"/>
+    <rect x="134" y="134" width="756" height="756" rx="118" fill="none" stroke="url(#foilg)" stroke-width="7"/>
+    <rect x="156" y="156" width="712" height="712" rx="98" fill="none" stroke="url(#threadg)" stroke-width="2.6" opacity=".85"/>
+    <!-- a constellation crown -->
+    <g fill="none" stroke="#d1b06b" stroke-width="2.6" stroke-linecap="round" opacity=".75">
+      <path d="M318 268 L404 226 L486 234"/><path d="M538 234 L620 226 L706 268"/>
+    </g>
+    <g fill="#d9bc7c"><circle cx="318" cy="268" r="7"/><circle cx="404" cy="226" r="10"/><circle cx="620" cy="226" r="10"/><circle cx="706" cy="268" r="7"/></g>
+    <use href="#star8" x="484" y="196" width="56" height="56" fill="url(#foilg)"/>
+    <text x="512" y="760" text-anchor="middle" font-family="Cormorant Garamond" font-weight="600" font-size="620" fill="url(#foilg)" filter="url(#emboss)">P</text>
+  </symbol>
+</svg>
+
+<main class="gallery">
+  <header class="gallery-head">
+    <div>
+      <a class="back" href="../index.html">All five directions</a>
+      <p class="kicker">Direction one</p>
+      <h1>Midnight <span class="foil">Bookcloth</span></h1>
+      <p class="lede">The same book as Leather &amp; Ink, rebound. Deep indigo linen with a visible weave, panels pressed blind into the cloth, and gold that is tooled, not printed: double fillets, small eight-point stars at the corners, a title stamped in foil. It is a binder's idea of the night sky, a few stars and a lot of quiet blue, so the reading still comes first.</p>
+      <p class="borrow"><em>Borrows from Leather &amp; Ink:</em> both typefaces, the italic gold labels, emboss and deboss, the one signature object per page (the stitched card becomes a gilt-tooled panel), dusty rose for interaction, the grain tile and the soft-ink drawings. What changes is the material, cloth instead of leather, and the ornament, tooling and stars instead of stitching.</p>
+    </div>
+    <div class="head-aside">
+      <div class="swatches">
+        <div class="swatch"><div class="chip-color" style="background:#18203d"></div><b>Cloth</b><code>#18203d</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#10162d"></div><b>Cloth deep</b><code>#10162d</code></div>
+        <div class="swatch"><div class="chip-color" style="background:linear-gradient(#28325a,#212a4c)"></div><b>Raised</b><code>#212a4c → #28325a</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#ede5d3"></div><b>Ink</b><code>#ede5d3</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#b7b2a8"></div><b>Ink soft</b><code>#b7b2a8</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#858597"></div><b>Ink faint</b><code>#858597</code></div>
+        <div class="swatch"><div class="chip-color" style="background:var(--foil)"></div><b>Gold, foil</b><code>#d1b06b</code></div>
+        <div class="swatch"><div class="chip-color" style="background:#dba89e"></div><b>Rose (interaction)</b><code>#dba89e</code></div>
+      </div>
+      <div class="specimen raised-cloth">
+        <div class="d">Cormorant Garamond <i>for titles</i></div>
+        <div class="b">Newsreader for reading. A warm book serif at 18 points with generous leading, set on cloth with its texture turned almost all the way down.</div>
+        <small>Both already bundled in Shared/Fonts. No change to Typography.swift.</small>
+      </div>
+    </div>
+  </header>
+
+  <h2 class="section-title">On the iPhone</h2>
+  <p class="section-note">iOS 26 structure as it ships today: floating glass tab bar and toolbar buttons, large titles, plain lists. The glass is tinted with the cloth so it reads as part of the binding.</p>
+
+  <div class="screens">
+
+    <!-- 1. Library -->
+    <figure class="screen-figure">
+      <div class="phone"><div class="screen app cloth">
+        <div class="statusbar"><span>9:41</span><svg width="78" height="13"><use href="#sb"/></svg></div>
+        <div class="navrow"><span class="sp"></span>
+          <div class="gpair glass"><span class="gbtn"><svg><use href="#i-sort"/></svg></span><span class="gbtn"><svg><use href="#i-plus"/></svg></span></div>
+        </div>
+        <div class="page">
+          <h1 class="ptitle">Library</h1>
+          <p class="psub">8 fics, 2 favorites, by date added</p>
+          <div class="spine-band" style="margin:14px 0 0"><svg viewBox="0 0 24 24"><use href="#star8"/></svg></div>
+          <div class="sec"><span class="k">This week</span><span class="n">4</span></div>
+          <div class="row"><div class="body"><div class="t">A Field Guide to Falling Stars</div><div class="m">orreryheart · 46,903 words · 11 of 14</div></div><span class="upd" title="Update waiting"></span></div>
+          <div class="row"><div class="body"><div class="t">Small Hours, Borrowed Light<span class="fav"></span></div><div class="m">velvetcomma · 31,650 words · 9 of 9</div></div></div>
+          <div class="row"><div class="body"><div class="t">The Cartographer's Last Commission<span class="fav"></span></div><div class="m">quillandlantern · 84,212 words · 23 of 23</div></div></div>
+          <div class="row"><div class="body"><div class="t">Every Lighthouse Keeps a Ledger</div><div class="m">saltmarsh_ · 12,480 words · 3 of 3</div></div></div>
+          <div class="sec"><span class="k">Earlier this month</span><span class="n">4</span></div>
+          <div class="row"><div class="body"><div class="t">Nine Letters Never Sent</div><div class="m">the_archivist_who_wasnt · 18,002 words · 9 of ?</div></div></div>
+          <div class="row"><div class="body"><div class="t">Where the River Learns Your Name</div><div class="m">marginalia_ · 7,215 words · 1 of 1</div></div></div>
+          <div class="row"><div class="body"><div class="t">The Long Winter of Lantern Street</div><div class="m">hollyandhemlock · 102,390 words · 31 of 31</div></div></div>
+          <div class="row"><div class="body"><div class="t">Ink on the Tidewater</div><div class="m">quillandlantern · 5,440 words · 1 of 1</div></div><span class="cloud"><svg viewBox="0 0 24 24"><use href="#i-cloud"/></svg>iCloud</span></div>
+        </div>
+        <div class="fade-bottom"></div>
+        <nav class="tabbar glass">
+          <span class="tab on"><svg viewBox="0 0 24 24"><use href="#i-books"/></svg>Library</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-bookmark"/></svg>To Read</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</span>
+        </nav>
+        <div class="home-indicator"></div>
+      </div></div>
+      <figcaption><b>Library</b>Plain rows on the cloth with hairline rules, gold italic section names, a small tooled star for favorites and a gilt bead for a waiting update. A spine band, two fillets and a star, closes the header the way raised bands divide a book's spine.</figcaption>
+    </figure>
+
+    <!-- 2. Fic detail -->
+    <figure class="screen-figure">
+      <div class="phone"><div class="screen app cloth">
+        <div class="statusbar"><span>9:41</span><svg width="78" height="13"><use href="#sb"/></svg></div>
+        <div class="navrow">
+          <span class="gbtn glass"><svg><use href="#i-back"/></svg></span><span class="sp"></span>
+          <div class="gpair glass"><span class="gbtn"><svg><use href="#i-star"/></svg></span><span class="gbtn"><svg><use href="#i-more"/></svg></span></div>
+        </div>
+        <div class="page" style="padding-top:110px">
+          <div class="rhead">Library, 1 of 8</div>
+          <h1 class="ftitle">A Field Guide to Falling Stars</h1>
+          <p class="byline">by <a>orreryheart</a></p>
+          <p class="fandom">Good Omens (TV)</p>
+          <div class="tooled" style="margin-top:18px;padding:24px 24px 22px">
+            <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+            <div class="panel-label">The summary</div>
+            <p class="summary">Crowley kept a list of every star he ever hung, and one of them is going out. Aziraphale offers to help him find it, which is how they end up crossing three counties in a 1926 Bentley with a borrowed telescope on the back seat, and not talking about the last six months at all.</p>
+          </div>
+          <div class="actions">
+            <span class="btn primary"><span class="foil">Continue, chapter 7</span></span>
+            <span class="btn accent"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg>Chapter 12 is waiting</span>
+            <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg>Favorite</span>
+            <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+            <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-compass"/></svg>AO3</span>
+          </div>
+          <dl class="facts">
+            <dt>Rating</dt><dd>Teen And Up Audiences</dd>
+            <dt>Pairing</dt><dd>Aziraphale/Crowley (Good Omens)</dd>
+            <dt>Characters</dt><dd>Aziraphale, Crowley, Muriel</dd>
+          </dl>
+          <div class="chips" style="margin-top:14px">
+            <span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip">Road Trip</span><span class="chip">Stargazing</span><span class="chip">Post-Season/Series 02</span><span class="chip">Hurt/Comfort</span><span class="chip">Happy Ending Eventually</span>
+          </div>
+          <p class="stats">46,903 words · 11 of 14 chapters · 2,184 kudos · 318 bookmarks · updated 19 Nov 2026</p>
+        </div>
+        <div class="fade-bottom"></div>
+        <nav class="tabbar glass">
+          <span class="tab on"><svg viewBox="0 0 24 24"><use href="#i-books"/></svg>Library</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-bookmark"/></svg>To Read</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</span>
+        </nav>
+        <div class="home-indicator"></div>
+      </div></div>
+      <figcaption><b>Fic detail</b>The page's one signature object is the gilt-tooled panel: raised cloth, a double gold fillet and a tooled star at each corner. "Continue" is the only foil-stamped button; the waiting update is the one rose mark.</figcaption>
+    </figure>
+
+    <!-- 3. Reader -->
+    <figure class="screen-figure">
+      <div class="phone"><div class="screen app cloth quiet">
+        <div class="statusbar"><span>9:41</span><svg width="78" height="13"><use href="#sb"/></svg></div>
+        <div class="navrow">
+          <span class="gbtn glass"><svg><use href="#i-back"/></svg></span><span class="sp"></span>
+          <div class="gpair glass"><span class="gbtn"><svg><use href="#i-list"/></svg></span><span class="gbtn" style="font:500 19px/1 var(--display)">Aa</span></div>
+        </div>
+        <div class="reader">
+          <div class="chno">4</div>
+          <h1 class="chtitle">The Pleiades, Approximately</h1>
+          <svg viewBox="0 0 132 26" style="width:110px;margin:0 auto 22px"><use href="#fleuron"/></svg>
+          <div class="prose">
+            <p>The trouble with the Pleiades, Crowley said, was that nobody could agree how many of them there were.</p>
+            <p>“Seven,” said Aziraphale, who had read the relevant poets. He was holding the thermos the way other people held a candle in church, both hands, close to the chest. The field smelled of cut hay and of the Bentley’s engine ticking itself cool. “There are seven sisters. It’s rather the point of them.”</p>
+            <p>“Six you can see. Nine if you’ve got good eyes and no streetlights. Fourteen hundred if you’ve got a decent telescope and a grudge.” Crowley lay back on the bonnet with his hands behind his head. “I put in a lot of them. Most of them, actually. Did the whole cluster in an afternoon. Very fiddly. You’d think blue would be easy.”</p>
+            <p>Aziraphale looked up for a long moment. The sky over Wiltshire was the deep, settled blue that comes an hour after dusk, and the little cluster sat in it like a handful of salt someone had thrown over their shoulder for luck.</p>
+            <p>“They’re lovely,” he said, and then, because it seemed important to be accurate, “You did a lovely job.”</p>
+          </div>
+        </div>
+                <div class="rprogress">
+          <div class="track"><div class="fill"></div><div class="mark"></div></div>
+          <div class="lbl"><span>Chapter 4 of 11</span><span>38% through</span></div>
+        </div>
+        <div class="home-indicator"></div>
+      </div></div>
+      <figcaption><b>Reader</b>The cloth is turned almost flat (#151c37, weave at a third of its strength, no grain or slubs) and body text is Newsreader 18/29.7 in #e9e2d2, a contrast of 13:1 (ink-soft on cloth is 7.6:1). Small caps open the chapter. Progress is a gilt fillet with a star riding on it; the tab bar steps aside.</figcaption>
+    </figure>
+
+    <!-- 4. Empty To Read -->
+    <figure class="screen-figure">
+      <div class="phone"><div class="screen app cloth">
+        <div class="statusbar"><span>9:41</span><svg width="78" height="13"><use href="#sb"/></svg></div>
+        <div class="page"><h1 class="ptitle">To Read</h1></div>
+        <div class="empty">
+          <svg class="art" viewBox="0 0 320 230" role="img" aria-label="An open book, with stars rising from its gutter toward a crescent moon">
+            <title>An open book, with stars rising from its gutter toward a crescent moon</title>
+            <!-- moon -->
+            <path d="M262 22 A22 22 0 1 0 266 66 A17 17 0 1 1 262 22 Z" class="soft"/>
+            <!-- rising constellation -->
+            <path class="thin dash" d="M160 96 C150 82 166 70 158 56 S170 34 184 28 S214 22 230 36"/>
+            <use href="#star4" x="152" y="76" width="10" height="10" fill="#d1b06b"/>
+            <use href="#star4" x="179" y="22" width="12" height="12" fill="#d1b06b"/>
+            <circle cx="158" cy="56" r="1.4" class="goldf"/><circle cx="230" cy="36" r="1.2" class="goldf"/>
+            <circle cx="120" cy="40" r="1" class="goldf"/><circle cx="96" cy="64" r=".9" class="goldf"/><circle cx="212" cy="74" r=".9" class="goldf"/>
+            <!-- pages -->
+            <path d="M160 100 C132 86 86 84 44 96"/>
+            <path d="M160 100 C188 86 234 84 276 96"/>
+            <path d="M44 96 C40 120 40 150 46 174"/>
+            <path d="M276 96 C280 120 280 150 274 174"/>
+            <path d="M46 174 C86 162 132 164 160 178"/>
+            <path d="M274 174 C234 162 188 164 160 178"/>
+            <path d="M160 100 C157 126 157 152 160 178"/>
+            <path class="thin" d="M40 102 C38 128 38 156 42 180 C84 168 130 170 160 184 C190 170 236 168 278 180 C282 156 282 128 280 102"/>
+            <path class="thin" d="M36 110 C34 134 34 160 38 186 C82 175 128 177 160 190 C192 177 238 175 282 186 C286 160 286 134 284 110"/>
+            <!-- lines of text, a few, left open -->
+            <path class="thin" d="M62 112 C86 106 114 106 142 112"/><path class="thin" d="M62 124 C88 118 112 118 142 124"/><path class="thin" d="M62 136 C82 131 100 131 120 135"/>
+            <path class="thin" d="M178 112 C206 106 234 106 258 112"/><path class="thin" d="M178 124 C202 118 230 118 258 124"/><path class="thin" d="M178 136 C196 131 214 131 236 134"/>
+            <!-- the ribbon: the one accent -->
+            <path class="accent" d="M161 186 C166 198 154 206 162 218 M162 218 l-5 8 M162 218 l7 7"/>
+          </svg>
+          <h2>Nothing waiting to be read</h2>
+          <p>Fics you mark To Read gather here, newest first. Find one in your library or on AO3.</p>
+          <span class="btn primary"><span class="foil">Search AO3</span></span>
+        </div>
+        <div class="fade-bottom"></div>
+        <nav class="tabbar glass">
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-books"/></svg>Library</span>
+          <span class="tab on"><svg viewBox="0 0 24 24"><use href="#i-bookmark"/></svg>To Read</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search</span>
+          <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</span>
+        </nav>
+        <div class="home-indicator"></div>
+      </div></div>
+      <figcaption><b>Empty To Read</b>A soft-ink drawing in the existing style: an open book with a few stars rising from its gutter toward a crescent. Cream ink, gold only for the stars, and one rose mark, the ribbon.</figcaption>
+    </figure>
+
+    <!-- 5. Chrome close-up -->
+    <figure class="screen-figure">
+      <div class="chrome-panel cloth" style="box-shadow:inset 0 0 0 1px rgba(209,176,107,.14), 0 30px 60px rgba(0,0,0,.4)">
+        <p class="lab">Tab bar at 2×, Library selected. The selected tab is pressed into the glass and lit gold.</p>
+        <div class="chrome-stage" style="height:136px">
+          <div class="x2"><nav class="tabbar glass">
+            <span class="tab on"><svg viewBox="0 0 24 24"><use href="#i-books"/></svg>Library</span>
+            <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-bookmark"/></svg>To Read</span>
+            <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+            <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search</span>
+            <span class="tab"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</span>
+          </nav></div>
+        </div>
+        <p class="lab" style="margin-top:22px">Toolbar at 2×: back, a grouped pair, and the reader's text button.</p>
+        <div class="chrome-stage" style="height:100px">
+          <div class="x2" style="display:flex;gap:8px;align-items:center">
+            <span class="gbtn glass"><svg><use href="#i-back"/></svg></span>
+            <div class="gpair glass"><span class="gbtn"><svg><use href="#i-star"/></svg></span><span class="gbtn"><svg><use href="#i-more"/></svg></span></div>
+            <div class="gpair glass"><span class="gbtn"><svg><use href="#i-list"/></svg></span><span class="gbtn" style="font:500 19px/1 var(--display)">Aa</span></div>
+            <span class="gbtn glass" style="color:var(--gold-bright)"><svg style="fill:rgba(209,176,107,.25)"><use href="#i-star"/></svg></span>
+          </div>
+        </div>
+        <p class="lab" style="margin-top:22px">Swipe actions. The system draws the capsule and white label, so the tints carry the palette: gilt, bookcloth blue, slate and garnet.</p>
+        <div class="swipes">
+          <span class="swipe" style="background:#8a6a32"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg>Favorite</span>
+          <span class="swipe" style="background:#36457a"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg>Update</span>
+          <span class="swipe" style="background:#4c4a6c"><svg viewBox="0 0 24 24"><use href="#i-minus"/></svg>Remove</span>
+          <span class="swipe" style="background:#742f3f"><svg viewBox="0 0 24 24"><use href="#i-trash"/></svg>Delete</span>
+        </div>
+      </div>
+      <figcaption style="max-width:820px"><b>Tab bar and toolbar chrome</b>Native UITabBar and toolbar items, untouched in structure. Only the tint, label font and selected appearance change, through the same appearance proxies Chrome.swift sets today. The glass picks up the cloth behind it on its own.</figcaption>
+    </figure>
+
+    <!-- 6. App icon -->
+    <figure class="screen-figure">
+      <div class="chrome-panel cloth" style="width:520px;box-shadow:inset 0 0 0 1px rgba(209,176,107,.14), 0 30px 60px rgba(0,0,0,.4)">
+        <div class="icon-row">
+          <svg class="ic" width="240" height="240" style="border-radius:53.7px"><use href="#appicon"/></svg>
+          <svg class="ic" width="120" height="120" style="border-radius:26.8px"><use href="#appicon"/></svg>
+          <svg class="ic" width="60" height="60" style="border-radius:13.4px"><use href="#appicon"/></svg>
+        </div>
+      </div>
+      <figcaption style="max-width:520px"><b>App icon</b>The leather icon's twin: the foil P in Cormorant SemiBold, embossed, on indigo linen. A blind-stamped frame and a gilt double fillet replace the saddle stitching, and a small constellation crowns the letter with a tooled star. At 60 px the P and the fillet still read; the constellation drops to a glint.</figcaption>
+    </figure>
+  </div>
+
+  <h2 class="section-title">Up close</h2>
+  <p class="section-note">Each effect with a note on what it costs to draw in SwiftUI, for the perf pass. The rule of thumb: bake textures once into a tile, keep gradients static, and never blur or blend per row.</p>
+
+  <div class="details-grid">
+    <div class="detail-card">
+      <h3>Indigo linen</h3>
+      <p class="what">Warp and weft at a 3 px pitch, a darker under-thread, long uneven slubs, fine grain, lit from the top left with a vignette below. On the right, the weave at 4×.</p>
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:10px">
+        <div class="cloth" style="height:220px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)"></div>
+        <div style="height:220px;border-radius:8px;background:
+          repeating-linear-gradient(0deg, rgba(200,212,255,.06) 0 4px, transparent 4px 12px),
+          repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 4px, transparent 4px 12px),
+          repeating-linear-gradient(0deg, rgba(0,0,0,.1) 0 4px, transparent 4px 8px),
+          linear-gradient(160deg,#1d2649,#141a35)"></div>
+      </div>
+      <p class="cost"><span class="cost-tag moderate">moderate, once</span> Build it as one baked tile (a 256 px CGImage like Grain.tile, with the weave, slubs and grain together) drawn with <code>.resizable(resizingMode: .tile)</code> over two static gradients. Never draw the weave as stripes in SwiftUI: hundreds of rectangles per frame. Cost after launch is one textured quad.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Gold foil, stamped</h3>
+      <p class="what">A warm gold with a bright band where the lamp catches it, speckled like real foil, with a dark lip above (pressed into the cloth) and a faint light lip below.</p>
+      <div class="raised-cloth" style="border-radius:8px;height:220px;display:grid;place-items:center;align-content:center;gap:14px">
+        <div class="foil" style="font:italic 500 104px/0.9 var(--display)">Parade</div>
+        <div class="spine-band" style="width:70%"><svg viewBox="0 0 24 24"><use href="#star8"/></svg></div>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span> A static <code>LinearGradient</code> as the text's <code>foregroundStyle</code>, plus two 0-radius offset shadows for the lips. <span class="cost-tag moderate">moderate</span> The speckle needs the gradient and noise flattened into one image used as the fill; keep it to titles and the one primary button, never list rows.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Tooling: blind and gilt</h3>
+      <p class="what">Left, a panel pressed blind: a dark groove with a light lower edge, no color. Right, the signature panel: a double gilt fillet with a tooled star at each corner.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="blind raised-cloth" style="height:170px;display:grid;place-items:center;font:italic 17px var(--serif);color:var(--ink-soft)">Blind</div>
+        <div class="tooled" style="height:170px;display:grid;place-items:center;font:italic 500 20px var(--display);color:var(--gold)"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>Gilt</div>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span> Two <code>strokeBorder</code>s on inset rounded rectangles and four small stars in an <code>overlay</code>; no blur. The blind groove is a stroke plus a 1 pt offset light stroke, not an inner shadow. Only one tooled panel per page, so its lifted <code>.shadow</code> is fine.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Stars, tooled</h3>
+      <p class="what">The binder's tools: each is a single filled path, so it stamps in gold or presses blind.</p>
+      <div class="motifs">
+        <div class="motif"><svg viewBox="0 0 24 24" fill="url(#foilg)"><use href="#star8"/></svg><span>Tooled star</span></div>
+        <div class="motif"><svg viewBox="0 0 24 24" fill="url(#foilg)"><use href="#star8even"/></svg><span>Even star</span></div>
+        <div class="motif"><svg viewBox="0 0 24 24" fill="url(#foilg)"><use href="#star4"/></svg><span>Glint</span></div>
+        <div class="motif"><svg viewBox="0 0 64 64"><path d="M40 10 A24 24 0 1 0 44 56 A19 19 0 1 1 40 10 Z" fill="url(#foilg)"/><use href="#star4" x="40" y="22" width="12" height="12" fill="#d1b06b"/></svg><span>Crescent and glint</span></div>
+        <div class="motif" style="grid-column:span 2"><svg viewBox="0 0 132 26" style="height:34px"><use href="#fleuron"/></svg><span>Constellation fleuron</span></div>
+        <div class="motif"><svg viewBox="0 0 64 64"><path d="M6 6 H40 M6 6 V40 M10 10 H30 M10 10 V30" stroke="#d1b06b" fill="none" stroke-width="1.2"/><use href="#star8" x="0" y="0" width="12" height="12" fill="url(#foilg)"/><circle cx="36" cy="16" r="1.2" fill="#d1b06b"/><circle cx="16" cy="36" r="1.2" fill="#d1b06b"/></svg><span>Corner piece</span></div>
+        <div class="motif"><svg viewBox="0 0 64 64"><g fill="#d1b06b"><use href="#star4" x="4" y="6" width="9" height="9"/><use href="#star4" x="36" y="2" width="7" height="7"/><use href="#star4" x="22" y="26" width="10" height="10"/><use href="#star4" x="50" y="30" width="8" height="8"/><use href="#star4" x="8" y="46" width="7" height="7"/><use href="#star4" x="38" y="50" width="9" height="9"/></g></svg><span>Semé, powdered</span></div>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span> Ship them as template vector symbols in the asset catalog (or <code>Shape</code>s) and tint with the palette. A semé background is costly as live shapes; bake it into the cloth tile if we ever use it.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Buttons</h3>
+      <p class="what">The primary button is the only foil-stamped one, framed by a fine gilt fillet. Secondary buttons are raised cloth; pressed, they sink into it.</p>
+      <div class="actions" style="margin:0;align-items:center;gap:12px">
+        <span class="btn primary"><span class="foil">Continue reading</span></span>
+        <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+        <span class="btn pressed"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Pressed</span>
+        <span class="btn accent"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg>Update waiting</span>
+        <span class="btn disabled">Unavailable</span>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span> The existing <code>LeatherButtonStyle</code> with new colors: a static gradient, a 1 pt stroke and one tight shadow. The primary's gilt frame is two more <code>strokeBorder</code>s. Swap the weave on buttons for the flat gradient if Instruments shows overdraw.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Chips and tags</h3>
+      <p class="what">Pressed into the cloth. The selected one takes the rose and a hairline of it.</p>
+      <div class="chips" style="gap:8px">
+        <span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip on">Stargazing</span><span class="chip">Road Trip</span><span class="chip rel">Aziraphale/Crowley</span><span class="chip">Happy Ending Eventually</span>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span> Today's <code>debossed()</code>: a fill with <code>.shadow(.inner)</code> and a stroke. The inner shadow is an offscreen pass per chip; fine for a dozen tags, so flatten it to two strokes if a tag cloud gets long.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Dividers and ornaments</h3>
+      <p class="what">From quietest to loudest: the hairline between rows, a blind rule, a gilt double fillet, the spine band, and the constellation fleuron that ends a chapter.</p>
+      <div style="display:grid;gap:20px;padding:8px 4px">
+        <div class="hair"></div>
+        <div class="blind-rule"></div>
+        <div class="fillet"></div>
+        <div class="spine-band"><svg viewBox="0 0 24 24"><use href="#star8"/></svg></div>
+        <svg viewBox="0 0 132 26" style="width:150px;margin:0 auto"><use href="#fleuron"/></svg>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span> Rectangles and a small vector, all static. Use the hairline in lists; the band and fleuron appear once per page at most.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Progress</h3>
+      <p class="what">In the reader, a star rides a gilt fillet. On a fic page, one tooled star per chapter: gilt for read, blind for unread, rose for where you are.</p>
+      <div class="rprogress" style="position:relative;left:0;right:0;bottom:0;margin:10px 0 28px">
+        <div class="track"><div class="fill"></div><div class="mark"></div></div>
+        <div class="lbl"><span>Chapter 4 of 11</span><span>38% through</span></div>
+      </div>
+      <div style="display:flex;gap:9px;align-items:center">
+        <svg width="16" height="16" fill="#d1b06b"><use href="#star8"/></svg><svg width="16" height="16" fill="#d1b06b"><use href="#star8"/></svg><svg width="16" height="16" fill="#d1b06b"><use href="#star8"/></svg>
+        <svg width="16" height="16" fill="#d1b06b"><use href="#star8"/></svg><svg width="16" height="16" fill="#d1b06b"><use href="#star8"/></svg><svg width="16" height="16" fill="#d1b06b"><use href="#star8"/></svg>
+        <svg width="20" height="20" fill="#dba89e"><use href="#star8"/></svg>
+        <svg width="16" height="16" class="blindstar"><use href="#star8"/></svg><svg width="16" height="16" class="blindstar"><use href="#star8"/></svg>
+        <svg width="16" height="16" class="blindstar"><use href="#star8"/></svg><svg width="16" height="16" class="blindstar"><use href="#star8"/></svg>
+        <span style="font:italic 14px var(--serif);color:var(--ink-faint);margin-left:6px">7 of 11</span>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">cheap</span> Static shapes; the reader's star moves only when the page changes, so it's a position update, not an animation.</p>
+    </div>
+
+    <div class="detail-card">
+      <h3>Glass, tinted with cloth</h3>
+      <p class="what">The system's floating glass for the tab bar and toolbar, tinted a little toward the cloth and the selected tab pressed in.</p>
+      <div class="cloth" style="position:relative;height:170px;border-radius:10px;overflow:hidden">
+        <div style="position:absolute;left:20px;top:18px;font:500 40px/1 var(--display);color:var(--ink)">Library</div>
+        <div style="position:absolute;left:20px;top:64px;width:260px;height:1px;background:var(--rule)"></div>
+        <nav class="tabbar glass" style="left:14px;right:14px;bottom:12px"><span class="tab on"><svg viewBox="0 0 24 24"><use href="#i-books"/></svg>Library</span><span class="tab"><svg viewBox="0 0 24 24"><use href="#i-bookmark"/></svg>To Read</span><span class="tab"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span><span class="tab"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search</span><span class="tab"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</span></nav>
+      </div>
+      <p class="cost"><span class="cost-tag cheap">free</span> The system draws Liquid Glass; we only set tint and fonts through appearance proxies. Don't draw our own glass or blurs in SwiftUI: a custom <code>.background(.ultraThinMaterial)</code> per row is costly.</p>
+    </div>
+  </div>
+
+  <h2 class="section-title" style="font-size:34px;margin-top:56px">What each effect costs</h2>
+  <table class="cost-table" style="margin-top:14px">
+    <thead><tr><th>Effect</th><th>Cost</th><th>How to build it cheaply in SwiftUI</th></tr></thead>
+    <tbody>
+      <tr><td>Linen weave, slubs, grain</td><td><span class="cost-tag moderate">moderate, once</span></td><td>Bake one 256 px tile at launch (CGContext, like <code>Grain.tile</code>) and tile it; draw it once behind the window (the Mac backdrop already does this), never per view.</td></tr>
+      <tr><td>Lamp light and vignette</td><td><span class="cost-tag cheap">cheap</span></td><td>Two static <code>EllipticalGradient</code>s, exactly as <code>LeatherBackground</code> does now.</td></tr>
+      <tr><td>Emboss and deboss</td><td><span class="cost-tag cheap">cheap</span></td><td>Gradient fill plus 1 pt <code>strokeBorder</code>s. Keep <code>.shadow</code> to one tight shadow; the lifted 15 pt shadow only on the one tooled panel.</td></tr>
+      <tr><td>Inner shadow on chips</td><td><span class="cost-tag moderate">moderate</span></td><td><code>.shadow(.inner)</code> renders offscreen; fine for a dozen tags, replace with two strokes in long lists.</td></tr>
+      <tr><td>Gilt fillet panel and corner stars</td><td><span class="cost-tag cheap">cheap</span></td><td>Two inset strokes and four vector symbols in an <code>overlay</code>. One per page.</td></tr>
+      <tr><td>Foil gradient on titles and the primary button</td><td><span class="cost-tag cheap">cheap</span></td><td>A <code>LinearGradient</code> as <code>foregroundStyle</code>, plus zero-radius offset shadows for the stamped lips.</td></tr>
+      <tr><td>Foil speckle</td><td><span class="cost-tag moderate">moderate</span></td><td>Pre-render a foil image (gradient and noise) and use it as an <code>ImagePaint</code> fill. Never <code>blendMode</code> it live.</td></tr>
+      <tr><td>Embossed icon letter (specular lighting)</td><td><span class="cost-tag costly">costly live</span></td><td>Only in the app icon, which is rendered offline. Don't recreate it in views.</td></tr>
+      <tr><td>Stars, fleuron, crescent</td><td><span class="cost-tag cheap">cheap</span></td><td>Vector template images in the asset catalog, tinted from the palette.</td></tr>
+      <tr><td>Glass tab bar and toolbar</td><td><span class="cost-tag cheap">free</span></td><td>System Liquid Glass with tint and fonts from <code>Chrome.install()</code>.</td></tr>
+      <tr><td>Reader background</td><td><span class="cost-tag cheap">cheap</span></td><td>A flat color plus a faint weave tile at low opacity. No grain, vignette or blending behind long text.</td></tr>
+      <tr><td>Soft-ink drawings</td><td><span class="cost-tag cheap">cheap</span></td><td>Static PDF/SVG assets, as today.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="section-title">On the Mac</h2>
+  <p class="section-note">Split view as today: a glass sidebar floating over one cloth backdrop that spans the window, the list, and the fic page with its tooled panel.</p>
+
+  <div class="mac app cloth">
+    <div class="sidebar">
+      <div class="traffic" style="top:8px;left:10px"><i></i><i></i><i></i></div>
+      <div class="side-item on"><svg viewBox="0 0 24 24"><use href="#i-books"/></svg>Library<span class="n">8</span></div>
+      <div class="side-item"><svg viewBox="0 0 24 24"><use href="#i-bookmark"/></svg>To Read<span class="n">3</span></div>
+      <div class="side-item"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg>Favorites<span class="n">2</span></div>
+      <div class="side-k">Collections</div>
+      <div class="side-item"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Comfort Reads<span class="n">12</span></div>
+      <div class="side-item"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Slow Burns<span class="n">7</span></div>
+      <div class="side-item"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Finished WIPs<span class="n">4</span></div>
+      <div class="side-k">AO3</div>
+      <div class="side-item"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search AO3</div>
+      <div class="side-item"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</div>
+      <svg viewBox="0 0 132 26" style="position:absolute;bottom:22px;left:50%;width:96px;transform:translateX(-50%);opacity:.8"><use href="#fleuron"/></svg>
+    </div>
+    <div class="toolbar">
+      <div class="gpair glass" style="height:30px"><span class="tbtn"><svg viewBox="0 0 24 24"><use href="#i-sort"/></svg></span><span class="tbtn"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></span></div>
+      <div class="tsearch glass"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search library</div>
+      <div class="gpair glass" style="height:30px"><span class="tbtn"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg></span><span class="tbtn"><svg viewBox="0 0 24 24"><use href="#i-more"/></svg></span></div>
+    </div>
+    <div class="listcol">
+      <h1 class="ptitle">Library</h1>
+      <p class="psub">8 fics, 2 favorites, by date added</p>
+      <div class="spine-band" style="margin:12px 0 0"><svg viewBox="0 0 24 24"><use href="#star8"/></svg></div>
+      <div class="sec"><span class="k">This week</span><span class="n">4</span></div>
+      <div class="row sel"><div class="body"><div class="t">A Field Guide to Falling Stars</div><div class="m">orreryheart · 46,903 words · 11 of 14</div></div><span class="upd"></span></div>
+      <div class="row"><div class="body"><div class="t">Small Hours, Borrowed Light<span class="fav"></span></div><div class="m">velvetcomma · 31,650 words · 9 of 9</div></div></div>
+      <div class="row"><div class="body"><div class="t">The Cartographer's Last Commission<span class="fav"></span></div><div class="m">quillandlantern · 84,212 words · 23 of 23</div></div></div>
+      <div class="row"><div class="body"><div class="t">Every Lighthouse Keeps a Ledger</div><div class="m">saltmarsh_ · 12,480 words · 3 of 3</div></div></div>
+      <div class="sec"><span class="k">Earlier this month</span><span class="n">4</span></div>
+      <div class="row"><div class="body"><div class="t">Nine Letters Never Sent</div><div class="m">the_archivist_who_wasnt · 18,002 words · 9 of ?</div></div></div>
+      <div class="row"><div class="body"><div class="t">Where the River Learns Your Name</div><div class="m">marginalia_ · 7,215 words · 1 of 1</div></div></div>
+      <div class="row"><div class="body"><div class="t">The Long Winter of Lantern Street</div><div class="m">hollyandhemlock · 102,390 words · 31 of 31</div></div></div>
+      <div class="row"><div class="body"><div class="t">Ink on the Tidewater</div><div class="m">quillandlantern · 5,440 words · 1 of 1</div></div><span class="cloud"><svg viewBox="0 0 24 24"><use href="#i-cloud"/></svg>iCloud</span></div>
+    </div>
+    <div class="detcol">
+      <div style="max-width:470px">
+        <div class="rhead">Library, 1 of 8</div>
+        <h1 class="ftitle" style="font-size:40px">A Field Guide to Falling Stars</h1>
+        <p class="byline">by <a>orreryheart</a></p>
+        <p class="fandom">Good Omens (TV)</p>
+        <div class="tooled" style="margin-top:20px;padding:26px 28px 24px">
+          <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+          <div class="panel-label">The summary</div>
+          <p class="summary" style="font-size:15px">Crowley kept a list of every star he ever hung, and one of them is going out. Aziraphale offers to help him find it, which is how they end up crossing three counties in a 1926 Bentley with a borrowed telescope on the back seat, and not talking about the last six months at all.</p>
+        </div>
+        <div class="actions">
+          <span class="btn primary"><span class="foil">Continue, chapter 7</span></span>
+          <span class="btn accent"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg>Chapter 12 is waiting</span>
+          <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+          <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-compass"/></svg>AO3</span>
+        </div>
+        <dl class="facts">
+          <dt>Rating</dt><dd>Teen And Up Audiences</dd>
+          <dt>Warnings</dt><dd>No Archive Warnings Apply</dd>
+          <dt>Pairing</dt><dd>Aziraphale/Crowley (Good Omens)</dd>
+          <dt>Characters</dt><dd>Aziraphale, Crowley, Muriel</dd>
+        </dl>
+        <div class="chips" style="margin-top:14px">
+          <span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip">Road Trip</span><span class="chip">Stargazing</span><span class="chip">Post-Season/Series 02</span><span class="chip">Hurt/Comfort</span><span class="chip">Happy Ending Eventually</span>
+        </div>
+        <p class="stats">46,903 words · 11 of 14 chapters · 2,184 kudos · 318 bookmarks · updated 19 Nov 2026</p>
+      </div>
+    </div>
+  </div>
+</main>
+<script>/* ?y=1200 shifts the page up, for headless screenshots */ const y=new URLSearchParams(location.search).get('y'); if(y) document.querySelector("main").style.marginTop = -y + "px";</script>
+</body>
+</html>

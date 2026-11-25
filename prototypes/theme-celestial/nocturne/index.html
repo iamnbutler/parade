@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nocturne · Parade celestial theme</title>
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+<!-- Icons, drawn at 24 units in the same line weight as the soft-ink drawings. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-books" viewBox="0 0 24 24"><rect x="3.5" y="4" width="4" height="16" rx=".8"/><rect x="8.5" y="4" width="4" height="16" rx=".8"/><path d="M14.2 5.2l3.7-1 4 15.3-3.8 1z"/><path d="M3.5 7.5h4M8.5 7.5h4M3.5 16.5h4M8.5 16.5h4"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M7 3.5h10a.5.5 0 0 1 .5.5v16.5L12 16.5l-5.5 4V4a.5.5 0 0 1 .5-.5z"/></symbol>
+  <symbol id="i-stack" viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="12.5" rx="2"/><path d="M5.5 5.2h13M7.5 2.8h9"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.3 15.3l5.2 5.2"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.4" stroke-dasharray="2.6 2.2"/><circle cx="12" cy="12" r="5.6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5l-7 7 7 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="18" cy="12" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.5" cy="6.5" r=".9" fill="currentColor"/><circle cx="4.5" cy="12" r=".9" fill="currentColor"/><circle cx="4.5" cy="17.5" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M2.5 19L8 5l5.5 14M4.6 14h6.8M15 13.2c.6-1.2 1.7-1.8 3-1.8 1.8 0 2.8 1 2.8 2.8V19M20.8 15.4c-3.6 0-5.6.7-5.6 2.1 0 1 .8 1.6 2 1.6 2 0 3.6-1.4 3.6-3.7"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9-4.4-4.1 6-.8z"/></symbol>
+  <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v8M8.5 12.5l3.5 3.5 3.5-3.5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l1 13h9l1-13"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 19.5s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7a4.2 4.2 0 0 1 7.5 2.5c0 5.4-7.5 10-7.5 10z"/></symbol>
+  <symbol id="i-fav" viewBox="0 0 10 10"><path d="M5 .3l1.4 3.1 3.3.3-2.5 2.2.8 3.3L5 7.5 2 9.2l.8-3.3L.3 3.7l3.3-.3z"/></symbol>
+</svg>
+
+<main class="gallery">
+
+<!-- 1. Header -->
+<header class="gallery-head">
+  <div>
+    <a class="back" href="../index.html">All directions</a>
+    <h1><span class="moon gold" data-k=".72"></span>Nocturne</h1>
+    <p class="mood">A keepsake book bound in <em>sapphire velvet</em>, the kind you keep on the nightstand. The nap takes the light along one diagonal, a gold silk ribbon hangs from the top of the page you’re on, and a crescent is foil-stamped where Leather & Ink stitched its card. The motif carries meaning: <em>the moon waxes as you read</em>, new on a fic you haven’t opened, full on one you’ve finished, and every chapter is a phase. Stars are a dusting, never a starfield. The most romantic of the five.</p>
+    <p class="borrows"><b>Borrows from Leather & Ink:</b> the emboss and deboss recipes (re-lit in cool blue), the inset hairline on the one signature card, italic display labels in gold, the drop-cap reader, the one-accent rule (blush plays rose’s part), the soft-ink drawing style.</p>
+  </div>
+  <div class="specimen">
+    <p class="big">The Pleiades, Approximately</p>
+    <p class="big2">Playfair Display, italic for display</p>
+    <p>“Six you can see. Nine if you’ve got good eyes and no streetlights.” Crimson Pro carries the reading: a slim, warm old-style face with real italics, 19 / 31 in the reader.</p>
+    <p class="who">Playfair’s high contrast is the velvet’s sheen in type; Crimson’s small x-height wants 19px+ on the phone.</p>
+  </div>
+</header>
+
+<div class="swatches" role="list" aria-label="Palette">
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:#141c4a"></div><b>Velvet</b><code>#141c4a</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:#0b1033"></div><b>Velvet deep</b><code>#0b1033</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:#10173f"></div><b>Reading page</b><code>#10173f</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:linear-gradient(#222d6c,#1c2660)"></div><b>Raised</b><code>#222d6c → #1c2660</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:#efe9f2"></div><b>Moon-pearl ink</b><code>#efe9f2</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:#e4dfe9"></div><b>Reading ink</b><code>#e4dfe9</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:#b5b3c9"></div><b>Ink soft</b><code>#b5b3c9</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:#807ea0"></div><b>Ink faint</b><code>#807ea0</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:linear-gradient(160deg,#f3e1ae,#d6b46e 40%,#9a7638)"></div><b>Gold foil</b><code>#f3e1ae · #d6b46e · #9a7638</code></div>
+  <div class="swatch" role="listitem"><div class="chip-color" style="background:#e6b8c2"></div><b>Moonlight blush</b><code>#e6b8c2</code></div>
+</div>
+
+<!-- 2. Screens -->
+<h2 class="section-title">On the phone</h2>
+<p class="section-note">iPhone 16 Pro, 393 × 852 points, iOS 26 floating glass chrome tinted sapphire. The moons beside each fic are its reading progress.</p>
+
+<div class="screens">
+
+  <!-- Library -->
+  <figure class="screen-figure">
+    <div class="phone"><div class="screen velvet">
+      <div class="nap"></div><div class="dust"></div>
+      <div class="navbar">
+        <span></span>
+        <div class="group"><span class="gbtn glass"><svg><use href="#i-more"/></svg></span><span class="gbtn glass"><svg><use href="#i-plus"/></svg></span></div>
+      </div>
+      <div class="content">
+        <div class="lib">
+          <h1 class="large-title">Library</h1>
+          <p class="subtitle">8 fics, 2 favorites, by date added</p>
+          <div class="search"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search your library</div>
+
+          <div class="group-head"><span class="kicker">This week</span><span class="count num">4</span></div>
+          <div class="row"><div class="text"><div class="title"><span>A Field Guide to Falling Stars</span></div><div class="meta">orreryheart · <span class="num">46,903</span> words · 11 of 14</div></div><div class="side"><span class="update-dot" title="Update waiting"></span><span class="moon" data-k=".55"></span></div></div>
+          <div class="row"><div class="text"><div class="title"><span>Small Hours, Borrowed Light</span><svg class="fav" viewBox="0 0 10 10"><use href="#i-fav"/></svg></div><div class="meta">velvetcomma · <span class="num">31,650</span> words · 9 of 9</div></div><div class="side"><span class="moon" data-k="1"></span></div></div>
+          <div class="row"><div class="text"><div class="title"><span>The Cartographer’s Last Commission</span><svg class="fav" viewBox="0 0 10 10"><use href="#i-fav"/></svg></div><div class="meta">quillandlantern · <span class="num">84,212</span> words · 23 of 23</div></div><div class="side"><span class="moon" data-k="1"></span></div></div>
+          <div class="row"><div class="text"><div class="title"><span>Every Lighthouse Keeps a Ledger</span></div><div class="meta">saltmarsh_ · <span class="num">12,480</span> words · 3 of 3</div></div><div class="side"><span class="moon" data-k="0"></span></div></div>
+
+          <div class="group-head"><span class="kicker">Earlier this month</span><span class="count num">4</span></div>
+          <div class="row"><div class="text"><div class="title"><span>Nine Letters Never Sent</span></div><div class="meta">the_archivist_who_wasnt · <span class="num">18,002</span> words · 9 of ?</div></div><div class="side"><span class="moon" data-k=".33"></span></div></div>
+          <div class="row"><div class="text"><div class="title"><span>Where the River Learns Your Name</span></div><div class="meta">marginalia_ · <span class="num">7,215</span> words · 1 of 1</div></div><div class="side"><span class="moon" data-k="0"></span></div></div>
+          <div class="row"><div class="text"><div class="title"><span>The Long Winter of Lantern Street</span></div><div class="meta">hollyandhemlock · <span class="num">102,390</span> words · 31 of 31</div></div><div class="side"><span class="moon" data-k=".12"></span></div></div>
+          <div class="row"><div class="text"><div class="title"><span>Ink on the Tidewater</span></div><div class="meta">quillandlantern · <span class="num">5,440</span> words · 1 of 1</div></div><div class="side"><span class="icloud">in iCloud</span></div></div>
+        </div>
+      </div>
+      <div class="under-tabs"></div>
+      <nav class="tabbar glass" data-on="library"></nav>
+    </div></div>
+    <figcaption><b>Library.</b> Playfair italic title over a dusting of stars that fades out by the first row. Each fic’s moon is how far you’ve read: new, waxing, full. A gold dot means AO3 has a new chapter.</figcaption>
+  </figure>
+
+  <!-- Detail -->
+  <figure class="screen-figure">
+    <div class="phone"><div class="screen velvet">
+      <div class="nap"></div>
+      <div class="ribbon" style="right:72px;height:236px"></div>
+      <div class="navbar">
+        <span class="gbtn glass"><svg><use href="#i-back"/></svg></span>
+        <div class="group"><span class="gbtn glass"><svg><use href="#i-more"/></svg></span></div>
+      </div>
+      <div class="content">
+        <div class="detail" style="padding-top:62px">
+          <div class="running-head">Library, 1 of 8</div>
+          <h2>A Field Guide to Falling Stars</h2>
+          <div class="byline">by <a href="#">orreryheart</a></div>
+          <div class="fandom">Good Omens (TV)</div>
+
+          <div class="summary-card">
+            <span class="stamp"><svg viewBox="-12 -12 24 24" width="24" height="24"><defs><linearGradient id="sf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3e1ae"/><stop offset=".5" stop-color="#c9a35c"/><stop offset="1" stop-color="#9a7638"/></linearGradient></defs><path fill="url(#sf)" d="M3.25-8.93A9.5 9.5 0 1 0 3.25 8.93A9 9 0 0 1 3.25-8.93Z"/></svg></span>
+            <div class="kicker">The summary</div>
+            <p>Crowley kept a list of every star he ever hung, and one of them is going out. Aziraphale offers to help him find it, which is how they end up crossing three counties in a 1926 Bentley with a borrowed telescope on the back seat, and not talking about the last six months at all.</p>
+          </div>
+
+          <div class="btn primary"><span class="moon" data-k=".43"></span>Continue, chapter 7</div>
+          <div class="actions" style="margin-top:10px">
+            <span class="btn" style="color:var(--gold)"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg>Favorite</span>
+            <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+            <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg>Update<span class="dot"></span></span>
+          </div>
+
+          <div class="kicker" style="margin:20px 0 8px">Tags</div>
+          <div class="chips">
+            <span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip on">Stargazing</span><span class="chip">Road Trip</span><span class="chip">Hurt/Comfort</span><span class="chip">Happy Ending Eventually</span>
+          </div>
+          <div class="meta" style="margin-top:12px"><span class="num">46,903</span> words · 11 of 14 chapters · <span class="num">2,184</span> kudos</div>
+        </div>
+      </div>
+      <div class="home-indicator"></div>
+    </div></div>
+    <figcaption><b>Fic detail.</b> The gold silk ribbon hangs from the top of the page, as in a keepsake book. The summary is the one signature object: raised velvet, an inset gold hairline and a foil crescent stamped at its head.</figcaption>
+  </figure>
+
+  <!-- Reader -->
+  <figure class="screen-figure">
+    <div class="phone"><div class="screen velvet reading">
+      <div class="nap"></div>
+      <div class="ribbon" style="left:112px;height:104px;width:16px"></div>
+      <div class="navbar">
+        <span class="gbtn glass"><svg><use href="#i-back"/></svg></span>
+        <div class="group"><span class="gbtn glass"><svg><use href="#i-list"/></svg></span><span class="gbtn glass"><svg><use href="#i-text"/></svg></span></div>
+      </div>
+      <div class="content">
+        <div class="reader" style="padding-top:62px">
+          <div class="ch-head">
+            <span class="moon" data-k=".29"></span>
+            <div class="no">Chapter 4 of 11</div>
+            <h3>The Pleiades, Approximately</h3>
+          </div>
+          <div class="prose">
+            <p>The trouble with the Pleiades, Crowley said, was that nobody could agree how many of them there were.</p>
+            <p>“Seven,” said Aziraphale, who had read the relevant poets. He was holding the thermos the way other people held a candle in church, both hands, close to the chest. The field smelled of cut hay and of the Bentley’s engine ticking itself cool. “There are seven sisters. It’s rather the point of them.”</p>
+            <p>“Six you can see. Nine if you’ve got good eyes and no streetlights. Fourteen hundred if you’ve got a decent telescope and a grudge.” Crowley lay back on the bonnet with his hands behind his head. “I put in a lot of them. Most of them, actually. Did the whole cluster in an afternoon.</p>
+          </div>
+        </div>
+      </div>
+      <div class="reader-foot">
+        <div class="progress"><i></i><span class="moon" data-k=".38"></span></div>
+        <div class="progress-label"><span>Chapter 4 of 11</span><span><span class="num">38</span>% through</span></div>
+      </div>
+      <div class="home-indicator"></div>
+    </div></div>
+    <figcaption><b>Reader.</b> The page darkens to <b>#10173f</b> and the sheen drops to 2.5%, so nothing moves behind the words. Crimson Pro 19 / 31 in <b>#e4dfe9</b>: <b>13.4 : 1</b> (a touch below pure pearl’s 14.5 : 1, to soften halation on OLED). Progress is a gold thread with the moon riding it.</figcaption>
+  </figure>
+
+  <!-- Empty -->
+  <figure class="screen-figure">
+    <div class="phone"><div class="screen velvet">
+      <div class="nap"></div><div class="dust"></div>
+      <div class="content">
+        <div class="lib" style="padding-top:58px">
+          <h1 class="large-title">To Read</h1>
+        </div>
+        <div class="empty">
+          <svg class="art" viewBox="0 0 320 240" role="img" aria-label="An open window at night, a crescent moon outside, a book left open on the sill">
+            <!-- curtain, tied back -->
+            <path d="M58 22 C 92 70 100 116 86 132 C 76 150 64 186 62 222"/>
+            <path class="thin" d="M50 22 C 70 72 76 112 72 136 C 68 160 56 196 52 222"/>
+            <path class="thin" d="M66 26 C 88 66 92 104 84 124"/>
+            <path class="thin" d="M80 140 C 74 160 70 190 70 222"/>
+            <circle class="fill-gold" cx="87" cy="131" r="2.4"/>
+            <!-- window arch and inner frame -->
+            <path d="M112 180 V 92 A 48 48 0 0 1 208 92 V 180"/>
+            <path class="thin" d="M120 180 V 94 A 40 40 0 0 1 200 94 V 180"/>
+            <!-- casements swung in -->
+            <path d="M112 176 L 92 188 L 92 104 Q 96 76 112 66"/>
+            <path class="thin" d="M102 182 L 102 86"/>
+            <path d="M208 176 L 228 188 L 228 104 Q 224 76 208 66"/>
+            <path class="thin" d="M218 182 L 218 86"/>
+            <!-- outside: crescent and a dusting -->
+            <path d="M178 66 A 17 17 0 1 0 190 98 A 13.5 13.5 0 1 1 178 66 Z" class="fill-soft"/>
+            <path class="gold thin" d="M142 78 l1 3.2 3.2 1 -3.2 1 -1 3.2 -1 -3.2 -3.2 -1 3.2 -1z"/>
+            <circle class="fill-gold" cx="158" cy="120" r=".9" style="fill:var(--ink)"/>
+            <circle class="fill-gold" cx="134" cy="132" r=".7" style="fill:var(--ink)"/>
+            <circle class="fill-gold" cx="190" cy="138" r=".7" style="fill:var(--ink)"/>
+            <!-- sill -->
+            <path d="M74 182 Q 160 178 246 182"/>
+            <path class="thin" d="M70 190 Q 160 187 250 190"/>
+            <!-- an open book left on the sill -->
+            <path d="M126 179 C 138 171 150 171 160 176 C 170 171 182 171 194 179"/>
+            <path class="thin" d="M130 177 C 140 173 150 173 158 177 M162 177 C 170 173 180 173 190 177"/>
+            <path class="thin" d="M160 176 V 181"/>
+            <!-- the one accent: its ribbon, trailing over the edge -->
+            <path class="accent" d="M159 180 Q 163 192 158.5 206 M162.5 180 Q 166.5 192 162 206"/>
+            <path class="accent thin" d="M158.5 206 L 160.6 202 L 162 206"/>
+          </svg>
+          <h3>Nothing waiting to be read</h3>
+          <p>Fics you mark To Read gather here, newest first. Find one in your library or on AO3.</p>
+          <span class="btn" style="font-style:italic;color:var(--blush)"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search AO3</span>
+        </div>
+      </div>
+      <div class="under-tabs"></div>
+      <nav class="tabbar glass" data-on="toread"></nav>
+    </div></div>
+    <figcaption><b>Empty To Read.</b> A casement left open on a clear night, a book face down on the sill. Cream linework, the tie-back in gold, and one blush mark: the book’s ribbon.</figcaption>
+  </figure>
+
+  <!-- Chrome close-up -->
+  <figure class="screen-figure">
+    <div class="phone"><div class="screen velvet">
+      <div class="nap"></div>
+      <div class="content">
+        <div class="chrome-sheet">
+          <div class="label">Tab bar at 2×, selected and not</div>
+          <div style="height:132px">
+            <div class="zoom2" style="transform:scale(2);width:178px">
+              <div class="tabbar glass" style="padding:4px;height:62px;border-radius:31px">
+                <span class="tab on"><svg><use href="#i-books"/></svg>Library</span>
+                <span class="tab"><svg><use href="#i-bookmark"/></svg>To Read</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="label">Toolbar at 2×: resting, pressed, active</div>
+          <div style="height:100px">
+            <div class="zoom2" style="transform:scale(2);display:flex;gap:10px;width:180px;padding:3px">
+              <span class="gbtn glass"><svg><use href="#i-back"/></svg></span>
+              <span class="gbtn pressed"><svg><use href="#i-list"/></svg></span>
+              <span class="gbtn glass on"><svg><use href="#i-star"/></svg></span>
+            </div>
+          </div>
+
+          <div class="label">Swipe actions on a row</div>
+          <div class="swipe-row">
+            <div class="slid"><div class="row" style="border:0;padding:0"><div class="text"><div class="title" style="font-size:17px"><span>Every Lighthouse Keeps…</span></div><div class="meta" style="font-size:13.5px">saltmarsh_ · 3 of 3</div></div></div></div>
+            <div class="swipe-actions">
+              <span style="background:#3e4a8a"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg>Update</span>
+              <span style="background:#7d2f4a"><svg viewBox="0 0 24 24"><use href="#i-trash"/></svg>Delete</span>
+            </div>
+          </div>
+          <div class="swipe-row" style="margin-top:-8px">
+            <div class="swipe-actions" style="padding:6px 6px 6px 0">
+              <span style="background:#8a6a30"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg>Favorite</span>
+            </div>
+            <div class="slid"><div class="row" style="border:0;padding:0"><div class="text"><div class="title" style="font-size:17px"><span>Nine Letters Never Sent</span></div><div class="meta" style="font-size:13.5px">the_archivist_who_wasnt</div></div></div></div>
+          </div>
+
+          <div class="label">The whole bar</div>
+          <nav class="tabbar glass" data-on="search" style="position:relative;left:0;right:0;bottom:0"></nav>
+        </div>
+      </div>
+      <div class="home-indicator"></div>
+    </div></div>
+    <figcaption><b>Chrome.</b> Native glass, tinted sapphire, with a pearl highlight on the top edge. The selected tab is blush on a faint blush capsule. Swipe tints: favorite <b>#8a6a30</b>, update <b>#3e4a8a</b>, remove <b>#4c3f72</b>, delete <b>#7d2f4a</b>.</figcaption>
+  </figure>
+
+  <!-- App icon -->
+  <figure class="screen-figure">
+    <div class="phone"><div class="screen velvet">
+      <div class="nap"></div><div class="dust"></div>
+      <div class="content">
+        <div class="icon-sheet">
+          <div class="icon-mask" style="width:240px;height:240px" id="icon-big"></div>
+          <div class="icon-row">
+            <div class="icon-mask" style="width:120px;height:120px" data-icon></div>
+            <div class="icon-mask" style="width:60px;height:60px" data-icon></div>
+            <div class="icon-mask" style="width:40px;height:40px;border-radius:9px" data-icon></div>
+          </div>
+          <div class="homescreen glass">
+            <figure><div class="icon-mask" style="width:62px;height:62px" data-icon></div>Parade</figure>
+            <figure><div class="icon-mask" style="width:62px;height:62px;background:linear-gradient(#5b6677,#323a48)"></div>Notes</figure>
+            <figure><div class="icon-mask" style="width:62px;height:62px;background:linear-gradient(#e8ecf2,#b9c2cf)"></div>Photos</figure>
+          </div>
+          <p class="icon-note">A foil-stamped crescent on sapphire velvet, a gold silk ribbon falling from the top edge, one star caught in the crescent’s arms. The P is dropped: the moon is the mark. At 40px it still reads as a gold crescent and a ribbon.</p>
+        </div>
+      </div>
+      <div class="home-indicator"></div>
+    </div></div>
+    <figcaption><b>App icon.</b> 1024 viewBox, shown at 240, 120, 60 and 40 with the iOS mask. In Icon Composer the velvet, the crescent and the ribbon are three layers, so the system’s glass can catch the foil.</figcaption>
+  </figure>
+
+</div>
+
+<!-- 3. Details up close -->
+<h2 class="section-title">Up close</h2>
+<p class="section-note">Every effect, with what it would cost to draw in SwiftUI. The rule of thumb: anything static and drawn once is cheap; anything blended, blurred or masked per row, or that moves with the device, is not.</p>
+
+<div class="details-grid">
+
+  <div class="detail-card">
+    <h3>Sapphire velvet</h3>
+    <p>Four layers: the base color, a diagonal sheen band at 122° (the nap catching the lamp), a slow crushed-velvet mottle, and a fine nap grain. The reader keeps only a trace of each.</p>
+    <div class="big-swatch velvet"><div class="nap"></div><span class="cap">The page: sheen 9%, crush 14%, nap 30%</span></div>
+    <div class="split2" style="margin-top:10px">
+      <div class="big-swatch velvet reading"><div class="nap"></div><span class="cap">The reader</span></div>
+      <div class="big-swatch" style="background:var(--velvet)"><span class="cap">Bare #141c4a, for scale</span></div>
+    </div>
+    <div class="cost"><span class="cost-tag cheap">cheap</span> as built here: one static LinearGradient plus two radial gradients, and the nap and crush baked once to tiles like <code>Grain.tile</code>, blended normally (no <code>.blendMode</code>). <span class="cost-tag costly">costly</span> if the sheen follows the gyroscope: that redraws the whole backdrop every frame.</div>
+  </div>
+
+  <div class="detail-card">
+    <h3>Gold foil, stamped</h3>
+    <p>A five-stop gold gradient at 160°, a pale specular stop two-thirds down, a dark lip above (pressed into the nap) and a pearl catch-light below.</p>
+    <div class="foil-sample velvet"><div class="nap"></div><span class="foil-word foil">Nocturne</span></div>
+    <div class="cost"><span class="cost-tag cheap">cheap</span> for text: <code>.foregroundStyle(LinearGradient)</code> plus two 1-pt shadows on a single title. <span class="cost-tag mod">moderate</span> on every list row: keep foil to titles and the one stamp, and give row text a flat gold. The icon’s specular emboss is baked, never live.</div>
+  </div>
+
+  <div class="detail-card">
+    <h3>The moon, and what it means</h3>
+    <p>Reading progress as a phase. A new moon is unread, waxing is under way, full is finished. Each chapter in a list is drawn at its place in the fic.</p>
+    <div class="motif-label">The set, new to full</div>
+    <div class="motif-row" id="phase-set"></div>
+    <div class="motif-label">Chapter states: read, current, posted, not yet posted</div>
+    <div class="motif-row">
+      <span class="moon" data-k=".36"></span>
+      <span class="moon current" data-k=".43" style="color:var(--blush)"></span>
+      <span class="moon" data-k=".57" style="color:var(--ink-faint)"></span>
+      <span class="moon unread" data-k="0"></span>
+    </div>
+    <div class="motif-label">Foil crescent, dust stars, ribbon</div>
+    <div class="motif-row" style="gap:28px">
+      <svg width="56" height="56" viewBox="-30 -30 60 60"><defs><linearGradient id="fc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3e1ae"/><stop offset=".45" stop-color="#d6b46e"/><stop offset=".7" stop-color="#e9d08f"/><stop offset="1" stop-color="#9a7638"/></linearGradient></defs><path fill="url(#fc)" d="M8.55-23.5A25 25 0 1 0 8.55 23.5A24 24 0 0 1 8.55-23.5Z" style="filter:drop-shadow(0 -1px 0 rgba(0,0,20,.6))"/></svg>
+      <svg width="70" height="56" viewBox="0 0 70 56"><g fill="#efe9f2"><circle cx="8" cy="10" r=".8" opacity=".6"/><circle cx="40" cy="44" r="1" opacity=".5"/><circle cx="62" cy="18" r=".6" opacity=".4"/></g><path fill="#d6b46e" d="M28 14l1.3 4.7 4.7 1.3-4.7 1.3-1.3 4.7-1.3-4.7-4.7-1.3 4.7-1.3z"/></svg>
+      <div class="ribbon" style="position:relative;height:70px;width:20px"></div>
+    </div>
+    <div class="cost"><span class="cost-tag cheap">cheap</span> a moon is one <code>Path</code>: a half-circle arc and an elliptical terminator, a few points. Fourteen in a chapter list cost less than one SF Symbol with a hierarchical render. The ribbon is a <code>Shape</code> with a gradient fill and one static shadow.</div>
+  </div>
+
+  <div class="detail-card">
+    <h3>Buttons</h3>
+    <p>Primary is raised velvet with a gold hairline and a blush italic label, and carries its own moon. Secondary is plain raised velvet. Pressed sinks into the nap.</p>
+    <div class="btn primary" style="margin-bottom:12px"><span class="moon" data-k=".43"></span>Continue, chapter 7</div>
+    <div class="actions">
+      <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+      <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-compass"/></svg>AO3</span>
+      <span class="btn pressed"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg>Updating…</span>
+      <span class="btn" style="opacity:.45">Disabled</span>
+    </div>
+    <div class="cost"><span class="cost-tag cheap">cheap</span> the same recipe as <code>LeatherButtonStyle</code>: gradient fill, a 1-pt gradient stroke, one small shadow. The pressed state swaps in the inner-shadow fill <code>Debossed</code> already uses.</div>
+  </div>
+
+  <div class="detail-card">
+    <h3>Chips and tags</h3>
+    <p>Pressed into the velvet, as on Leather & Ink. A selected chip, used for search filters, turns blush.</p>
+    <div class="chips">
+      <span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip on">Stargazing</span><span class="chip">Road Trip</span><span class="chip on">Complete only</span><span class="chip">Hurt/Comfort</span><span class="chip">Post-Season/Series 02</span>
+    </div>
+    <div class="cost"><span class="cost-tag cheap">cheap</span> a fill with an inner shadow per chip. Ten or so on a detail page is nothing; a filter bar of fifty in a scroll view is still fine, since nothing blurs.</div>
+  </div>
+
+  <div class="detail-card">
+    <h3>Dividers and ornaments</h3>
+    <p>The fleuron becomes the moon. A waxing-to-waning row closes a fic; a hairline with a single crescent separates sections; a dusting of three stars stands in for a scene break inside a chapter.</p>
+    <div class="rule-demo" style="display:flex;align-items:center;gap:12px">
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold-faint))"></span>
+      <span class="moon gold" data-k=".18" style="width:16px;height:16px"></span>
+      <span style="flex:1;height:1px;background:linear-gradient(270deg,transparent,var(--gold-faint))"></span>
+    </div>
+    <div class="rule-demo" style="display:flex;justify-content:center;gap:10px" id="end-row"></div>
+    <div class="rule-demo" style="text-align:center;color:var(--gold);letter-spacing:.9em;font-size:12px">✦ ✦ ✦</div>
+    <div class="cost"><span class="cost-tag cheap">cheap</span> gradients and paths. Draw the end-of-fic row once as a <code>Canvas</code> or a few <code>Path</code>s; don’t give each moon its own shadow.</div>
+  </div>
+
+  <div class="detail-card">
+    <h3>Progress, in the reader</h3>
+    <p>A gold thread that fills as you read, with the moon riding it at the current phase. In the library the same moon stands alone beside a row.</p>
+    <div style="padding:22px 6px 6px">
+      <div class="progress" style="margin:0"><i></i><span class="moon" data-k=".38"></span></div>
+      <div class="progress-label"><span>Chapter 4 of 11</span><span><span class="num">38</span>% through</span></div>
+    </div>
+    <div class="cost"><span class="cost-tag cheap">cheap</span> a 1-pt gradient rectangle and one moon path. Update it on scroll-end or when a page settles, not on every scroll offset change, so it doesn’t invalidate the text above it.</div>
+  </div>
+
+  <div class="detail-card">
+    <h3>Ribbon bookmark</h3>
+    <p>Gold silk: a soft cross-light (two dark edges, one highlight off-center), a faint woven rib, a V-cut end and a shadow onto the velvet.</p>
+    <div class="big-swatch velvet" style="height:200px"><div class="nap"></div><div class="ribbon" style="left:46%;height:170px;width:30px"></div></div>
+    <div class="cost"><span class="cost-tag cheap">cheap</span> a clipped rectangle with two stacked linear gradients and one <code>.shadow</code>, overlaid once per page. <span class="cost-tag mod">moderate</span> only if it sways with scroll; keep it still.</div>
+  </div>
+
+</div>
+
+<h2 class="section-title" style="font-size:30px;margin-top:48px">What each effect costs in SwiftUI</h2>
+<p class="section-note">For the drawing-cost pass. “Cheap” means drawn once and cached by the render server; “costly” means work every frame or per row.</p>
+<table class="cost-table">
+  <thead><tr><th>Effect</th><th>Cost</th><th>How to build it cheaply</th></tr></thead>
+  <tbody>
+    <tr><td>Velvet base and lamp</td><td><span class="cost-tag cheap">cheap</span></td><td>Static color plus two <code>EllipticalGradient</code>s in the existing <code>LeatherBackground</code>; one view behind the whole window (the <code>leatherBackdrop</code> trick on Mac).</td></tr>
+    <tr><td>Diagonal sheen</td><td><span class="cost-tag cheap">cheap</span></td><td>One <code>LinearGradient</code> with five stops, like Noir’s silk. Don’t tie it to <code>CMMotionManager</code>; if wanted at all, only on the icon via the system’s own glass.</td></tr>
+    <tr><td>Nap and crush texture</td><td><span class="cost-tag cheap">cheap</span></td><td>Bake both into one <code>CGImage</code> tile at launch (as <code>Grain.tile</code> does), tint pre-applied, draw with <code>resizingMode: .tile</code> and normal blending. The CSS here uses overlay and soft-light; SwiftUI shouldn’t.</td></tr>
+    <tr><td>Dust stars</td><td><span class="cost-tag cheap">cheap</span></td><td>A baked tile, masked by a gradient once at the top of the list. The fade can be a gradient in the tile itself, avoiding <code>.mask</code>.</td></tr>
+    <tr><td>Foil text</td><td><span class="cost-tag mod">moderate</span></td><td>Gradient <code>foregroundStyle</code> and two 1-pt shadows on titles only. Flat <code>#d6b46e</code> for row-level gold.</td></tr>
+    <tr><td>Embossed / debossed cards and chips</td><td><span class="cost-tag cheap">cheap</span></td><td>The existing <code>Embossed</code> and <code>Debossed</code> modifiers with new colors. Avoid a 15-pt blurred <code>.shadow</code> on every row; only the summary card is lifted.</td></tr>
+    <tr><td>Moon phases</td><td><span class="cost-tag cheap">cheap</span></td><td>A <code>Shape</code> taking <code>illumination: Double</code>: an arc plus an elliptical arc. Use <code>.drawingGroup()</code> only for the 14-moon chapter strip on Mac.</td></tr>
+    <tr><td>Ribbon</td><td><span class="cost-tag cheap">cheap</span></td><td>A custom <code>Shape</code>, two gradients, one shadow, placed in an overlay that doesn’t scroll.</td></tr>
+    <tr><td>Glass tab bar and toolbars</td><td><span class="cost-tag cheap">cheap</span></td><td>Native iOS 26 glass with a sapphire <code>.tint</code>; the system already pays for the blur. Don’t add a custom <code>.background(.ultraThinMaterial)</code> on top.</td></tr>
+    <tr><td>Empty-state drawing</td><td><span class="cost-tag cheap">cheap</span></td><td>A template PDF or SVG asset tinted with the palette, as the current drawings are.</td></tr>
+    <tr><td>App icon emboss</td><td><span class="cost-tag cheap">cheap</span></td><td>Baked in the icon; in Icon Composer, three layers and the system’s specular.</td></tr>
+  </tbody>
+</table>
+
+<!-- 4. Mac -->
+<h2 class="section-title">On the Mac</h2>
+<p class="section-note">One velvet backdrop spans the window; the sidebar is a darker, blurred panel over it. The detail column has room for every chapter as a phase in one strip, like a lunar calendar.</p>
+
+<div class="mac velvet">
+  <div class="nap"></div>
+  <div class="traffic"><i></i><i></i><i></i></div>
+  <aside class="mac-side">
+    <div class="item on"><svg viewBox="0 0 24 24"><use href="#i-books"/></svg>Library<span class="c num">8</span></div>
+    <div class="item"><svg viewBox="0 0 24 24"><use href="#i-bookmark"/></svg>To Read<span class="c num">3</span></div>
+    <div class="item"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg>Favorites<span class="c num">2</span></div>
+    <div class="sec">Collections</div>
+    <div class="item"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Comfort Reads<span class="c num">12</span></div>
+    <div class="item"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Slow Burns<span class="c num">7</span></div>
+    <div class="item"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Finished WIPs<span class="c num">4</span></div>
+    <div class="sec">AO3</div>
+    <div class="item"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search AO3</div>
+    <div class="item"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</div>
+  </aside>
+  <section class="mac-list">
+    <div class="dust" style="height:200px"></div>
+    <div style="position:relative">
+      <h1 class="large-title">Library</h1>
+      <p class="subtitle" style="font-size:15px">8 fics, 2 favorites, by date added</p>
+      <div class="group-head"><span class="kicker">This week</span><span class="count num">4</span></div>
+      <div class="row sel"><div class="text"><div class="title"><span>A Field Guide to Falling Stars</span></div><div class="meta">orreryheart · <span class="num">46,903</span> words · 11 of 14</div></div><div class="side"><span class="update-dot"></span><span class="moon" data-k=".55"></span></div></div>
+      <div class="row"><div class="text"><div class="title"><span>Small Hours, Borrowed Light</span><svg class="fav" viewBox="0 0 10 10"><use href="#i-fav"/></svg></div><div class="meta">velvetcomma · <span class="num">31,650</span> words · 9 of 9</div></div><div class="side"><span class="moon" data-k="1"></span></div></div>
+      <div class="row"><div class="text"><div class="title"><span>The Cartographer’s Last Commission</span><svg class="fav" viewBox="0 0 10 10"><use href="#i-fav"/></svg></div><div class="meta">quillandlantern · <span class="num">84,212</span> words · 23 of 23</div></div><div class="side"><span class="moon" data-k="1"></span></div></div>
+      <div class="row"><div class="text"><div class="title"><span>Every Lighthouse Keeps a Ledger</span></div><div class="meta">saltmarsh_ · <span class="num">12,480</span> words · 3 of 3</div></div><div class="side"><span class="moon" data-k="0"></span></div></div>
+      <div class="group-head"><span class="kicker">Earlier this month</span><span class="count num">4</span></div>
+      <div class="row"><div class="text"><div class="title"><span>Nine Letters Never Sent</span></div><div class="meta">the_archivist_who_wasnt · <span class="num">18,002</span> words · 9 of ?</div></div><div class="side"><span class="moon" data-k=".33"></span></div></div>
+      <div class="row"><div class="text"><div class="title"><span>Where the River Learns Your Name</span></div><div class="meta">marginalia_ · <span class="num">7,215</span> words · 1 of 1</div></div><div class="side"><span class="moon" data-k="0"></span></div></div>
+      <div class="row"><div class="text"><div class="title"><span>The Long Winter of Lantern Street</span></div><div class="meta">hollyandhemlock · <span class="num">102,390</span> words · 31 of 31</div></div><div class="side"><span class="moon" data-k=".12"></span></div></div>
+      <div class="row"><div class="text"><div class="title"><span>Ink on the Tidewater</span></div><div class="meta">quillandlantern · <span class="num">5,440</span> words · 1 of 1</div></div><div class="side"><span class="icloud">in iCloud</span></div></div>
+    </div>
+  </section>
+  <section class="mac-detail">
+    <div class="ribbon" style="right:26px;height:148px"></div>
+    <div class="mac-toolbar" style="right:66px">
+      <span class="gbtn glass"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg></span>
+      <span class="gbtn glass pill"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg>Update</span>
+      <span class="gbtn glass"><svg viewBox="0 0 24 24"><use href="#i-more"/></svg></span>
+    </div>
+    <div class="running-head">Library, 1 of 8</div>
+    <h2 style="padding-right:80px">A Field Guide to Falling Stars</h2>
+    <div class="byline">by <a href="#">orreryheart</a> <span style="color:var(--ink-faint)">·</span> <span class="fandom" style="display:inline">Good Omens (TV)</span></div>
+    <div class="summary-card" style="margin-top:26px">
+      <span class="stamp"><svg viewBox="-12 -12 24 24" width="24" height="24"><path fill="url(#sf)" d="M3.25-8.93A9.5 9.5 0 1 0 3.25 8.93A9 9 0 0 1 3.25-8.93Z"/></svg></span>
+      <div class="kicker">The summary</div>
+      <p>Crowley kept a list of every star he ever hung, and one of them is going out. Aziraphale offers to help him find it, which is how they end up crossing three counties in a 1926 Bentley with a borrowed telescope on the back seat, and not talking about the last six months at all.</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="btn primary" style="width:auto;padding:0 22px;height:42px"><span class="moon" data-k=".43"></span>Continue, chapter 7</div>
+      <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-stack"/></svg>Collections</span>
+      <span class="btn"><svg viewBox="0 0 24 24"><use href="#i-compass"/></svg>AO3</span>
+    </div>
+    <div class="meta" style="margin-top:14px">Aziraphale/Crowley · Teen And Up Audiences · <span class="num">46,903</span> words · <span class="num">2,184</span> kudos · <span class="num">318</span> bookmarks</div>
+    <div class="chips" style="margin-top:10px"><span class="chip">Slow Burn</span><span class="chip">Mutual Pining</span><span class="chip on">Stargazing</span><span class="chip">Road Trip</span><span class="chip">Hurt/Comfort</span><span class="chip">Happy Ending Eventually</span></div>
+    <div class="kicker" style="margin:22px 0 4px">Chapters, as the moon</div>
+    <div class="lunar-strip" id="lunar"></div>
+    <div class="ch now" style="border:0;padding-top:4px"><span class="t">7. Opposition</span><span class="meta">you’re here, 2 pages in</span></div>
+  </section>
+</div>
+
+</main>
+
+<script>
+// A moon at illumination k (0 new, 1 full), waxing: lit on the right.
+function moonSVG(k) {
+  const r = 10;
+  let lit = '';
+  if (k >= .995) lit = `<circle class="lit" r="${r}"/>`;
+  else if (k > .005) {
+    const rx = Math.abs(1 - 2 * k) * r, sweep = k < .5 ? 0 : 1;
+    lit = `<path class="lit" d="M0 ${-r} A${r} ${r} 0 0 1 0 ${r} A${rx.toFixed(2)} ${r} 0 0 ${sweep} 0 ${-r}Z"/>`;
+  }
+  return `<svg viewBox="-12 -12 24 24" aria-hidden="true"><circle class="disk" r="${r}"/>${lit}</svg>`;
+}
+const sb = `<div class="statusbar"><span>9:41</span><span class="sb-right"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5l2.4-2.9a3.4 3.4 0 0 0-4.8 0z"/><path d="M3.9 6.9a5.9 5.9 0 0 1 8.2 0l1.4-1.6a8 8 0 0 0-11 0z" opacity=".95"/><path d="M1.4 4.2a9.6 9.6 0 0 1 13.2 0L16 2.6a11.7 11.7 0 0 0-16 0z"/></svg><svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.8" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2.5"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" opacity=".4"/></svg></span></div>`;
+document.querySelectorAll('.phone > .screen').forEach(s => {
+  s.insertAdjacentHTML('afterbegin', sb);
+  if (!s.querySelector('.home-indicator')) s.insertAdjacentHTML('beforeend', '<div class="home-indicator"></div>');
+});
+const tabs = [['library','i-books','Library'],['toread','i-bookmark','To Read'],['collections','i-stack','Collections'],['search','i-search','Search'],['settings','i-gear','Settings']];
+document.querySelectorAll('nav.tabbar[data-on]').forEach(n => {
+  n.innerHTML = tabs.map(([id, ic, l]) => `<span class="tab${n.dataset.on === id ? ' on' : ''}"><svg><use href="#${ic}"/></svg>${l}</span>`).join('');
+});
+// The full set, and the end-of-fic row (waxing to full to waning).
+document.getElementById('phase-set').innerHTML = [0,.12,.25,.38,.5,.62,.75,.88,1].map(k => `<span class="moon" data-k="${k}"></span>`).join('');
+document.getElementById('end-row').innerHTML = [.15,.5,.85,1].map(k => `<span class="moon gold" data-k="${k}" style="width:14px;height:14px"></span>`).join('')
+  + [.85,.5,.15].map(k => `<span class="moon gold" data-k="${k}" style="width:14px;height:14px;transform:scaleX(-1)"></span>`).join('');
+// Mac: every chapter as a phase. 1–6 read, 7 current, 8–11 posted, 12–14 not yet.
+document.getElementById('lunar').innerHTML = Array.from({length: 14}, (_, i) => {
+  const n = i + 1, k = n / 14;
+  const cls = n < 7 ? '' : n === 7 ? ' current' : n <= 11 ? '' : ' unread';
+  const style = n === 7 ? 'color:var(--blush)' : n > 7 && n <= 11 ? 'color:var(--ink-faint)' : '';
+  return `<figure><span class="moon${cls}" data-k="${n > 11 ? 0 : k}" style="${style}"></span><span class="num">${n}</span></figure>`;
+}).join('');
+document.querySelectorAll('.moon[data-k]').forEach(m => m.innerHTML = moonSVG(parseFloat(m.dataset.k)));
+
+// The app icon, at 1024 units.
+const icon = `<svg viewBox="0 0 1024 1024" width="100%" height="100%" role="img" aria-label="Parade icon: a gold crescent on sapphire velvet with a ribbon">
+<defs>
+  <linearGradient id="iv" x1="0" y1="0" x2=".55" y2="1"><stop offset="0" stop-color="#25317a"/><stop offset=".5" stop-color="#141c4a"/><stop offset="1" stop-color="#090d2b"/></linearGradient>
+  <linearGradient id="ish" x1="0" y1=".1" x2="1" y2=".9"><stop offset=".22" stop-color="#8ea0ff" stop-opacity="0"/><stop offset=".42" stop-color="#8ea0ff" stop-opacity=".16"/><stop offset=".5" stop-color="#c7d0ff" stop-opacity=".07"/><stop offset=".66" stop-color="#8ea0ff" stop-opacity="0"/></linearGradient>
+  <radialGradient id="ivg" cx=".5" cy="1.15" r=".8"><stop offset="0" stop-color="#000" stop-opacity=".5"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+  <filter id="inap" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 .7  0 0 0 0 .75  0 0 0 0 1  0 0 0 .22 0"/></filter>
+  <linearGradient id="ifoil" x1=".15" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#f7e6b3"/><stop offset=".28" stop-color="#e2c27f"/><stop offset=".52" stop-color="#ad8343"/><stop offset=".7" stop-color="#ecd393"/><stop offset="1" stop-color="#86622e"/></linearGradient>
+  <linearGradient id="irib" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8f6c34"/><stop offset=".3" stop-color="#d6b46e"/><stop offset=".42" stop-color="#f3e1ae"/><stop offset=".6" stop-color="#c9a35c"/><stop offset="1" stop-color="#7d5c2a"/></linearGradient>
+  <filter id="iemb" x="-10%" y="-10%" width="120%" height="120%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="b"/>
+    <feSpecularLighting in="b" surfaceScale="8" specularConstant=".9" specularExponent="22" lighting-color="#fff6dd" result="s"><feDistantLight azimuth="225" elevation="40"/></feSpecularLighting>
+    <feComposite in="s" in2="SourceAlpha" operator="in" result="s2"/>
+    <feComposite in="SourceGraphic" in2="s2" operator="arithmetic" k1="0" k2="1" k3=".6" k4="0"/>
+  </filter>
+  <filter id="ishadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="10"/><feOffset dy="14"/><feComponentTransfer><feFuncA type="linear" slope=".55"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <mask id="icres"><rect width="1024" height="1024" fill="#000"/><circle cx="455" cy="540" r="300" fill="#fff"/><circle cx="590" cy="455" r="262" fill="#000"/></mask>
+</defs>
+<rect width="1024" height="1024" fill="url(#iv)"/>
+<rect width="1024" height="1024" fill="url(#ish)"/>
+<rect width="1024" height="1024" filter="url(#inap)"/>
+<rect width="1024" height="1024" fill="url(#ivg)"/>
+<g fill="#efe9f2"><circle cx="248" cy="220" r="4" opacity=".55"/><circle cx="860" cy="860" r="3.5" opacity=".4"/><circle cx="196" cy="760" r="3" opacity=".35"/></g>
+<g filter="url(#ishadow)"><path d="M748 0h70v600l-35-34-35 34z" fill="url(#irib)"/></g>
+<g filter="url(#ishadow)"><rect width="1024" height="1024" fill="url(#ifoil)" mask="url(#icres)" filter="url(#iemb)"/></g>
+<path fill="url(#ifoil)" filter="url(#iemb)" d="M640 600l11 40 40 11-40 11-11 40-11-40-40-11 40-11z"/>
+</svg>`;
+document.getElementById('icon-big').innerHTML = icon;
+// Each smaller copy needs its own ids; rewrite the references to match.
+document.querySelectorAll('[data-icon]').forEach((d, n) => {
+  const p = 'k' + n;
+  d.innerHTML = icon.replace(/id="(\w+)"/g, `id="${p}$1"`).replace(/url\(#(\w+)\)/g, `url(#${p}$1)`);
+});
+</script>
+</body>
+</html>
