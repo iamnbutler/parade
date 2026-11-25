@@ -87,9 +87,9 @@ struct SearchForm: View {
                 crossoverSection
                 ratingSection
                 FixedTagSection(title: "Archive warnings", tags: FixedTag.warnings, choices: $draft.warnings,
-                                footer: "Include: fics with any of these. Exclude: fics with none of them.")
+                                footer: "Include matches any of them.")
                 FixedTagSection(title: "Categories", tags: FixedTag.categories, choices: $draft.categories,
-                                footer: "Include: fics in any of these. Exclude: fics in none of them.")
+                                footer: "Include matches any of them.")
                     .id("categories")
                 TagRuleSection(kind: .relationship, rule: ruleBinding(.relationship))
                     .id("tags")
@@ -156,12 +156,12 @@ struct SearchForm: View {
                 .textInputAutocapitalization(.never)
                 #endif
         } footer: {
-            Text("AO3's search syntax works in the first field: quotes for a phrase, OR, NOT.")
+            Text("The first field takes quotes for a phrase, OR and NOT.")
         }
     }
 
     private var crossoverSection: some View {
-        LeatherSection(title: "Crossovers") {
+        LeatherSection("Crossovers") {
             Picker("Crossovers", selection: $draft.crossovers) {
                 Text("Include").tag(SearchProfile.Crossovers.include)
                 Text("Exclude").tag(SearchProfile.Crossovers.exclude)
@@ -169,8 +169,6 @@ struct SearchForm: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-        } footer: {
-            Text("A crossover is tagged with more than one fandom.")
         }
     }
 
@@ -179,7 +177,7 @@ struct SearchForm: View {
             if model.matureContentAllowed {
                 Toggle("Explicit only", isOn: $draft.explicitOnly)
             } else {
-                Text("Mature and explicit works are hidden. You can turn them on in Settings.")
+                Text("Mature and explicit works are hidden. Turn them on in Settings › Search.")
                     .textRole(.meta)
             }
         }
@@ -216,17 +214,15 @@ struct SearchForm: View {
             }
         } footer: {
             if draft.sort == .relevance && draft.words.trimmingCharacters(in: .whitespaces).isEmpty {
-                Text("Best match needs words to match; without them, results are sorted by date updated.")
+                Text("Best match needs words; without them, results are sorted by date updated.")
             }
         }
     }
 
     private var librarySection: some View {
-        LeatherSection(title: "Your library") {
+        LeatherSection("Your library") {
             Toggle("Hide fics I already have", isOn: $draft.hideOwned)
             ExcludedAuthorsRows(authors: $draft.hiddenAuthors)
-        } footer: {
-            Text("Fics by excluded creators never show. AO3 can't filter creators, so Parade does.")
         }
     }
 
@@ -340,11 +336,9 @@ private struct TagRuleSection: View {
     private var footer: String {
         switch kind {
         case .fandom:
-            rule.include.isEmpty
-                ? "No fandoms: all of AO3. Fics in any fandom you add; never one you exclude."
-                : "Fics in any of these, and in none you exclude."
+            rule.include.isEmpty ? "None: all of AO3." : "Include matches any of them."
         default:
-            "Fics with every \(kind.singular) you include, and none you exclude."
+            "Include matches all of them."
         }
     }
 

@@ -42,8 +42,7 @@ extension View {
     func newCollectionAlert(isPresented: Binding<Bool>, adding item: LibraryItem? = nil, model: AppModel) -> some View {
         collectionNameAlert(
             "New collection", isPresented: isPresented,
-            message: item.map { "“\($0.title)” goes in the new collection." }
-                ?? "Collections are your own categories, separate from AO3's tags.",
+            message: item.map { "“\($0.title)” goes in the new collection." },
             isValid: { model.collections.isAvailable($0) }
         ) { name in
             if let created = model.createCollection(name), let item {
@@ -147,7 +146,7 @@ struct CollectionsView: View {
             List {
                 NavigationLink(value: FavoritesRoute()) {
                     HStack(alignment: .firstTextBaseline) {
-                        Label("Favorites", systemImage: "star")
+                        Text("Favorites")
                             .textRole(.rowTitle)
                             .lineLimit(1)
                         Spacer()
@@ -156,7 +155,7 @@ struct CollectionsView: View {
                 }
                 .leatherRows()
                 if model.collections.names.isEmpty {
-                    Text("Collections are your own shelves, separate from AO3's tags. Make one with +, then long-press any fic to add it.")
+                    Text("Make a collection with +, then long-press a fic to add it.")
                         .textRole(.meta)
                         .fixedSize(horizontal: false, vertical: true)
                         .listRowSeparator(.hidden)

@@ -299,8 +299,7 @@ struct MacRootView: View {
             } else {
                 EmptyPage(
                     drawing: "OpenBook",
-                    title: "Choose a fic",
-                    message: "Its summary and tags open here, to save or pass on.")
+                    title: "Choose a fic")
                 .leatherBackground()
             }
         } else if let item = selectedItem {
@@ -321,8 +320,7 @@ struct MacRootView: View {
         } else {
             EmptyPage(
                 drawing: "OpenBook",
-                title: "Choose a fic",
-                message: "Its summary, tags and series open here.")
+                title: "Choose a fic")
             .leatherBackground()
         }
     }
@@ -464,9 +462,9 @@ struct MacRootView: View {
             EmptyPage(
                 drawing: "EmptyShelf",
                 title: "Nothing to read yet",
-                message: "Fics saved for later wait here, in a folder of their own. Add one to the library when it's a keeper.")
+                message: "")
             {
-                Button { showAddSheet = true } label: { Label("Add a fic", systemImage: "plus") }
+                Button("Add a Fic") { showAddSheet = true }
             }
             .leatherBackground()
             .navigationTitle("To Read")
@@ -497,7 +495,7 @@ struct MacRootView: View {
             EmptyPage(
                 drawing: "EmptyFavorites",
                 title: "No favorites yet",
-                message: "Right-click a fic and choose Add to Favorites. The ones you keep coming back to gather here.")
+                message: "Right-click a fic and choose Add to Favorites.")
             .leatherBackground()
             .palette(.noir)
             .navigationTitle("Favorites")

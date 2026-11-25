@@ -17,7 +17,7 @@ marked "check" need a person to read the live text before submitting.
   author's own choice. "Explicit only" is hidden while it's off.
 - **First launch asks once**, before anything else: "I'm 18 or older: show
   them" or "Keep them hidden". Closing the sheet leaves them hidden.
-  Settings › Mature works turns it on (with an age confirmation) or off.
+  Settings › Search turns it on (with an age confirmation) or off.
   The choice is per device, kept in UserDefaults, never synced.
 - **Report on AO3**: in the More menu of a search result and its preview,
   and in Settings › About Parade, which opens AO3's Policy & Abuse form with

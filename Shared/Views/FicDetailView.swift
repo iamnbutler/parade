@@ -39,8 +39,9 @@ struct FicDetailView: View {
                             .textSelection(.enabled)
                     }
                 }
-                if let details {
-                    AO3LinkFinder(item: item, linkedWorkID: details.workID)
+                if let details, details.workID == nil {
+                    // Unlinked: linking is the next thing to do here.
+                    AO3LinkFinder(item: item, linkedWorkID: nil)
                 }
                 if let earlier, earlier.home.standardizedFileURL.path == item.url.standardizedFileURL.path {
                     EarlierVersion(item: item, backup: earlier)
@@ -49,6 +50,10 @@ struct FicDetailView: View {
                     statsRow(details)
                     Hairline()
                     metadata(details)
+                    if let workID = details.workID {
+                        // Rare: pointing a fic at a different work.
+                        AO3LinkFinder(item: item, linkedWorkID: workID)
+                    }
                     Fleuron()
                         .padding(.top, 8)
                 } else {
@@ -108,7 +113,7 @@ struct FicDetailView: View {
             }
             let collections = model.collections.collections(containing: item.id)
             if !collections.isEmpty {
-                Text("Kept in \(collections.joined(separator: ", "))")
+                Text("In \(collections.joined(separator: ", "))")
                     .textRole(.meta)
             }
         }
@@ -138,17 +143,13 @@ struct FicDetailView: View {
     private var actions: some View {
         // Wraps rather than squeezing labels on a narrow phone.
         FlowLayout(spacing: 8) {
-            Button(action: read) {
-                Label("Read", systemImage: "book")
-            }
+            Button("Read", action: read)
             .buttonStyle(.leatherProminent)
             .disabled(!item.isDownloaded)
             .help("Read this fic in Parade")
             if model.isToRead(item) {
-                Button {
+                Button("Add to Library") {
                     Task { await model.addToLibrary(item) }
-                } label: {
-                    Label("Add to Library", systemImage: "books.vertical")
                 }
                 .buttonStyle(.leather)
                 .disabled(!item.isDownloaded)
@@ -158,27 +159,20 @@ struct FicDetailView: View {
             updateButton
                 .buttonStyle(LeatherButtonStyle(prominent: model.hasUpdate(item)))
             if let url = details?.workURL {
-                Link(destination: url) {
-                    Label("AO3", systemImage: "safari")
-                }
+                Link("AO3", destination: url)
                 .buttonStyle(.leather)
             } else if let url = details?.sourceURL {
-                Link(destination: url) {
-                    Label("Ellipsus", systemImage: "safari")
-                }
+                Link("Ellipsus", destination: url)
                 .buttonStyle(.leather)
             }
-            Button {
+            Button(model.isFavorite(item) ? "Favorited" : "Favorite") {
                 model.toggleFavorite(item)
-            } label: {
-                Label(model.isFavorite(item) ? "Favorited" : "Favorite",
-                      systemImage: model.isFavorite(item) ? "star.fill" : "star")
             }
             .buttonStyle(.leather)
             Menu {
                 CollectionMenuItems(item: item, showNewCollection: $showNewCollection)
             } label: {
-                Label("Collections", systemImage: "rectangle.stack")
+                Text("Collections")
             }
             .menuStyle(.button)
             .buttonStyle(.leather)
@@ -187,10 +181,8 @@ struct FicDetailView: View {
     }
 
     private var updateButton: some View {
-        Button {
+        Button("Update") {
             Task { await model.update(item) }
-        } label: {
-            Label("Update", systemImage: model.hasUpdate(item) ? "arrow.down.circle.fill" : "arrow.down.circle")
         }
         .disabled(model.isWorking)
         .help("Download this fic again from AO3")
@@ -199,10 +191,6 @@ struct FicDetailView: View {
     private func metadata(_ d: WorkDetails) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             facts(d)
-            VStack(alignment: .leading, spacing: 6) {
-                Text(authors.count == 1 ? "Author" : "Authors").textRole(.kicker)
-                FacetChips(kind: .author, values: authors)
-            }
             field("Fandom", d.fandoms, kind: .fandoms)
             field("Relationships", d.relationships, kind: .relationships)
             field("Characters", d.characters, kind: .characters)
@@ -288,7 +276,7 @@ private struct EarlierVersion: View {
 
     /// "backed up 2 days ago · 152 kB".
     private var facts: String {
-        "backed up \(backup.date.formatted(.relative(presentation: .named)))"
+        "\(backup.date.formatted(.relative(presentation: .named)))"
             + (backup.size.map { " · " + Int64($0).formatted(.byteCount(style: .file)) } ?? "")
     }
 
@@ -297,7 +285,7 @@ private struct EarlierVersion: View {
             // One line where it fits; on a phone, two clean lines rather
             // than "· 152 kB" wrapped onto a line of its own.
             ViewThatFits(in: .horizontal) {
-                Text("Earlier version " + facts).lineLimit(1)
+                Text("Earlier version, " + facts).lineLimit(1)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Earlier version")
                     Text(facts)
@@ -315,7 +303,7 @@ private struct EarlierVersion: View {
             Button("Restore") { Task { await model.restore(backup) } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("The copy here now is kept as a backup, so you can switch back. Earlier versions are listed in Settings › Restore.")
+            Text("The copy here now is kept as a backup, so you can switch back.")
         }
     }
 }
@@ -337,15 +325,10 @@ private struct AO3LinkFinder: View {
     @State private var pasted = ""
 
     var body: some View {
-        if let linkedWorkID, !changing {
-            HStack(spacing: 12) {
-                Text("Linked to AO3 work \(linkedWorkID.formatted(.number.grouping(.never)))")
-                    .textRole(.meta)
-                Spacer()
-                Button("Change Link") { changing = true }
-                    .buttonStyle(.leather)
-                    .disabled(model.isWorking)
-            }
+        if linkedWorkID != nil, !changing {
+            Button("Change AO3 Link…") { changing = true }
+                .buttonStyle(.leather)
+                .disabled(model.isWorking)
         } else {
             finder
         }
@@ -363,8 +346,8 @@ private struct AO3LinkFinder: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(linkedWorkID == nil ? "Not linked to AO3" : "Change the AO3 link").textRole(.kicker)
             Text(linkedWorkID == nil
-                 ? "This copy came from outside Parade, so it has no AO3 link, tags or series. Paste the work's AO3 link, or find it on AO3; Parade fetches AO3's own copy and keeps this one for 30 days, under Settings › Restore."
-                 : "Linked to the wrong work? Paste the right work's AO3 link, or find it on AO3; Parade fetches that work's own copy and keeps this one for 30 days, under Settings › Restore.")
+                 ? "Linking brings in AO3's copy, with its tags and series. This copy goes to Restore."
+                 : "Parade downloads that work's copy. This one goes to Restore.")
                 .textRole(.meta)
                 .fixedSize(horizontal: false, vertical: true)
             pasteField

@@ -9,7 +9,7 @@ import SwiftUI
 ///   iPhone opens on that tab; the Mac on that sidebar section
 ///   (`tab:favorites` and `tab:browse` too).
 /// - `tab:settings@age`: Settings with the 18+ confirmation up;
-///   `@links`, `@mature`, `@about` scroll Settings to that section.
+///   `@links`, `@search`, `@about` scroll Settings to that section.
 /// - `add`, `add:to-read`: the Add fics sheet alone.
 /// - `restore`, `restore@confirm`: Settings › Restore, optionally asking
 ///   to restore its first earlier version.

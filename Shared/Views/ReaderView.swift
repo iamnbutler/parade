@@ -899,9 +899,6 @@ private struct ContentsList: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Contents")
-                    .textRole(.kicker)
-                    .padding(.bottom, 8)
                 ForEach(entries) { entry in
                     Button {
                         jump(entry.id)
@@ -934,14 +931,7 @@ private struct TypeControls: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Layout").textRole(.kicker)
-            HStack(spacing: 10) {
-                ForEach(ReaderMode.allCases) { mode in
-                    Button(mode.label) { modeRaw = mode.rawValue }
-                        .buttonStyle(LeatherButtonStyle(prominent: modeRaw == mode.rawValue))
-                }
-            }
-            Text("Text").textRole(.kicker)
+            // Text size first, unlabelled: two As read as smaller and larger.
             HStack(spacing: 10) {
                 Button {
                     textSize = max(ReaderTextSize.smaller.rawValue, textSize - 1)
@@ -961,6 +951,13 @@ private struct TypeControls: View {
                 .buttonStyle(.leather)
                 .disabled(textSize >= ReaderTextSize.largest.rawValue)
                 .accessibilityLabel("Larger text")
+            }
+            Text("Layout").textRole(.kicker)
+            HStack(spacing: 10) {
+                ForEach(ReaderMode.allCases) { mode in
+                    Button(mode.label) { modeRaw = mode.rawValue }
+                        .buttonStyle(LeatherButtonStyle(prominent: modeRaw == mode.rawValue))
+                }
             }
             Text("Page").textRole(.kicker)
             HStack(spacing: 12) {

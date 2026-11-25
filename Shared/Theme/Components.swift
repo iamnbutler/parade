@@ -90,10 +90,12 @@ struct EmptyPage<Actions: View>: View {
             Text(title)
                 .textRole(.heading)
                 .multilineTextAlignment(.center)
-            Text(message)
-                .textRole(.subtitle)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 340)
+            if !message.isEmpty {
+                Text(message)
+                    .textRole(.subtitle)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 340)
+            }
             actions
                 .buttonStyle(.leather)
                 .padding(.top, 6)
@@ -105,7 +107,7 @@ struct EmptyPage<Actions: View>: View {
 }
 
 extension EmptyPage where Actions == EmptyView {
-    init(drawing: String? = nil, title: String, message: String) {
+    init(drawing: String? = nil, title: String, message: String = "") {
         self.init(drawing: drawing, title: title, message: message) { EmptyView() }
     }
 }

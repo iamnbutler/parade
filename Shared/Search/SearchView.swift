@@ -95,16 +95,12 @@ struct SearchView: View {
         #endif
     }
 
-    /// "12,408 fics in 6 fandoms" — and anything holding the search up.
+    /// "12,408 fics" — and anything holding the search up.
     @ViewBuilder
     private var summaryLine: some View {
         VStack(alignment: .leading, spacing: 4) {
             if let total = search.total, search.phase == .loaded {
                 Text(countLine(total)).textRole(.meta)
-            }
-            if !search.resolving.isEmpty {
-                Text("Looking up \(search.resolving.count) tag\(search.resolving.count == 1 ? "" : "s") on AO3…")
-                    .textRole(.meta)
             }
             if let wait = waitLine {
                 Text(wait).textRole(.meta)
@@ -122,11 +118,11 @@ struct SearchView: View {
     private var waitLine: String? {
         switch search.schedulerState {
         case .waiting(let until) where until.timeIntervalSinceNow > 5:
-            "AO3 asked us to slow down — continuing at \(until.formatted(date: .omitted, time: .shortened))"
+            "AO3 asked Parade to slow down. Continuing at \(until.formatted(date: .omitted, time: .shortened))."
         case .inLine:
-            "In AO3's waiting room — Parade keeps its place and continues when let in"
+            "In AO3's waiting room. Parade carries on when let in."
         case .paused(let until):
-            "Paused until \(until.formatted(date: .omitted, time: .shortened)) — AO3 is busy"
+            "AO3 is busy. Paused until \(until.formatted(date: .omitted, time: .shortened))."
         default:
             nil
         }
@@ -336,13 +332,24 @@ struct BlurbActions: View {
     }
 }
 
-/// What the search is set to, at the top of the results: a few plain lines
-/// and the way into the form.
+/// What the search is set to, at the top of the results: a few plain lines.
+/// On the iPhone the whole card opens the form (Edit Search is also in the
+/// page header); the Mac, with no header, keeps a button on the card.
 private struct SearchSummaryCard: View {
     let edit: () -> Void
     @EnvironmentObject private var search: SearchModel
 
     var body: some View {
+        #if os(iOS)
+        Button(action: edit) { card }
+            .buttonStyle(.plain)
+            .accessibilityHint("Edit Search")
+        #else
+        card
+        #endif
+    }
+
+    private var card: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
                 ForEach(Array(SearchSummary.lines(search.profile).enumerated()), id: \.offset) { index, line in
@@ -351,13 +358,14 @@ private struct SearchSummaryCard: View {
                         .lineLimit(2)
                 }
             }
-            Button(action: edit) {
-                Label("Edit Search", systemImage: "slider.horizontal.3")
-            }
-            .buttonStyle(.leatherProminent)
+            #if os(macOS)
+            Button("Edit Search", action: edit)
+                .buttonStyle(.leatherProminent)
+            #endif
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .debossed(cornerRadius: 12)
     }
 }
