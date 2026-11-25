@@ -346,8 +346,8 @@ private struct AO3LinkFinder: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(linkedWorkID == nil ? "Not linked to AO3" : "Change the AO3 link").textRole(.kicker)
             Text(linkedWorkID == nil
-                 ? "Linking brings in AO3's copy, with its tags and series. This copy goes to Restore."
-                 : "Parade downloads that work's copy. This one goes to Restore.")
+                 ? "Linking brings in AO3's copy, with its tags and series; this one goes to Restore."
+                 : "Parade downloads that work's copy; this one goes to Restore.")
                 .textRole(.meta)
                 .fixedSize(horizontal: false, vertical: true)
             pasteField
@@ -384,8 +384,7 @@ private struct AO3LinkFinder: View {
                     if searching {
                         HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Searching AO3…") }
                     } else {
-                        Label(candidates == nil && failure == nil ? "Find on AO3" : "Search Again",
-                              systemImage: "magnifyingglass")
+                        Text(candidates == nil && failure == nil ? "Find on AO3" : "Search Again")
                     }
                 }
                 .buttonStyle(.leather)
